@@ -1,10 +1,10 @@
-;;; org-inlinetask.el --- Tasks independent of outline hierarchy
+;;; org-inlinetask.el --- Tasks Independent of Outline Hierarchy -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 
 ;; This file is part of GNU Emacs.
 
@@ -20,13 +20,13 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
 ;;
-;; This module implements inline tasks in Org-mode.  Inline tasks are
+;; This module implements inline tasks in Org mode.  Inline tasks are
 ;; tasks that have all the properties of normal outline nodes,
 ;; including the ability to store meta data like scheduling dates,
 ;; TODO state, tags and properties.  However, these nodes are treated
@@ -114,7 +114,7 @@ When nil, the first star is not shown."
 (defcustom org-inlinetask-default-state nil
   "Non-nil means make inline tasks have a TODO keyword initially.
 This should be the state `org-inlinetask-insert-task' should use by
-default, or nil of no state should be assigned."
+default, or nil if no state should be assigned."
   :group 'org-inlinetask
   :version "24.1"
   :type '(choice
@@ -123,7 +123,8 @@ default, or nil of no state should be assigned."
 
 (defun org-inlinetask-insert-task (&optional no-state)
   "Insert an inline task.
-If prefix arg NO-STATE is set, ignore `org-inlinetask-default-state'."
+If prefix arg NO-STATE is set, ignore `org-inlinetask-default-state'.
+If there is a region wrap it inside the inline task."
   (interactive "P")
   ;; Error when inside an inline task, except if point was at its very
   ;; beginning, in which case the new inline task will be inserted
@@ -135,13 +136,19 @@ If prefix arg NO-STATE is set, ignore `org-inlinetask-default-state'."
   (let* ((indent (if org-odd-levels-only
 		     (1- (* 2 org-inlinetask-min-level))
 		   org-inlinetask-min-level))
-	 (indent-string (concat (make-string indent ?*) " ")))
+	 (indent-string (concat (make-string indent ?*) " "))
+	 (rbeg (if (org-region-active-p) (region-beginning) (point)))
+	 (rend (if (org-region-active-p) (region-end) (point))))
+    (goto-char rend)
+    (insert "\n" indent-string "END\n")
+    (goto-char rbeg)
+    (unless (bolp) (insert "\n"))
     (insert indent-string
 	    (if (or no-state (not org-inlinetask-default-state))
-		"\n"
-	      (concat org-inlinetask-default-state " \n"))
-	    indent-string "END\n"))
-  (end-of-line -1))
+		""
+	      (concat org-inlinetask-default-state " "))
+	    (if (= rend rbeg) "" "\n"))
+    (unless (= rend rbeg) (end-of-line 0))))
 (define-key org-mode-map "\C-c\C-xt" 'org-inlinetask-insert-task)
 
 (defun org-inlinetask-outline-regexp ()
@@ -167,9 +174,9 @@ The number of levels is controlled by `org-inlinetask-min-level'."
 	   (stars-re (org-inlinetask-outline-regexp))
 	   (task-beg-re (concat stars-re "\\(?:.*\\)"))
 	   (task-end-re (concat stars-re "END[ \t]*$")))
-      (or (org-looking-at-p task-beg-re)
+      (or (looking-at-p task-beg-re)
 	  (and (re-search-forward "^\\*+[ \t]+" nil t)
-	       (progn (beginning-of-line) (org-looking-at-p task-end-re)))))))
+	       (progn (beginning-of-line) (looking-at-p task-end-re)))))))
 
 (defun org-inlinetask-goto-beginning ()
   "Go to the beginning of the inline task at point."
@@ -177,30 +184,33 @@ The number of levels is controlled by `org-inlinetask-min-level'."
   (let ((case-fold-search t)
 	(inlinetask-re (org-inlinetask-outline-regexp)))
     (re-search-backward inlinetask-re nil t)
-    (when (org-looking-at-p (concat inlinetask-re "END[ \t]*$"))
+    (when (looking-at-p (concat inlinetask-re "END[ \t]*$"))
       (re-search-backward inlinetask-re nil t))))
 
 (defun org-inlinetask-goto-end ()
   "Go to the end of the inline task at point.
-Return point."
+    Return point."
   (save-match-data
     (beginning-of-line)
     (let* ((case-fold-search t)
-	   (inlinetask-re (org-inlinetask-outline-regexp))
-	   (task-end-re (concat inlinetask-re "END[ \t]*$")))
+           (inlinetask-re (org-inlinetask-outline-regexp))
+           (task-end-re (concat inlinetask-re "END[ \t]*$")))
       (cond
-       ((looking-at task-end-re) (forward-line))
-       ((looking-at inlinetask-re)
-	(forward-line)
-	(cond
-	 ((looking-at task-end-re) (forward-line))
-	 ((looking-at inlinetask-re))
-	 ((org-inlinetask-in-task-p)
-	  (re-search-forward inlinetask-re nil t)
-	  (forward-line))))
-       (t (re-search-forward inlinetask-re nil t)
-	  (forward-line)))
-      (point))))
+       ((looking-at-p task-end-re)
+        (forward-line))
+       ((looking-at-p inlinetask-re)
+        (forward-line)
+        (cond
+         ((looking-at-p task-end-re) (forward-line))
+         ((looking-at-p inlinetask-re))
+         ((org-inlinetask-in-task-p)
+          (re-search-forward inlinetask-re nil t)
+          (forward-line))
+         (t nil)))
+       (t
+        (re-search-forward inlinetask-re nil t)
+        (forward-line)))))
+  (point))
 
 (defun org-inlinetask-get-task-level ()
   "Get the level of the inline task around.
@@ -272,8 +282,7 @@ If the task has an end part, also demote it."
 
 (defvar org-indent-indentation-per-level) ; defined in org-indent.el
 
-(defface org-inlinetask
-  (org-compatible-face 'shadow '((t (:bold t))))
+(defface org-inlinetask '((t :inherit shadow))
   "Face for inlinetask headlines."
   :group 'org-faces)
 
@@ -287,7 +296,7 @@ If the task has an end part, also demote it."
 		     ",\\}\\)\\(\\*\\* .*\\)"))
 	 ;; Virtual indentation will add the warning face on the first
 	 ;; star.  Thus, in that case, only hide it.
-	 (start-face (if (and (org-bound-and-true-p org-indent-mode)
+	 (start-face (if (and (bound-and-true-p org-indent-mode)
 			      (> org-indent-indentation-per-level 1))
 			 'org-hide
 		       'org-warning)))
@@ -315,24 +324,25 @@ If the task has an end part, also demote it."
      ((= end start))
      ;; Inlinetask was folded: expand it.
      ((eq (get-char-property (1+ start) 'invisible) 'outline)
-      (outline-flag-region start end nil)
-      (org-cycle-hide-drawers 'children))
-     (t (outline-flag-region start end t)))))
+      (org-flag-region start end nil 'outline))
+     (t (org-flag-region start end t 'outline)))))
 
 (defun org-inlinetask-hide-tasks (state)
   "Hide inline tasks in buffer when STATE is `contents' or `children'.
 This function is meant to be used in `org-cycle-hook'."
-  (case state
-    (contents
+  (pcase state
+    (`contents
      (let ((regexp (org-inlinetask-outline-regexp)))
        (save-excursion
 	 (goto-char (point-min))
 	 (while (re-search-forward regexp nil t)
 	   (org-inlinetask-toggle-visibility)
 	   (org-inlinetask-goto-end)))))
-    (children
+    (`children
      (save-excursion
-       (while (and (outline-next-heading) (org-inlinetask-at-task-p))
+       (while
+	   (or (org-inlinetask-at-task-p)
+	       (and (outline-next-heading) (org-inlinetask-at-task-p)))
 	 (org-inlinetask-toggle-visibility)
 	 (org-inlinetask-goto-end))))))
 
