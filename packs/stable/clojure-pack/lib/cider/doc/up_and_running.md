@@ -15,7 +15,7 @@ developers (and they actually reuse many things from the Maven ecosystem).
 CIDER features a command called `cider-jack-in` that will start an nREPL server
 for a particular Leiningen or Boot project and connect to it automatically.
 This functionality depends on Leiningen 2.5.2+ or Boot
-2.0.0+. Older versions are not supported. For Leiningen, follow the installation
+2.7.0+. Older versions are not supported. For Leiningen, follow the installation
 instructions on its web site to get it up and running and afterwards create a
 project like this:
 
@@ -34,23 +34,29 @@ automatically connect to it.
 
 Alternatively you can use <kbd>C-u M-x</kbd> `cider-jack-in` <kbd>RET</kbd> to
 specify the name of a `lein` or `boot` project, without having to visit any file
-in it.
+in it. This option is also useful if your project contains both `project.clj`
+and `build.boot` and you want to launch a repl for one or the other.
 
 In Clojure(Script) buffers the command `cider-jack-in` is bound to <kbd>C-c M-j</kbd>.
 
+For further customizing the command line used for `cider-jack-in`, you can
+change the following (all string options):
+
+ * `cider-lein-global-options`, `cider-boot-global-options`, `cider-gradle-global-options`: these are passed to the command directly, in first position (e.g. `-o` to `lein` enables offline mode).
+ * `cider-lein-parameters`, `cider-boot-parameters`, `cider-gradle-parameters`: these are usually tasks names and their parameters (e.g.: `dev` for launching boot's dev task instead of the standard `repl -s  wait`).
+
 ## Connect to a running nREPL server
 
-You can go to your project's directory in a terminal and type there
-(assuming you're using Leiningen that is):
+You can go to your project's directory in a terminal and type there:
 
 ```
 $ lein repl
 ```
 
-Or with Boot:
+Or:
 
 ```
-$ boot repl wait
+$ boot repl -s wait (or whatever task launches a repl)
 ```
 
 Alternatively you can start nREPL either manually or by the facilities provided by your
@@ -73,12 +79,11 @@ helpful for identifying each host.
 
 ## ClojureScript usage
 
-ClojureScript support relies on the
-[piggieback][] nREPL middleware being
+ClojureScript support relies on the [piggieback][] nREPL middleware being
 present in your REPL session.
 
 Add the following dependencies to your project (`project.clj` in Leiningen based project
-or `built.boot` in Boot project):
+or `build.boot` in Boot project):
 
 ```clojure
 [com.cemerick/piggieback "0.2.1"]
@@ -92,14 +97,16 @@ in `project.clj`:
 :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 ```
 
-or in `built.boot`:
+or in `build.boot`:
 ```clojure
 (task-options!
   repl {:middleware '[cemerick.piggieback/wrap-cljs-repl]})
 ```
 
-Issue <kbd>M-x</kbd> `customize-variable` <kbd>RET</kbd> `cider-cljs-lein-repl` if
-you'd like to change the REPL used (the default is `rhino`).
+There are many ClojureScript REPLs out there and it's often hard to wrap your
+head around them and the differences between them. You'd do well to read [this
+awesome article](https://lambdaisland.com/guides/clojure-repls/clojurescript-repls)
+before proceeding with the rest of the instructions listed here.
 
 Open a file in your project and issue <kbd>M-x</kbd>
 `cider-jack-in-clojurescript` <kbd>RET</kbd>. This will start up the nREPL
@@ -114,8 +121,9 @@ Using Weasel, you can also have a browser-connected REPL.
 
 1. Add `[weasel "0.7.0"]` to your project's `:dependencies`.
 
-2. Issue <kbd>M-x</kbd> `customize-variable` <kbd>RET</kbd> `cider-cljs-lein-repl`
-   and choose the `Weasel` option.
+2. Issue <kbd>M-x</kbd> `cider-jack-in-clojurescript` <kbd>RET</kbd> and choose
+   the `Weasel` option when prompted about the ClojureScript REPL type you want
+   to use.
 
 3. Add this to your ClojureScript code:
 
@@ -138,9 +146,9 @@ documentation lookup, the namespace browser, and macroexpansion).
 1. Add this to your dependencies in `build.boot`:
 
 ```clojure
-[adzerk/boot-cljs     "1.7.228-1" :scope "test"]
-[adzerk/boot-cljs-repl   "0.3.0"  :scope "test"]
-[pandeiro/boot-http      "0.7.2"  :scope "test"]
+[adzerk/boot-cljs        "X.Y.Z"  :scope "test"]
+[adzerk/boot-cljs-repl   "X.Y.Z"  :scope "test"]
+[pandeiro/boot-http      "X.Y.Z"  :scope "test"]
 [weasel                  "0.7.0"  :scope "test"]
 [com.cemerick/piggieback "0.2.1"  :scope "test"]
 ```
@@ -150,7 +158,7 @@ and this at the end of `build.boot`:
 ```clojure
 (require
  '[adzerk.boot-cljs :refer [cljs]]
- '[adzerk.boot-cljs-repl :refer [cljs-repl start-repl]]
+ '[adzerk.boot-cljs-repl :refer [cljs-repl]]
  '[pandeiro.boot-http :refer [serve]])
 
 (deftask dev []
@@ -160,11 +168,10 @@ and this at the end of `build.boot`:
         (cljs)))
 ```
 
-2. Start `boot dev` in a terminal.
+2. Issue <kbd>M-x</kbd> `customize-variable` <kbd>RET</kbd> `cider-boot-parameters`
+   and insert `dev`.
 
-3. <kbd>M-x</kbd> `cider-connect` to localhost and select the repl process.
-
-4. Execute `(start-repl)` at the prompt: `boot.user> (start-repl)`.
+3. Open a file in your project and issue <kbd>M-x</kbd> `cider-jack-in-clojurescript`.
 
 5. Connect to the running server with your browser. The address is printed on the terminal, but it's probably `http://localhost:3000`.
 
@@ -190,15 +197,9 @@ You can also use [Figwheel](https://github.com/bhauman/lein-figwheel) with CIDER
 :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]
 ```
 
-4. Instruct CIDER to use Figwheel in your Emacs config:
+4. Start the REPL with `cider-jack-in-clojurescript` (<kbd>C-c M-J</kbd>)
 
-```el
-(setq cider-cljs-lein-repl "(do (use 'figwheel-sidecar.repl-api) (start-figwheel!) (cljs-repl))")
-```
-
-5. Start the REPL with `cider-jack-in-clojurescript` (<kbd>C-c M-J</kbd>)
-
-6. Open a browser to the Figwheel URL so that it can connect to your application.
+5. Open a browser to the Figwheel URL so that it can connect to your application.
 
 You now have two nREPL connections, one for Clojure and one for ClojureScript.
 CIDER will determine which to use based on the type of file you're editing.
@@ -208,4 +209,27 @@ You should also check out
 
 [leiningen]: http://leiningen.org/
 [boot]: http://boot-clj.com/
-[piggieback]: https://github.com/cemerick/piggieback
+[piggieback]: https://github.com/clojure-emacs/piggieback
+
+## Working with `.cljc` files
+
+Ordinarily, CIDER dispatches code from `clj` files to Clojure REPLs and `cljs`
+files to ClojureScript REPLs. However, `cljc` files have two possible connection
+targets. By default, CIDER tries to evaluate `cljc` files in all matching
+connection buffers, both `clj` and `cljs` (if present).
+
+Simply put - if you're evaluating the code `(+ 2 2)` in a `cljc` file and you
+have an active Clojure and and active ClojureScript REPL, then the code is going
+to be evaluated 2 times - once for each of them. This behavior might be a bit
+confusing, but that's what we came up with, when ruminating what was the most
+logical thing to do out-of-the-box.
+
+This can be modified with <kbd>M-x</kbd> `cider-toggle-connection-buffer`
+<kbd>RET</kbd>. Toggling this once will choose one of the connections as the
+primary, and successive calls to <kbd>M-x</kbd> `cider-toggle-connection-buffer`
+<kbd>RET</kbd> will alternate which connection to use. To restore evaluation to
+both connections, invoke `cider-toggle-connection-buffer` with a prefix argument
+(<kbd>C-u M-x</kbd> `cider-toggle-connection-buffer` <kbd>RET</kbd>).
+
+If there is only a Clojure connection, no toggling will happen and a message
+will inform you that there are no other connections to switch to.
