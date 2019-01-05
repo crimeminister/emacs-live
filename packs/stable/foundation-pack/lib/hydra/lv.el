@@ -54,6 +54,8 @@ Only the background color is significant."
 (defvar lv-wnd nil
   "Holds the current LV window.")
 
+(defvar display-line-numbers)
+
 (defun lv-window ()
   "Ensure that LV window is live and return it."
   (if (window-live-p lv-wnd)
@@ -65,13 +67,14 @@ Only the background color is significant."
                     (let ((ignore-window-parameters t))
                       (split-window
                        (frame-root-window) -1 'below))))
-        (if (setq buf (get-buffer "*LV*"))
+        (if (setq buf (get-buffer " *LV*"))
             (switch-to-buffer buf)
-          (switch-to-buffer "*LV*")
+          (switch-to-buffer " *LV*")
           (set-window-hscroll lv-wnd 0)
           (setq window-size-fixed t)
           (setq mode-line-format nil)
           (setq cursor-type nil)
+          (setq display-line-numbers nil)
           (set-window-dedicated-p lv-wnd t)
           (set-window-parameter lv-wnd 'no-other-window t))
         (select-window ori)))))

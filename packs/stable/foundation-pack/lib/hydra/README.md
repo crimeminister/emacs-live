@@ -326,6 +326,9 @@ instead of `define-key` you can use this option.
 The `:bind` key can be overridden by each head. This is useful if you want to have a few heads that
 are not bound outside the hydra.
 
+### `:base-map`
+Use this option if you want to override `hydra-base-map` for the current hydra.
+
 ## `awesome-docstring`
 
 This can be a simple string used to build the final hydra hint.  However, if you start it with a
@@ -399,7 +402,7 @@ Here's an example of the last option:
 ### `head-hint`
 
 In case of a large body docstring, you usually don't want the head hint to show up, since
-you've already documented it the the body docstring.
+you've already documented it in the body docstring.
 You can set the head hint to `nil` to do this.
 
 Example:
