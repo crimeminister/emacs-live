@@ -176,3 +176,6 @@
 [submodule "packs/dev/clojure-pack/vendor/submodules/jump.el"]
 	path = packs/dev/clojure-pack/vendor/submodules/jump.el
 	url = git://github.com/eschulte/jump.el.git
+[submodule "packs/dev/foundation-pack/vendor/submodules/sesman"]
+	path = packs/dev/foundation-pack/vendor/submodules/sesman
+	url = https://github.com/vspinu/sesman

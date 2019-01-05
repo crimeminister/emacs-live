@@ -25,6 +25,8 @@
 (live-add-pack-lib "pkg-info")
 (require 'pkg-info)
 
+(live-add-pack-lib "sesman")
+(require 'sesman)
 
 (live-add-pack-lib "hydra")
 
