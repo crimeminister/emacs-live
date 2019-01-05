@@ -12,16 +12,28 @@ simply clone the code from GitHub and use it. In general - avoid editing the
 code of an installed package.
 
 Alternatively you can simply load CIDER in your Emacs straight from its source
-repo:
+repo (you'll have to manually install all the packages CIDER depends on
+in advance).
+
+Additionally you will have to generate and require the
+[autoloads](https://www.gnu.org/software/emacs/manual/html_node/elisp/Autoload.html),
+otherwise you'll keep getting errors about missing commands.  That's done
+automatically when installing via `package.el` but you'll have to do it
+manually in this case:
+
+```shell
+make autoloads   # generates cider-autoloads.el
+```
+
+Then:
 
 ```el
 ;; load CIDER from its source code
 (add-to-list 'load-path "~/projects/cider")
-(require 'cider)
+(load "cider-autoloads" t t)
 ```
 
-Just keep in mind that you'll have to manually install all the packages CIDER
-depends on in advance.
+If you want to compile **and** generate autoloads, just run `make`.
 
 ### Changing the code
 
@@ -127,14 +139,14 @@ And then switch to Emacs 26.1 and test again:
 
 ```
 (emacs-25.3-travis) ~/cider$ evm use Emacs-26-pretest-travis
-(emacs-26-pretest-travis) ~/cider$ cask install
-(emacs-26-pretest-travis) ~/cider$ make test
+(emacs-26.1-travis) ~/cider$ cask install
+(emacs-26.1-travis) ~/cider$ make test
 ```
 
 You can test byte compilation too
 
 ```
-(emacs-26-pretest-travis) ~/cider$ make test-bytecomp
+(emacs-26.1-travis) ~/cider$ make test-bytecomp
 ```
 
 When you are done working in docker, just `exit` the bash prompt, and the docker

@@ -15,8 +15,10 @@ Emacs features a super powerful built-in
 [Emacs Lisp debugger](http://www.gnu.org/software/emacs/manual/html_node/elisp/Edebug.html)
 and using it is the best way to diagnose problems of any kind.
 
-Here's a [great crash course](https://www.youtube.com/watch?v=odkYXXYOxpo) on
-using the debugger.
+!!! Tip
+
+    Here's a [great crash course](https://www.youtube.com/watch?v=odkYXXYOxpo) on
+    using the debugger.
 
 To debug some command you need to do the following:
 
@@ -40,8 +42,10 @@ it is pretty simple:
 2. Invoke some commands.
 3. Get the report with <kbd>M-x</kbd> `profiler-report`.
 
-If you intend to share the profiling results with someone it's a good idea to
-save the report buffer to a file with <kbd>C-x C-w</kbd>.
+!!! Tip
+
+    If you intend to share the profiling results with someone it's a good idea to
+    save the report buffer to a file with <kbd>C-x C-w</kbd>.
 
 ## Commonly encountered problems (and how to solve them)
 
@@ -139,21 +143,21 @@ effect of changes you have to restart Emacs.
 
 This is a warning displayed on the REPL buffer when it starts, and usually looks like this:
 
-> **WARNING:** CIDER's version (0.12.0) does not match cider-nrepl's version (...). Things will break!
+> **WARNING:** CIDER 0.18.0 requires cider-nrepl x.y.z+, but you're currently using cider-nrepl a.b.c. Things will break!
 
-where `...` might be an actual version, like `0.10.0`, or it might be `not installed` or `nil`.
+where `a.b.c` might be an actual version, like `0.17.0`, or it might be `not installed` or `nil`.
 The solution to this depends on what you see and on what you're doing.
 
 #### You see a number like `X.X.X`, and you're starting the REPL with `cider-connect`
 
 Your project specifies the wrong version for the cider-nrepl middleware. See the
-[instructions](http://cider.readthedocs.io/en/latest/installation/#ciders-nrepl-middleware)
+[instructions](https://docs.cider.mx/en/latest/installation/#ciders-nrepl-middleware)
 on the Installation section.
 
 #### You see `not installed` or `nil`, and you're starting the REPL with `cider-connect`
 
 To use `cider-connect` you need to add the cider-nrepl middleware to your project. See the
-[instructions](http://cider.readthedocs.io/en/latest/installation/#ciders-nrepl-middleware)
+[instructions](https://docs.cider.mx/en/latest/installation/#ciders-nrepl-middleware)
 on the Installation section.
 
 #### You see `not installed` or `nil`, and you're starting the REPL with `cider-jack-in`
@@ -165,7 +169,7 @@ on the Installation section.
 
 If the above doesn't work, you can try specifying the cider-nrepl middleware
 manually, as per the
-[instructions](http://cider.readthedocs.io/en/latest/installation/#ciders-nrepl-middleware)
+[instructions](https://docs.cider.mx/en/latest/installation/#ciders-nrepl-middleware)
 on the Installation section.
 
 #### You see a number like `X.X.X`, and you're starting the REPL with `cider-jack-in`
@@ -175,3 +179,19 @@ but you shouldn't do that because `cider-jack-in` already does that for
 you. Look into the following files, and ensure you've removed all references to
 `cider-nrepl` and `tools.nrepl`: `project.clj`, `build.boot`,
 `~/.lein/profiles.clj` and `~/.boot/profile.boot`.
+
+### I get some error related to refactor-nrepl on startup
+
+The package `clj-refactor` would normally inject its own middleware on
+`cider-jack-in`, just as CIDER itself would. Usually that's not a
+problem, as long as you're using compatible versions of CIDER and
+`clj-refactor`, but if you're getting some error probably that's not
+the case. You've got two options to solve this:
+
+* Use compatible versions of the two projects (e.g. their most recent
+  snapshots or most recent stable releases)
+* Disable the `clj-refactor` middleware injection:
+
+```el
+(setq cljr-inject-dependencies-at-jack-in nil)
+```
