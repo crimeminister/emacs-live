@@ -4,6 +4,54 @@
 
 ### New features
 
+* [#481](https://github.com/clojure-emacs/clojure-mode/issues/481): Support vertical alignment even in the presence of blank lines, with the new `clojure-align-separator` user option.
+* [#483](https://github.com/clojure-emacs/clojure-mode/issues/483): Support alignment for reader conditionals, with the new `clojure-align-reader-conditionals` user option.
+
+### Bugs fixed
+
+* [#489](https://github.com/clojure-emacs/clojure-mode/issues/489) Inserting parens before comment form doesn't move point
+
+## 5.9.1 (2018-08-27)
+
+* [#485](https://github.com/clojure-emacs/clojure-mode/issues/485): Fix a regression in `end-f-defun`.
+
+## 5.9.0 (2018-08-18)
+
+### Changes
+
+* Add `clojure-toplevel-inside-comment-form` to make forms inside of `(comment ...)` forms appear as top level forms for evaluation and navigation.
+* Require Emacs 25.1+.
+
+## 5.8.2 (2018-08-09)
+
+### Changes
+
+* Disable ns caching by default.
+
+## 5.8.1 (2018-07-03)
+
+### Bugs fixed
+
+* Fix the project.el integration.
+
+## 5.8.0 (2018-06-26)
+
+### New features
+
+* New interactive commands `clojure-show-cache` and `clojure-clear-cache`.
+* Add basic integration with `project.el`.
+* The results of `clojure-project-dir` are cached by default to optimize performance.
+* [#478](https://github.com/clojure-emacs/clojure-mode/issues/478): Cache the result of `clojure-find-ns` to optimize performance.
+
+### Changes
+
+* Indent `fdef` (clojure.spec) like a `def`.
+* Add `shadow-cljs.edn` to the default list of build tool files.
+
+## 5.7.0 (2018-04-29)
+
+### New features
+
 * Add imenu support for multimethods.
 * Make imenu recognize indented def-forms.
 * New interactive command `clojure-cycle-when`.
@@ -17,6 +65,7 @@
 ### Changes
 
 * Drop support for CLJX.
+* Remove special font-locking of Java interop methods & constants: There is no semantic distinction between interop methods, constants and global vars in Clojure.
 
 ### Bugs fixed
 
@@ -28,7 +77,6 @@
 * [#429](https://github.com/clojure-emacs/clojure-mode/issues/429): Fix a bug causing last occurrence of expression sometimes is not replaced when using `move-to-let`.
 * [#423](https://github.com/clojure-emacs/clojure-mode/issues/423): Make `clojure-match-next-def` more robust against zero-arity def-like forms.
 * [#451](https://github.com/clojure-emacs/clojure-mode/issues/451): Make project root directory calculation customized by `clojure-project-root-function`.
-* Stop distinctive font-locking of java interop methods & constants: There is no semantic distinction between interop methods, constants and global vars in clojure.
 * Fix namespace font-locking: namespaces may also contain non alphanumeric chars.
 
 
