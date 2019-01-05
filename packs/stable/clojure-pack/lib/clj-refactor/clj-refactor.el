@@ -1,14 +1,14 @@
-;;; clj-refactor.el --- A collection of clojure refactoring functions -*- lexical-binding: t -*-
+;;; clj-refactor.el --- A collection of commands for refactoring Clojure code -*- lexical-binding: t -*-
 
-;; Copyright © 2012-2016 Magnar Sveen
-;; Copyright © 2014-2016 Magnar Sveen, Lars Andersen, Benedek Fazekas
+;; Copyright © 2012-2014 Magnar Sveen
+;; Copyright © 2014-2018 Magnar Sveen, Lars Andersen, Benedek Fazekas
 
 ;; Author: Magnar Sveen <magnars@gmail.com>
 ;;         Lars Andersen <expez@expez.com>
 ;;         Benedek Fazekas <benedek.fazekas@gmail.com>
-;; Version: 2.4.0-SNAPSHOT
+;; Version: 2.4.0
 ;; Keywords: convenience, clojure, cider
-;; Package-Requires: ((emacs "24.4") (s "1.8.0") (seq "2.19") (yasnippet "0.6.1") (paredit "24") (multiple-cursors "1.2.2") (clojure-mode "5.6.1") (cider "0.17.0") (edn "1.1.2") (inflections "2.3") (hydra "0.13.2"))
+;; Package-Requires: ((emacs "25.1") (seq "2.19") (yasnippet "0.6.1") (paredit "24") (multiple-cursors "1.2.2") (clojure-mode "5.6.1") (cider "0.17.0") (edn "1.1.2") (inflections "2.3") (hydra "0.13.2"))
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License
@@ -96,7 +96,7 @@ These are called on all .clj files in the project."
   :group 'cljr
   :type '(repeat string))
 
-(defcustom cljr-hotload-dependencies t
+(defcustom cljr-hotload-dependencies nil
   "If t, newly added dependencies are also hotloaded into the repl.
 This only applies to dependencies added by `cljr-add-project-dependency'."
   :group 'cljr
@@ -272,6 +272,22 @@ if it appears to be unused."
 (defvar cljr--find-symbol-buffer "*cljr-find-usages*")
 (defvar cljr--post-command-messages nil "Message(s) to display after the current command is done.")
 
+(defcustom cljr-before-warming-ast-cache-hook nil
+  "Runs before each time the AST is loaded."
+  :group 'cljr
+  :type 'hook)
+
+(defcustom cljr-after-warming-ast-cache-hook nil
+  "Runs after each time the AST is loaded."
+  :group 'cljr
+  :type 'hook)
+
+(defcustom cljr-middleware-ignored-paths nil
+  "List of (Java style) regexes to paths that should be ignored
+  by the middleware."
+  :group 'cljr
+  :type '(repeat string))
+
 ;;; Buffer Local Declarations
 
 ;; tracking state of find-symbol buffer
@@ -387,11 +403,13 @@ Otherwise open the file and do the changes non-interactively."
 _ai_: Add import to ns                             _am_: Add missing libspec                          _ap_: Add project dependency
 _ar_: Add require to ns                            _au_: Add use to ns                                _cn_: Clean ns
 _rm_: Require a macro into the ns                  _sr_: Stop referring
+_b_: Back to previous Hydra
 "
   ("ai" cljr-add-import-to-ns) ("am" cljr-add-missing-libspec)
   ("ap" cljr-add-project-dependency) ("ar" cljr-add-require-to-ns)
   ("au" cljr-add-use-to-ns) ("cn" cljr-clean-ns)
   ("rm" cljr-require-macro) ("sr" cljr-stop-referring)
+  ("b" hydra-cljr-help-menu/body :exit t)
   ("q" nil "quit"))
 
 (defhydra hydra-cljr-code-menu (:color pink :hint nil)
@@ -404,6 +422,7 @@ _il_: Introduce let                                _is_: Inline symbol          
 _pf_: Promote function                             _rl_: Remove let                                   _rs_: Rename symbol
 _tf_: Thread first all                             _th_: Thread                                       _tl_: Thread last all
 _ua_: Unwind all                                   _uw_: Unwind
+_b_: Back to previous Hydra
 "
   ("ci" clojure-cycle-if) ("ct" cljr-cycle-thread)
   ("dk" cljr-destructure-keys) ("el" cljr-expand-let)
@@ -413,6 +432,7 @@ _ua_: Unwind all                                   _uw_: Unwind
   ("rs" cljr-rename-symbol) ("tf" clojure-thread-first-all)
   ("th" clojure-thread) ("tl" clojure-thread-last-all)
   ("ua" clojure-unwind-all) ("uw" clojure-unwind)
+  ("b" hydra-cljr-help-menu/body :exit t)
   ("q" nil "quit"))
 
 (defhydra hydra-cljr-project-menu (:color pink :hint nil)
@@ -423,13 +443,16 @@ _ap_: Add project dependency                       _cs_: Change function signatu
 _hd_: Hotload dependency                           _is_: Inline symbol                                _mf_: Move form
 _pc_: Project clean                                _rf_: Rename file-or-dir _rs_: Rename symbol       _sp_: Sort project dependencies
 _up_: Update project dependencies
+_b_: Back to previous Hydra
 "
   ("ap" cljr-add-project-dependency) ("cs" cljr-change-function-signature)
   ("fu" cljr-find-usages) ("hd" cljr-hotload-dependency)
   ("is" cljr-inline-symbol) ("mf" cljr-move-form)
   ("pc" cljr-project-clean) ("rf" cljr-rename-file-or-dir)
   ("rs" cljr-rename-symbol) ("sp" cljr-sort-project-dependencies)
-  ("up" cljr-update-project-dependencies) ("q" nil "quit"))
+  ("up" cljr-update-project-dependencies)
+  ("b" hydra-cljr-help-menu/body :exit t)
+  ("q" nil "quit"))
 
 (defhydra hydra-cljr-toplevel-form-menu (:color pink :hint nil)
   "
@@ -439,21 +462,27 @@ _as_: Add stubs for the interface/protocol at point_cp_: Cycle privacy          
 _ec_: Extract constant                             _ed_: Extract form as def                          _ef_: Extract function
 _fe_: Create function from example                 _is_: Inline symbol                                _mf_: Move form
 _pf_: Promote function                             _rf_: Rename file-or-dir                           _ad_: Add declaration
+_b_: Back to previous Hydra
 "
   ("as" cljr-add-stubs) ("cp" clojure-cycle-privacy)
   ("cs" cljr-change-function-signature) ("ec" cljr-extract-constant)
   ("ed" cljr-extract-def) ("ef" cljr-extract-function)
   ("fe" cljr-create-fn-from-example) ("is" cljr-inline-symbol)
   ("mf" cljr-move-form) ("pf" cljr-promote-function)
-  ("rf" cljr-rename-file-or-dir) ("ad" cljr-add-declaration) ("q" nil "quit"))
+  ("rf" cljr-rename-file-or-dir) ("ad" cljr-add-declaration)
+  ("b" hydra-cljr-help-menu/body :exit t)
+  ("q" nil "quit"))
 
 (defhydra hydra-cljr-cljr-menu (:color pink :hint nil)
   "
  Cljr related refactorings
 ------------------------------------------------------------------------------------------------------------------------------------------------------
 _sc_: Show the project's changelog                 _?_: Describe refactoring
+_b_: Back to previous Hydra
 "
-  ("sc" cljr-show-changelog) ("?" cljr-describe-refactoring) ("q" nil "quit"))
+  ("sc" cljr-show-changelog) ("?" cljr-describe-refactoring)
+  ("b" hydra-cljr-help-menu/body :exit t)
+  ("q" nil "quit"))
 
 (defhydra hydra-cljr-help-menu (:color pink :hint nil)
   "
@@ -2088,7 +2117,9 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-sort-project-dep
       (cljr--update-file project-file
         (goto-char (point-min))
         (while (re-search-forward ":dependencies" (point-max) t)
-          (forward-char)
+          ;; Boot has quoted vectors, leiningen does not
+          (while (not (looking-at-p "\\["))
+            (forward-char))
           (thread-first (buffer-substring-no-properties (point)
                                                         (cljr--point-after 'paredit-forward))
             cljr--get-sorted-dependency-names
@@ -2468,9 +2499,10 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-promote-function
                             "line" line
                             "column" column
                             "name" symbol
+                            "ignore-paths" cljr-middleware-ignored-paths
                             "ignore-errors"
                             (when (or cljr-find-usages-ignore-analyzer-errors cljr-ignore-analyzer-errors) "true"))))
-    (with-current-buffer (cider-current-repl-buffer)
+    (with-current-buffer (with-no-warnings (cider-current-repl-buffer))
       (setq cjr--occurrence-count 0)
       (setq cljr--num-syms -1)
       (setq cljr--occurrence-ids '()))
@@ -2664,9 +2696,11 @@ Also adds the alias prefix to all occurrences of public symbols in the namespace
                             asts-in-bad-state) "; "))))))
 
 (defun cljr--warm-ast-cache ()
+  (run-hooks 'cljr-before-warming-ast-cache-hook)
   (cljr--call-middleware-async
    (cljr--create-msg "warm-ast-cache")
    (lambda (res)
+     (run-hook-with-args 'cljr-after-warming-ast-cache-hook res)
      (cljr--maybe-rethrow-error res)
      (cljr--maybe-nses-in-bad-state res)
      (when cljr--debug-mode
@@ -2827,7 +2861,8 @@ Date. -> Date
   ;; Just so this part can be mocked out in a step definition
   (when-let (candidates (thread-first (cljr--create-msg "resolve-missing"
                                                         "symbol" symbol
-                                                        "session" (cider-current-session))
+                                                        "session"
+                                                        (with-no-warnings (cider-current-session)))
                           (cljr--call-middleware-sync
                            "candidates")))
     (edn-read candidates)))
@@ -2902,28 +2937,6 @@ expects for hot-loading."
                 (match-string-no-properties 4)
                 "]")))))
 
-(defun cljr--hotload-dependency-callback (response)
-  (cljr--maybe-rethrow-error response)
-  (cljr--post-command-message "Hotloaded %s" (nrepl-dict-get response "dependency")))
-
-(defun cljr--call-middleware-to-hotload-dependency (dep)
-  (cljr--call-middleware-async
-   (cljr--create-msg "hotload-dependency"
-                     "coordinates" dep)
-   #'cljr--hotload-dependency-callback))
-
-(defun cljr--assert-dependency-vector (string)
-  (with-temp-buffer
-    (insert string)
-    (goto-char (point-min))
-    (cl-assert (cljr--looking-at-dependency-p) nil
-               (format
-                (concat "Expected dependency vector of type "
-                        "[org.clojure \"1.7.0\"] or "
-                        "org.clojure {:mvn/version \"1.7.0\"}, but got '%s'")
-                string)))
-  string)
-
 ;;;###autoload
 (defun cljr-hotload-dependency ()
   "Download a dependency (if needed) and hotload it into the current repl session.
@@ -2932,14 +2945,7 @@ Defaults to the dependency vector at point, but prompts if none is found.
 
 See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-hotload-dependency"
   (interactive)
-  (cljr--ensure-op-supported "hotload-dependency")
-  (let ((dependency-vector (or (cljr--dependency-at-point)
-                               (cljr--prompt-user-for "Dependency vector: "))))
-
-    (cljr--assert-dependency-vector dependency-vector)
-    (cljr--call-middleware-async
-     (cljr--create-msg "hotload-dependency" "coordinates" dependency-vector)
-     #'cljr--hotload-dependency-callback)))
+  (user-error "Temporarily disabled due to make the middleware run with Java 10."))
 
 (defun cljr--defn-str (&optional public)
   (if public

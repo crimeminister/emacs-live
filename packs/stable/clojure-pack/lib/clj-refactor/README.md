@@ -47,9 +47,12 @@ Either in your project's `project.clj` or in the `:user`
 profile found at `~/.lein/profiles.clj`:
 
 ```clojure
-:plugins [[refactor-nrepl "2.3.1"]
-          [cider/cider-nrepl "0.14.0"]]
+:plugins [[refactor-nrepl "2.4.0"]
+          [cider/cider-nrepl "0.18.0"]]
 ```
+
+**clj-refactor 2.4 is compatible with CIDER 0.17 and 0.18. Change the cider-nrepl dep
+to 0.17 if you're using CIDER 0.17.**
 
 Check out the much longer
 [installation](https://github.com/clojure-emacs/clj-refactor.el/wiki/installation)
@@ -79,6 +82,12 @@ We create ASTs for all the namespaces at REPL start up if
 configuration. AST dependent features at the moment are `find usages`,
 `rename symbol`, `extract function`, `inline symbol`, `rename file or
 dir`, `change function signature`, `promote function`.
+
+### Compatibility
+
+clj-refactor | refactor-nrepl | CIDER       | Clojure | Java |
+-------------|----------------|-------------|---------|------|
+2.4.0        |  2.4.0         | 0.17, 0.18  | 1.7+    | 8+   |
 
 ## Usage
 
@@ -127,8 +136,8 @@ Thanks to [everyone](https://github.com/clojure-emacs/clj-refactor.el/graphs/con
 
 ## License
 
-Copyright © 2012-2017 Magnar Sveen
-Copyright © 2014-2017 Magnar Sveen, Lars Andersen, Benedek Fazekas
+Copyright © 2012-2014 Magnar Sveen
+Copyright © 2014-2018 Magnar Sveen, Lars Andersen, Benedek Fazekas
 
 Author: Magnar Sveen <magnars@gmail.com>
         Lars Andersen <expez@expez.com>
