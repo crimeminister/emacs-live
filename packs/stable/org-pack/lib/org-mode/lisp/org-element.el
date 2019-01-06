@@ -1,6 +1,6 @@
 ;;; org-element.el --- Parser for Org Syntax         -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -307,8 +307,9 @@ Don't modify it, set `org-element-affiliated-keywords' instead.")
       (strike-through ,@standard-set)
       (subscript ,@standard-set)
       (superscript ,@standard-set)
-      ;; Ignore inline babel call and inline src block as formulas are
-      ;; possible.  Also ignore line breaks and statistics cookies.
+      ;; Ignore inline babel call and inline source block as formulas
+      ;; are possible.  Also ignore line breaks and statistics
+      ;; cookies.
       (table-cell bold code entity export-snippet footnote-reference italic
 		  latex-fragment link macro radio-target strike-through
 		  subscript superscript target timestamp underline verbatim)
@@ -947,10 +948,10 @@ Assume point is at beginning of the headline."
 	   (level (prog1 (org-reduced-level (skip-chars-forward "*"))
 		    (skip-chars-forward " \t")))
 	   (todo (and org-todo-regexp
-		      (let (case-fold-search) (looking-at org-todo-regexp))
+		      (let (case-fold-search) (looking-at (concat org-todo-regexp " ")))
 		      (progn (goto-char (match-end 0))
 			     (skip-chars-forward " \t")
-			     (match-string 0))))
+			     (match-string 1))))
 	   (todo-type
 	    (and todo (if (member todo org-done-keywords) 'done 'todo)))
 	   (priority (and (looking-at "\\[#.\\][ \t]*")
@@ -2072,26 +2073,22 @@ Assume point is at the beginning of the fixed-width area."
   (save-excursion
     (let* ((begin (car affiliated))
 	   (post-affiliated (point))
-	   value
 	   (end-area
 	    (progn
 	      (while (and (< (point) limit)
 			  (looking-at "[ \t]*:\\( \\|$\\)"))
-		;; Accumulate text without starting colons.
-		(setq value
-		      (concat value
-			      (buffer-substring-no-properties
-			       (match-end 0) (point-at-eol))
-			      "\n"))
 		(forward-line))
-	      (point)))
+	      (if (bolp) (line-end-position 0) (point))))
 	   (end (progn (skip-chars-forward " \r\t\n" limit)
 		       (if (eobp) (point) (line-beginning-position)))))
       (list 'fixed-width
 	    (nconc
 	     (list :begin begin
 		   :end end
-		   :value value
+		   :value (replace-regexp-in-string
+			   "^[ \t]*: ?" ""
+			   (buffer-substring-no-properties post-affiliated
+							   end-area))
 		   :post-blank (count-lines end-area end)
 		   :post-affiliated post-affiliated)
 	     (cdr affiliated))))))
@@ -2099,10 +2096,7 @@ Assume point is at the beginning of the fixed-width area."
 (defun org-element-fixed-width-interpreter (fixed-width _)
   "Interpret FIXED-WIDTH element as Org syntax."
   (let ((value (org-element-property :value fixed-width)))
-    (and value
-	 (replace-regexp-in-string
-	  "^" ": "
-	  (if (string-match "\n\\'" value) (substring value 0 -1) value)))))
+    (and value (replace-regexp-in-string "^" ": " value))))
 
 
 ;;;; Horizontal Rule
@@ -2406,7 +2400,7 @@ containing `:closed', `:deadline', `:scheduled', `:begin',
 ;;;; Src Block
 
 (defun org-element-src-block-parser (limit affiliated)
-  "Parse a src block.
+  "Parse a source block.
 
 LIMIT bounds the search.  AFFILIATED is a list of which CAR is
 the buffer position at the beginning of the first affiliated
@@ -2462,7 +2456,7 @@ Assume point is at the beginning of the block."
 		       (string-match "-l +\"\\([^\"\n]+\\)\"" switches)
 		       (match-string 1 switches)))
 		 ;; Should labels be retained in (or stripped from)
-		 ;; src blocks?
+		 ;; source blocks?
 		 (retain-labels
 		  (or (not switches)
 		      (not (string-match "-r\\>" switches))
@@ -2936,7 +2930,7 @@ When at an inline source block, return a list whose car is
 `:language', `:value', `:parameters' and `:post-blank' as
 keywords.  Otherwise, return nil.
 
-Assume point is at the beginning of the inline src block."
+Assume point is at the beginning of the inline source block."
   (save-excursion
     (catch :no-object
       (when (let ((case-fold-search nil))
@@ -3918,7 +3912,18 @@ element it has to parse."
 	     ((looking-at "%%(")
 	      (org-element-diary-sexp-parser limit affiliated))
 	     ;; Table.
-	     ((looking-at "[ \t]*\\(|\\|\\+\\(-+\\+\\)+[ \t]*$\\)")
+	     ((or (looking-at "[ \t]*|")
+		  ;; There is no strict definition of a table.el
+		  ;; table.  Try to prevent false positive while being
+		  ;; quick.
+		  (let ((rule-regexp "[ \t]*\\+\\(-+\\+\\)+[ \t]*$")
+			(next (line-beginning-position 2)))
+		    (and (looking-at rule-regexp)
+			 (save-excursion
+			   (forward-line)
+			   (re-search-forward "^[ \t]*\\($\\|[^|]\\)" limit t)
+			   (and (> (line-beginning-position) next)
+				(org-match-line rule-regexp))))))
 	      (org-element-table-parser limit affiliated))
 	     ;; List.
 	     ((looking-at (org-item-re))
@@ -5958,16 +5963,16 @@ end of ELEM-A."
     ;; ELEM-A position in such a situation.  Note that the case of
     ;; a footnote definition is impossible: it cannot contain two
     ;; paragraphs in a row because it cannot contain a blank line.
-    (if (and specialp
-	     (or (not (eq (org-element-type elem-B) 'paragraph))
-		 (/= (org-element-property :begin elem-B)
-		     (org-element-property :contents-begin elem-B))))
-	(error "Cannot swap elements"))
+    (when (and specialp
+	       (or (not (eq (org-element-type elem-B) 'paragraph))
+		   (/= (org-element-property :begin elem-B)
+		       (org-element-property :contents-begin elem-B))))
+      (error "Cannot swap elements"))
     ;; In a special situation, ELEM-A will have no indentation.  We'll
     ;; give it ELEM-B's (which will in, in turn, have no indentation).
     (let* ((ind-B (when specialp
 		    (goto-char (org-element-property :begin elem-B))
-		    (org-get-indentation)))
+		    (current-indentation)))
 	   (beg-A (org-element-property :begin elem-A))
 	   (end-A (save-excursion
 		    (goto-char (org-element-property :end elem-A))

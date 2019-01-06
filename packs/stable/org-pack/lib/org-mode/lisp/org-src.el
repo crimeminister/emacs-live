@@ -1,6 +1,6 @@
 ;;; org-src.el --- Source code examples in Org       -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;;	   Bastien Guerry <bzg@gnu.org>
@@ -32,13 +32,11 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'ob-comint)
 (require 'org-macs)
 (require 'org-compat)
-(require 'ob-keys)
-(require 'ob-comint)
+(require 'org-keys)
 
-(declare-function org-base-buffer "org" (buffer))
-(declare-function org-do-remove-indentation "org" (&optional n))
 (declare-function org-element-at-point "org-element" ())
 (declare-function org-element-class "org-element" (datum &optional parent))
 (declare-function org-element-context "org-element" (&optional element))
@@ -48,9 +46,6 @@
 (declare-function org-element-type "org-element" (element))
 (declare-function org-footnote-goto-definition "org-footnote"
 		  (label &optional location))
-(declare-function org-get-indentation "org" (&optional line))
-(declare-function org-switch-to-buffer-other-window "org" (&rest args))
-(declare-function org-trim "org" (s &optional keep-lead))
 
 (defvar org-inhibit-startup)
 
@@ -183,17 +178,29 @@ or similar things which you want to have when editing a source code file,
 but which mess up the display of a snippet in Org exported files.")
 
 (defcustom org-src-lang-modes
-  '(("ocaml" . tuareg) ("elisp" . emacs-lisp) ("ditaa" . artist)
-    ("asymptote" . asy) ("dot" . fundamental) ("sqlite" . sql)
-    ("calc" . fundamental) ("C" . c) ("cpp" . c++) ("C++" . c++)
-    ("screen" . shell-script) ("shell" . sh) ("bash" . sh))
+  '(("C" . c)
+    ("C++" . c++)
+    ("asymptote" . asy)
+    ("bash" . sh)
+    ("beamer" . latex)
+    ("calc" . fundamental)
+    ("cpp" . c++)
+    ("ditaa" . artist)
+    ("dot" . fundamental)
+    ("elisp" . emacs-lisp)
+    ("ocaml" . tuareg)
+    ("screen" . shell-script)
+    ("shell" . sh)
+    ("sqlite" . sql))
   "Alist mapping languages to their major mode.
-The key is the language name, the value is the string that should
-be inserted as the name of the major mode.  For many languages this is
-simple, but for language where this is not the case, this variable
-provides a way to simplify things on the user side.
-For example, there is no ocaml-mode in Emacs, but the mode to use is
-`tuareg-mode'."
+
+The key is the language name.  The value is the mode name, as
+a string or a symbol, without the \"-mode\" suffix.
+
+For many languages this is simple, but for language where this is
+not the case, this variable provides a way to simplify things on
+the user side.  For example, there is no `ocaml-mode' in Emacs,
+but the mode to use is `tuareg-mode'."
   :group 'org-edit-structure
   :type '(repeat
 	  (cons
@@ -233,23 +240,49 @@ issued in the language major mode buffer."
 
 ;;; Internal functions and variables
 
-(defvar org-src--allow-write-back t)
-(defvar org-src--auto-save-timer nil)
-(defvar org-src--babel-info nil)
-(defvar org-src--beg-marker nil)
-(defvar org-src--block-indentation nil)
-(defvar org-src--end-marker nil)
-(defvar org-src--from-org-mode nil)
-(defvar org-src--overlay nil)
-(defvar org-src--preserve-indentation nil)
-(defvar org-src--remote nil)
-(defvar org-src--saved-temp-window-config nil)
-(defvar org-src--source-type nil
+(defvar org-src--auto-save-timer nil
+  "Idle Timer auto-saving remote editing buffers.")
+
+(defvar-local org-src--allow-write-back t)
+(put 'org-src--allow-write-back 'permanent-local t)
+
+(defvar-local org-src--babel-info nil)
+(put 'org-src--babel-info 'permanent-local t)
+
+(defvar-local org-src--beg-marker nil)
+(put 'org-src--beg-marker 'permanent-local t)
+
+(defvar-local org-src--block-indentation nil)
+(put 'org-src--block-indentation 'permanent-local t)
+
+(defvar-local org-src--end-marker nil)
+(put 'org-src--end-marker 'permanent-local t)
+
+(defvar-local org-src--from-org-mode nil)
+(put 'org-src--from-org-mode 'permanent-local t)
+
+(defvar-local org-src--overlay nil)
+(put 'org-src--overlay 'permanent-local t)
+
+(defvar-local org-src--preserve-indentation nil)
+(put 'org-src--preserve-indentation 'permanent-local t)
+
+(defvar-local org-src--remote nil)
+(put 'org-src--remote 'permanent-local t)
+
+(defvar-local org-src--source-type nil
   "Type of element being edited, as a symbol.")
-(defvar org-src--tab-width nil
+(put 'org-src--source-type 'permanent-local t)
+
+(defvar-local org-src--tab-width nil
   "Contains `tab-width' value from Org source buffer.
 However, if `indent-tabs-mode' is nil in that buffer, its value
 is 0.")
+(put 'org-src--tab-width 'permanent-local t)
+
+(defvar-local org-src-source-file-name nil
+  "File name associated to Org source buffer, or nil.")
+(put 'org-src-source-file-name 'permanent-local t)
 
 (defun org-src--construct-edit-buffer-name (org-buffer-name lang)
   "Construct the buffer name for a source editing buffer."
@@ -267,12 +300,6 @@ Return nil if there is no such buffer."
 	     (= end org-src--end-marker)
 	     (eq (marker-buffer end) (marker-buffer org-src--end-marker))
 	     (throw 'exit b))))))
-
-(defun org-src--source-buffer ()
-  "Return source buffer edited by current buffer."
-  (unless (org-src-edit-buffer-p) (error "Not in a source buffer"))
-  (or (marker-buffer org-src--beg-marker)
-      (error "No source buffer available for current editing session")))
 
 (defun org-src--get-lang-mode (lang)
   "Return major mode that should be used for LANG.
@@ -409,8 +436,8 @@ Assume point is in the corresponding edit buffer."
 	(write-back org-src--allow-write-back))
     (with-temp-buffer
       ;; Reproduce indentation parameters from source buffer.
-      (setq-local indent-tabs-mode use-tabs?)
-      (when (> source-tab-width 0) (setq-local tab-width source-tab-width))
+      (setq indent-tabs-mode use-tabs?)
+      (when (> source-tab-width 0) (setq tab-width source-tab-width))
       ;; Apply WRITE-BACK function on edit buffer contents.
       (insert (org-no-properties contents))
       (goto-char (point-min))
@@ -445,7 +472,6 @@ When REMOTE is non-nil, do not try to preserve point or mark when
 moving from the edit area to the source.
 
 Leave point in edit buffer."
-  (setq org-src--saved-temp-window-config (current-window-configuration))
   (let* ((area (org-src--contents-area datum))
 	 (beg (copy-marker (nth 0 area)))
 	 (end (copy-marker (nth 1 area) t))
@@ -461,11 +487,12 @@ Leave point in edit buffer."
 	(with-current-buffer old-edit-buffer (org-src--remove-overlay))
 	(kill-buffer old-edit-buffer))
       (let* ((org-mode-p (derived-mode-p 'org-mode))
+	     (source-file-name (buffer-file-name (buffer-base-buffer)))
 	     (source-tab-width (if indent-tabs-mode tab-width 0))
 	     (type (org-element-type datum))
 	     (ind (org-with-wide-buffer
 		   (goto-char (org-element-property :begin datum))
-		   (org-get-indentation)))
+		   (current-indentation)))
 	     (preserve-ind
 	      (and (memq type '(example-block src-block))
 		   (or (org-element-property :preserve-indent datum)
@@ -502,16 +529,17 @@ Leave point in edit buffer."
 	;; Transmit buffer-local variables for exit function.  It must
 	;; be done after initializing major mode, as this operation
 	;; may reset them otherwise.
-	(setq-local org-src--tab-width source-tab-width)
-	(setq-local org-src--from-org-mode org-mode-p)
-	(setq-local org-src--beg-marker beg)
-	(setq-local org-src--end-marker end)
-	(setq-local org-src--remote remote)
-	(setq-local org-src--source-type type)
-	(setq-local org-src--block-indentation ind)
-	(setq-local org-src--preserve-indentation preserve-ind)
-	(setq-local org-src--overlay overlay)
-	(setq-local org-src--allow-write-back write-back)
+	(setq org-src--tab-width source-tab-width)
+	(setq org-src--from-org-mode org-mode-p)
+	(setq org-src--beg-marker beg)
+	(setq org-src--end-marker end)
+	(setq org-src--remote remote)
+	(setq org-src--source-type type)
+	(setq org-src--block-indentation ind)
+	(setq org-src--preserve-indentation preserve-ind)
+	(setq org-src--overlay overlay)
+	(setq org-src--allow-write-back write-back)
+	(setq org-src-source-file-name source-file-name)
 	;; Start minor mode.
 	(org-src-mode)
 	;; Move mark and point in edit buffer to the corresponding
@@ -635,13 +663,12 @@ This minor mode is turned on in two situations:
 See also `org-src-mode-hook'."
   nil " OrgSrc" nil
   (when org-edit-src-persistent-message
-    (setq-local
-     header-line-format
-     (substitute-command-keys
-      (if org-src--allow-write-back
-	  "Edit, then exit with `\\[org-edit-src-exit]' or abort with \
+    (setq header-line-format
+	  (substitute-command-keys
+	   (if org-src--allow-write-back
+	       "Edit, then exit with `\\[org-edit-src-exit]' or abort with \
 `\\[org-edit-src-abort]'"
-	"Exit with `\\[org-edit-src-exit]' or abort with \
+	     "Exit with `\\[org-edit-src-exit]' or abort with \
 `\\[org-edit-src-abort]'"))))
   ;; Possibly activate various auto-save features (for the edit buffer
   ;; or the source buffer).
@@ -650,7 +677,8 @@ See also `org-src-mode-hook'."
 	  (concat (make-temp-name "org-src-")
 		  (format-time-string "-%Y-%d-%m")
 		  ".txt")))
-  (unless (or org-src--auto-save-timer (zerop org-edit-src-auto-save-idle-delay))
+  (unless (or org-src--auto-save-timer
+	      (= 0 org-edit-src-auto-save-idle-delay))
     (setq org-src--auto-save-timer
 	  (run-with-idle-timer
 	   org-edit-src-auto-save-idle-delay t
@@ -667,15 +695,13 @@ See also `org-src-mode-hook'."
 		   (setq org-src--auto-save-timer nil)))))))))
 
 (defun org-src-mode-configure-edit-buffer ()
+  "Configure the src edit buffer."
   (when (bound-and-true-p org-src--from-org-mode)
     (add-hook 'kill-buffer-hook #'org-src--remove-overlay nil 'local)
     (if (bound-and-true-p org-src--allow-write-back)
 	(progn
 	  (setq buffer-offer-save t)
-	  (setq buffer-file-name
-		(concat (buffer-file-name (marker-buffer org-src--beg-marker))
-			"[" (buffer-name) "]"))
-	  (setq-local write-contents-functions '(org-edit-src-save)))
+	  (setq write-contents-functions '(org-edit-src-save)))
       (setq buffer-read-only t))))
 
 (add-hook 'org-src-mode-hook #'org-src-mode-configure-edit-buffer)
@@ -743,6 +769,19 @@ If BUFFER is non-nil, test it instead."
     (and (buffer-live-p buffer)
 	 (local-variable-p 'org-src--beg-marker buffer)
 	 (local-variable-p 'org-src--end-marker buffer))))
+
+(defun org-src-source-buffer ()
+  "Return source buffer edited in current buffer.
+Raise an error when current buffer is not a source editing buffer."
+  (unless (org-src-edit-buffer-p) (error "Not in a source buffer"))
+  (or (marker-buffer org-src--beg-marker)
+      (error "No source buffer available for current editing session")))
+
+(defun org-src-source-type ()
+  "Return type of element edited in current buffer.
+Raise an error when current buffer is not a source editing buffer."
+  (unless (org-src-edit-buffer-p) (error "Not in a source buffer"))
+  org-src--source-type)
 
 (defun org-src-switch-to-buffer (buffer context)
   (pcase org-src-window-setup
@@ -984,7 +1023,7 @@ name of the sub-editing buffer."
 		  (or (org-element-property :label-fmt element)
 		      org-coderef-label-format))
       (when (eq type 'src-block)
-	(setq-local org-src--babel-info babel-info)
+	(setq org-src--babel-info babel-info)
 	(let ((edit-prep-func (intern (concat "org-babel-edit-prep:" lang))))
 	  (when (fboundp edit-prep-func)
 	    (funcall edit-prep-func babel-info))))
@@ -1007,7 +1046,7 @@ name of the sub-editing buffer."
        (org-src--construct-edit-buffer-name (buffer-name) lang)
        lang-f
        (lambda ()
-	 ;; Inline src blocks are limited to one line.
+	 ;; Inline source blocks are limited to one line.
 	 (while (re-search-forward "\n[ \t]*" nil t) (replace-match " "))
 	 ;; Trim contents.
 	 (goto-char (point-min))
@@ -1017,8 +1056,8 @@ name of the sub-editing buffer."
 	 (skip-chars-backward " \t")
 	 (delete-region (point) (point-max))))
       ;; Finalize buffer.
-      (setq-local org-src--babel-info babel-info)
-      (setq-local org-src--preserve-indentation t)
+      (setq org-src--babel-info babel-info)
+      (setq org-src--preserve-indentation t)
       (let ((edit-prep-func (intern (concat "org-babel-edit-prep:" lang))))
 	(when (fboundp edit-prep-func) (funcall edit-prep-func babel-info)))
       ;; Return success.
@@ -1073,7 +1112,7 @@ Throw an error if there is no such buffer."
 	(beg org-src--beg-marker)
 	(end org-src--end-marker)
 	(overlay org-src--overlay))
-    (with-current-buffer (org-src--source-buffer)
+    (with-current-buffer (org-src-source-buffer)
       (undo-boundary)
       (goto-char beg)
       ;; Temporarily disable read-only features of OVERLAY in order to
@@ -1129,10 +1168,7 @@ Throw an error if there is no such buffer."
        (write-back (org-src--goto-coordinates coordinates beg end))))
     ;; Clean up left-over markers and restore window configuration.
     (set-marker beg nil)
-    (set-marker end nil)
-    (when org-src--saved-temp-window-config
-      (set-window-configuration org-src--saved-temp-window-config)
-      (setq org-src--saved-temp-window-config nil))))
+    (set-marker end nil)))
 
 
 (provide 'org-src)

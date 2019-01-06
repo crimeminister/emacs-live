@@ -1,6 +1,6 @@
 ;;; ox-ascii.el --- ASCII Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -671,8 +671,7 @@ possible.  It doesn't apply to `inlinetask' elements."
 		    (plist-get info :with-tags)
 		    (let ((tag-list (org-export-get-tags element info)))
 		      (and tag-list
-			   (format ":%s:"
-				   (mapconcat 'identity tag-list ":"))))))
+			   (org-make-tag-string tag-list)))))
 	 (priority
 	  (and (plist-get info :with-priority)
 	       (let ((char (org-element-property :priority element)))
@@ -2064,6 +2063,20 @@ a communication channel."
 
 
 ;;; End-user functions
+
+;;;###autoload
+(defun org-ascii-convert-region-to-ascii ()
+  "Assume region has Org syntax, and convert it to plain ASCII."
+  (interactive)
+  (let ((org-ascii-charset 'ascii))
+    (org-export-replace-region-by 'ascii)))
+
+;;;###autoload
+(defun org-ascii-convert-region-to-utf8 ()
+  "Assume region has Org syntax, and convert it to UTF-8."
+  (interactive)
+  (let ((org-ascii-charset 'utf-8))
+    (org-export-replace-region-by 'ascii)))
 
 ;;;###autoload
 (defun org-ascii-export-as-ascii

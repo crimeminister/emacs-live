@@ -1,6 +1,6 @@
 ;;; org-footnote.el --- Footnote support in Org      -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -47,13 +47,11 @@
 (declare-function org-end-of-subtree "org"  (&optional invisible-ok to-heading))
 (declare-function org-fill-paragraph "org" (&optional justify region))
 (declare-function org-in-block-p "org" (names))
-(declare-function org-in-regexp "org" (re &optional nlines visually))
 (declare-function org-in-verbatim-emphasis "org" ())
 (declare-function org-inside-LaTeX-fragment-p "org" ())
 (declare-function org-inside-latex-macro-p "org" ())
 (declare-function org-mark-ring-push "org" (&optional pos buffer))
 (declare-function org-show-context "org" (&optional key))
-(declare-function org-trim "org" (s &optional keep-lead))
 (declare-function outline-next-heading "outline")
 
 (defvar electric-indent-mode)
@@ -116,7 +114,8 @@ you will need to run the following command after the change:
 	   (org-element-cache-reset 'all)))
   :type '(choice
 	  (string :tag "Collect footnotes under heading")
-	  (const :tag "Define footnotes locally" nil)))
+	  (const :tag "Define footnotes locally" nil))
+  :safe #'string-or-null-p)
 
 (defcustom org-footnote-define-inline nil
   "Non-nil means define footnotes inline, at reference location.
@@ -124,7 +123,8 @@ When nil, footnotes will be defined in a special section near
 the end of the document.  When t, the [fn:label:definition] notation
 will be used to define the footnote at the reference position."
   :group 'org-footnote
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom org-footnote-auto-label t
   "Non-nil means define automatically new labels for footnotes.
@@ -141,7 +141,8 @@ random	   Automatically generate a unique, random label."
 	  (const :tag "Prompt for label" nil)
 	  (const :tag "Create automatic [fn:N]" t)
 	  (const :tag "Offer automatic [fn:N] for editing" confirm)
-	  (const :tag "Create a random label" random)))
+	  (const :tag "Create a random label" random))
+  :safe #'symbolp)
 
 (defcustom org-footnote-auto-adjust nil
   "Non-nil means automatically adjust footnotes after insert/delete.
@@ -159,7 +160,8 @@ The main values of this variable can be set with in-buffer options:
 	  (const :tag "No adjustment" nil)
 	  (const :tag "Renumber" renumber)
 	  (const :tag "Sort" sort)
-	  (const :tag "Renumber and Sort" t)))
+	  (const :tag "Renumber and Sort" t))
+  :safe #'symbolp)
 
 (defcustom org-footnote-fill-after-inline-note-extraction nil
   "Non-nil means fill paragraphs after extracting footnotes.
@@ -167,7 +169,8 @@ When extracting inline footnotes, the lengths of lines can change a lot.
 When this option is set, paragraphs from which an inline footnote has been
 extracted will be filled again."
   :group 'org-footnote
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 
 ;;;; Predicates
@@ -186,76 +189,53 @@ extracted will be filled again."
 	     (org-in-block-p org-footnote-forbidden-blocks)))))
 
 (defun org-footnote-at-reference-p ()
-  "Is the cursor at a footnote reference?
-
+  "Non-nil if point is at a footnote reference.
 If so, return a list containing its label, beginning and ending
-positions, and the definition, when inlined."
-  (when (and (org-footnote-in-valid-context-p)
-	     (or (looking-at org-footnote-re)
-		 (org-in-regexp org-footnote-re)
-		 (save-excursion (re-search-backward org-footnote-re nil t)))
-	     (/= (match-beginning 0) (line-beginning-position)))
-    (let* ((beg (match-beginning 0))
-	   (label (match-string-no-properties 1))
-	   ;; Inline footnotes don't end at (match-end 0) as
-	   ;; `org-footnote-re' stops just after the second colon.
-	   ;; Find the real ending with `scan-sexps', so Org doesn't
-	   ;; get fooled by unrelated closing square brackets.
-	   (end (ignore-errors (scan-sexps beg 1))))
-      ;; Point is really at a reference if it's located before true
-      ;; ending of the footnote.
-      (when (and end
-		 (< (point) end)
-		 ;; Verify match isn't a part of a link.
-		 (not (save-excursion
-			(goto-char beg)
-			(let ((linkp
-			       (save-match-data
-				 (org-in-regexp org-bracket-link-regexp))))
-			  (and linkp (< (point) (cdr linkp))))))
-		 ;; Verify point doesn't belong to a LaTeX macro.
-		 (not (org-inside-latex-macro-p)))
-	(list label beg end
-	      ;; Definition: ensure this is an inline footnote first.
-	      (and (match-end 2)
-		   (org-trim
-		    (buffer-substring-no-properties
-		     (match-end 0) (1- end)))))))))
+positions, and the definition, when inline."
+  (let ((reference (org-element-context)))
+    (when (eq 'footnote-reference (org-element-type reference))
+      (let ((end (save-excursion
+		   (goto-char (org-element-property :end reference))
+		   (skip-chars-backward " \t")
+		   (point))))
+	(when (< (point) end)
+	  (list (org-element-property :label reference)
+		(org-element-property :begin reference)
+		end
+		(and (eq 'inline (org-element-property :type reference))
+		     (buffer-substring-no-properties
+		      (org-element-property :contents-begin reference)
+		      (org-element-property :contents-end
+					    reference)))))))))
 
 (defun org-footnote-at-definition-p ()
-  "Is point within a footnote definition?
+  "Non-nil if point is within a footnote definition.
 
-This matches only pure definitions like [1] or [fn:name] at the
+This matches only pure definitions like [fn:name] at the
 beginning of a line.  It does not match references like
 \[fn:name:definition], where the footnote text is included and
 defined locally.
 
-The return value will be nil if not at a footnote definition, and
+The return value is nil if not at a footnote definition, and
 a list with label, start, end and definition of the footnote
 otherwise."
-  (when (save-excursion (beginning-of-line) (org-footnote-in-valid-context-p))
-    (save-excursion
-      (end-of-line)
-      ;; Footnotes definitions are separated by new headlines, another
-      ;; footnote definition or 2 blank lines.
-      (let ((lim (save-excursion
-		   (re-search-backward
-		    (concat org-outline-regexp-bol
-			    "\\|^\\([ \t]*\n\\)\\{2,\\}") nil t))))
-	(when (re-search-backward org-footnote-definition-re lim t)
-	  (let ((label (match-string-no-properties 1))
-		(beg (match-beginning 0))
-		(beg-def (match-end 0))
-		(end (if (progn
-			   (end-of-line)
-			   (re-search-forward
-			    (concat org-outline-regexp-bol "\\|"
-				    org-footnote-definition-re "\\|"
-				    "^\\([ \t]*\n\\)\\{2,\\}") nil 'move))
-			 (match-beginning 0)
-		       (point))))
-	    (list label beg end
-		  (org-trim (buffer-substring-no-properties beg-def end)))))))))
+  (pcase (org-element-lineage (org-element-at-point) '(footnote-definition) t)
+    (`nil nil)
+    (definition
+      (let* ((label (org-element-property :label definition))
+	     (begin (org-element-property :post-affiliated definition))
+	     (end (save-excursion
+		    (goto-char (org-element-property :end definition))
+		    (skip-chars-backward " \r\t\n")
+		    (line-beginning-position 2)))
+	     (contents-begin (org-element-property :contents-begin definition))
+	     (contents-end (org-element-property :contents-end definition))
+	     (contents
+	      (if (not contents-begin) ""
+		(org-trim
+		 (buffer-substring-no-properties contents-begin
+						 contents-end)))))
+	(list label begin end contents)))))
 
 
 ;;;; Internal functions
@@ -464,16 +444,15 @@ the buffer position bounding the search.
 
 Return value is a list like those provided by `org-footnote-at-reference-p'.
 If no footnote is found, return nil."
-  (save-excursion
-    (let* ((label-fmt (if label (format "\\[fn:%s[]:]" label) org-footnote-re)))
-      (catch 'exit
-	(while t
-	  (unless (funcall (if backward #'re-search-backward #'re-search-forward)
-			   label-fmt limit t)
-	    (throw 'exit nil))
+  (let ((label-regexp (if label (format "\\[fn:%s[]:]" label) org-footnote-re)))
+    (catch :exit
+      (save-excursion
+	(while (funcall (if backward #'re-search-backward #'re-search-forward)
+			label-regexp limit t)
 	  (unless backward (backward-char))
-	  (let ((ref (org-footnote-at-reference-p)))
-	    (when ref (throw 'exit ref))))))))
+	  (pcase (org-footnote-at-reference-p)
+	    (`nil nil)
+	    (reference (throw :exit reference))))))))
 
 (defun org-footnote-next-reference-or-definition (limit)
   "Move point to next footnote reference or definition.
@@ -482,8 +461,10 @@ LIMIT is the buffer position bounding the search.
 
 Return value is a list like those provided by
 `org-footnote-at-reference-p' or `org-footnote-at-definition-p'.
-If no footnote is found, return nil."
-  (let* (ref (origin (point)))
+If no footnote is found, return nil.
+
+This function is meant to be used for fontification only."
+  (let ((origin (point)))
     (catch 'exit
       (while t
 	(unless (re-search-forward org-footnote-re limit t)
@@ -493,15 +474,56 @@ If no footnote is found, return nil."
 	;; the closing square bracket.
 	(backward-char)
 	(cond
-	 ((setq ref (org-footnote-at-reference-p))
-	  (throw 'exit ref))
+	 ((and (/= (match-beginning 0) (line-beginning-position))
+	       (let* ((beg (match-beginning 0))
+		      (label (match-string-no-properties 1))
+		      ;; Inline footnotes don't end at (match-end 0)
+		      ;; as `org-footnote-re' stops just after the
+		      ;; second colon.  Find the real ending with
+		      ;; `scan-sexps', so Org doesn't get fooled by
+		      ;; unrelated closing square brackets.
+		      (end (ignore-errors (scan-sexps beg 1))))
+		 (and end
+		      ;; Verify match isn't a part of a link.
+		      (not (save-excursion
+			     (goto-char beg)
+			     (let ((linkp
+				    (save-match-data
+				      (org-in-regexp org-bracket-link-regexp))))
+			       (and linkp (< (point) (cdr linkp))))))
+		      ;; Verify point doesn't belong to a LaTeX macro.
+		      (not (org-inside-latex-macro-p))
+		      (throw 'exit
+			     (list label beg end
+				   ;; Definition: ensure this is an
+				   ;; inline footnote first.
+				   (and (match-end 2)
+					(org-trim
+					 (buffer-substring-no-properties
+					  (match-end 0) (1- end))))))))))
 	 ;; Definition: also grab the last square bracket, matched in
 	 ;; `org-footnote-re' for non-inline footnotes.
-	 ((save-match-data (org-footnote-at-definition-p))
-	  (let ((end (match-end 0)))
-	    (throw 'exit
-		   (list nil (match-beginning 0)
-			 (if (eq (char-before end) ?\]) end (1+ end)))))))))))
+	 ((and (save-excursion
+		 (beginning-of-line)
+		 (save-match-data (org-footnote-in-valid-context-p)))
+	       (save-excursion
+		 (end-of-line)
+		 ;; Footnotes definitions are separated by new
+		 ;; headlines, another footnote definition or 2 blank
+		 ;; lines.
+		 (let ((end (match-end 0))
+		       (lim (save-excursion
+			      (re-search-backward
+			       (concat org-outline-regexp-bol
+				       "\\|^\\([ \t]*\n\\)\\{2,\\}")
+			       nil t))))
+		   (and (re-search-backward org-footnote-definition-re lim t)
+			(throw 'exit
+			       (list nil
+				     (match-beginning 0)
+				     (if (eq (char-before end) ?\]) end
+				       (1+ end)))))))))
+	 (t nil))))))
 
 (defun org-footnote-goto-definition (label &optional location)
   "Move point to the definition of the footnote LABEL.
@@ -522,7 +544,7 @@ value if point was successfully moved."
       (user-error "Definition is outside narrowed part of buffer")))
     (org-mark-ring-push)
     (goto-char def-start)
-    (looking-at (format "\\[fn:%s[]:] ?" (regexp-quote label)))
+    (looking-at (format "\\[fn:%s[]:]" (regexp-quote label)))
     (goto-char (match-end 0))
     (org-show-context 'link-search)
     (when (derived-mode-p 'org-mode)
@@ -534,21 +556,23 @@ value if point was successfully moved."
 (defun org-footnote-goto-previous-reference (label)
   "Find the first closest (to point) reference of footnote with label LABEL."
   (interactive "sLabel: ")
-  (org-mark-ring-push)
-  (let ((label (org-footnote-normalize-label label))
-	ref)
-    (save-excursion
-      (setq ref (or (org-footnote-get-next-reference label t)
-		    (org-footnote-get-next-reference label)
-		    (save-restriction
-		      (widen)
-		      (or
-		       (org-footnote-get-next-reference label t)
-		       (org-footnote-get-next-reference label))))))
-    (if (not ref)
-	(error "Cannot find reference of footnote %s" label)
-      (goto-char (nth 1 ref))
-      (org-show-context 'link-search))))
+  (let* ((label (org-footnote-normalize-label label))
+	 (reference
+	  (save-excursion
+	    (or (org-footnote-get-next-reference label t)
+		(org-footnote-get-next-reference label)
+		(and (buffer-narrowed-p)
+		     (org-with-wide-buffer
+		      (or (org-footnote-get-next-reference label t)
+			  (org-footnote-get-next-reference label)))))))
+	 (start (nth 1 reference)))
+    (cond ((not reference)
+	   (user-error "Cannot find reference of footnote %S" label))
+	  ((or (> start (point-max)) (< start (point-min)))
+	   (user-error "Reference is outside narrowed part of buffer")))
+    (org-mark-ring-push)
+    (goto-char start)
+    (org-show-context 'link-search)))
 
 
 ;;;; Getters

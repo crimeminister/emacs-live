@@ -1,6 +1,6 @@
 ;;; test-org-clock.el --- Tests for org-clock.el
 
-;; Copyright (C) 2012, 2014, 2015  Nicolas Goaziou
+;; Copyright (C) 2012, 2014, 2015, 2019  Nicolas Goaziou
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 
@@ -49,8 +49,8 @@ Return the clock line as a string."
   (let* ((beg (org-test-clock-create-timestamp input1 t t))
          (end (and input2 (org-test-clock-create-timestamp input2 t t)))
          (sec-diff (and input2
-			(floor (- (org-time-string-to-seconds end)
-				  (org-time-string-to-seconds beg))))))
+                        (floor (- (org-time-string-to-seconds end)
+                                  (org-time-string-to-seconds beg))))))
     (concat org-clock-string " " beg
             (when end
               (concat "--" end " => "
@@ -82,7 +82,7 @@ the buffer."
         ;; Skip caption.
         (when (looking-at "#\\+CAPTION:") (forward-line))
         (buffer-substring-no-properties
-	 (point) (progn (search-forward "#+END:") (line-end-position 0))))
+         (point) (progn (search-forward "#+END:") (line-end-position 0))))
     ;; Remove clocktable.
     (delete-region (point) (search-forward "#+END:\n"))))
 
@@ -273,6 +273,30 @@ the buffer."
 
 ;;; Clocktable
 
+(ert-deftest test-org-clock/clocktable/insert ()
+  "Test insert clocktable dynamic block with `org-dynamic-block-insert-dblock'."
+  (should
+   (equal
+    "| Headline     | Time   |      |
+|--------------+--------+------|
+| *Total time* | *1:00* |      |
+|--------------+--------+------|
+| \\_  H2       |        | 1:00 |"
+    (org-test-with-temp-text "** H1\n\n** H2\n<point>"
+      (insert (org-test-clock-create-clock ". 1:00" ". 2:00"))
+
+      (goto-line 2)
+      (require 'org-clock)
+      (org-dynamic-block-insert-dblock "clocktable")
+
+      (goto-line 1)
+      (unwind-protect
+	  (save-excursion
+	    (when (search-forward "#+CAPTION:") (forward-line))
+	    (buffer-substring-no-properties
+	     (point) (progn (search-forward "#+END:") (line-end-position 0))))
+	(delete-region (point) (search-forward "#+END:\n")))))))
+
 (ert-deftest test-org-clock/clocktable/ranges ()
   "Test ranges in Clock table."
   ;; Relative time: Previous two days.
@@ -322,9 +346,9 @@ the buffer."
       (insert (org-test-clock-create-clock "-2d 15:00" "-2d 18:00"))
       (test-org-clock-clocktable-contents ":block untilnow :indent nil")))))
 
-(ert-deftest test-org-clock/clocktable/tags ()
-  "Test \":tags\" parameter in Clock table."
-  ;; Test tag filtering.
+(ert-deftest test-org-clock/clocktable/match ()
+  "Test \":match\" parameter in Clock table."
+  ;; Test match filtering.
   (should
    (equal
     "| Headline     | Time   |      |
@@ -336,7 +360,22 @@ the buffer."
       (insert (org-test-clock-create-clock ". 1:00" ". 2:00"))
       (goto-line 4)
       (insert (org-test-clock-create-clock ". 2:00" ". 4:00"))
-      (test-org-clock-clocktable-contents ":tags \"tag\" :indent nil")))))
+      (test-org-clock-clocktable-contents ":match \"tag\" :indent nil")))))
+
+(ert-deftest test-org-clock/clocktable/tags ()
+  "Test \":tags\" parameter in Clock table."
+  ;; Test tags column.
+  (should
+   (equal
+    "| Tags | Headline     | Time   |      |
+|------+--------------+--------+------|
+|      | *Total time* | *1:00* |      |
+|------+--------------+--------+------|
+| tag  | H1           |        | 1:00 |"
+    (org-test-with-temp-text "** H1 :tag:\n\n*** H2 \n<point>"
+      (insert (org-test-clock-create-clock ". 1:00" ". 2:00"))
+      (goto-line 4)
+      (test-org-clock-clocktable-contents ":tags t :indent nil")))))
 
 (ert-deftest test-org-clock/clocktable/scope ()
   "Test \":scope\" parameter in Clock table."
@@ -354,18 +393,18 @@ the buffer."
         "* Test
 CLOCK: [2012-03-29 Thu 8:00]--[2012-03-29 Thu 16:40] => 8:40"
       (test-org-clock-clocktable-contents ":scope file-with-archives"
-	  "#+TBLFM: $3=string(\"foo\")"))))
+                                          "#+TBLFM: $3=string(\"foo\")"))))
   ;; Test "function" scope.
   (should
    (string-match-p
     (regexp-quote "| ALL *Total time* | *1:00* |")
     (org-test-with-temp-text-in-file
-	"* Test
+        "* Test
 CLOCK: [2012-03-29 Thu 16:00]--[2012-03-29 Thu 17:00] =>  1:00"
       (let ((the-file (buffer-file-name)))
-	(org-test-with-temp-text-in-file ""
-	  (test-org-clock-clocktable-contents
-	      (format ":scope (lambda () (list %S))" the-file))))))))
+        (org-test-with-temp-text-in-file ""
+          (test-org-clock-clocktable-contents
+           (format ":scope (lambda () (list %S))" the-file))))))))
 
 (ert-deftest test-org-clock/clocktable/maxlevel ()
   "Test \":maxlevel\" parameter in Clock table."
@@ -394,7 +433,7 @@ CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
 CLOCK: [2016-12-28 Wed 11:09]--[2016-12-28 Wed 15:09] =>  4:00
 ** Bar
 CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
-	    (test-org-clock-clocktable-contents ":maxlevel 2"))))
+            (test-org-clock-clocktable-contents ":maxlevel 2"))))
   (should
    (equal "| Headline     | Time   |
 |--------------+--------|
@@ -406,7 +445,7 @@ CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
 CLOCK: [2016-12-28 Wed 11:09]--[2016-12-28 Wed 15:09] =>  4:00
 ** Bar
 CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
-	    (test-org-clock-clocktable-contents ":maxlevel 1"))))
+            (test-org-clock-clocktable-contents ":maxlevel 1"))))
   ;; Special ":maxlevel 0" case: only report total file time.
   (should
    (equal "| Headline     | Time   |
@@ -418,7 +457,7 @@ CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
 CLOCK: [2016-12-28 Wed 11:09]--[2016-12-28 Wed 15:09] =>  4:00
 ** Bar
 CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
-	    (test-org-clock-clocktable-contents ":maxlevel 0")))))
+            (test-org-clock-clocktable-contents ":maxlevel 0")))))
 
 (ert-deftest test-org-clock/clocktable/formula ()
   "Test \":formula\" parameter in Clock table."
@@ -463,8 +502,8 @@ CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
 | \\_  sub3      |        | 0:30 |      |  50.0 |
 | \\_    subsub1 |        |      | 0:15 |  25.0 |
 | \\_    subsub1 |        |      | 0:15 |  25.0 |"
-	  (org-test-with-temp-text
-	      "* foo
+          (org-test-with-temp-text
+              "* foo
 ** sub
    :LOGBOOK:
    CLOCK: [2017-03-18 Sat 15:00]--[2017-03-18 Sat 15:15] =>  0:15
@@ -482,7 +521,7 @@ CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
     :LOGBOOK:
     CLOCK: [2017-03-18 Sat 14:00]--[2017-03-18 Sat 14:15] =>  0:15
     :END:"
-	    (test-org-clock-clocktable-contents ":maxlevel 3 :formula %")))))
+            (test-org-clock-clocktable-contents ":maxlevel 3 :formula %")))))
 
 (ert-deftest test-org-clock/clocktable/lang ()
   "Test \":lang\" parameter in Clock table."
@@ -545,7 +584,7 @@ CLOCK: [2016-12-28 Wed 13:09]--[2016-12-28 Wed 15:09] =>  2:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* Foo
+        "* Foo
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   ;; Otherwise, link to the headline in the current file.
@@ -557,12 +596,12 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[file:filename::Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text-in-file
-	"* Foo
+        "* Foo
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (let ((file (buffer-file-name)))
-	(replace-regexp-in-string
-	 (regexp-quote file) "filename"
-	 (test-org-clock-clocktable-contents ":link t"))))))
+        (replace-regexp-in-string
+         (regexp-quote file) "filename"
+         (test-org-clock-clocktable-contents ":link t"))))))
   ;; Ignore TODO keyword, priority cookie, COMMENT and tags in
   ;; headline.
   (should
@@ -573,7 +612,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* TODO Foo
+        "* TODO Foo
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   (should
@@ -584,7 +623,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* [#A] Foo
+        "* [#A] Foo
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   (should
@@ -595,7 +634,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* COMMENT Foo
+        "* COMMENT Foo
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   (should
@@ -606,7 +645,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* Foo :tag:
+        "* Foo :tag:
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   ;; Remove statistics cookie from headline description.
@@ -618,7 +657,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* Foo [50%]
+        "* Foo [50%]
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   (should
@@ -629,7 +668,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo][Foo]]          | 26:00   |"
     (org-test-with-temp-text
-	"* Foo [1/2]
+        "* Foo [1/2]
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   ;; Replace links with their description, or turn them into plain
@@ -642,7 +681,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |--------------+---------|
 | [[Foo %5B%5Bhttps://orgmode.org%5D%5BOrg mode%5D%5D][Foo Org mode]] | 26:00   |"
     (org-test-with-temp-text
-	"* Foo [[https://orgmode.org][Org mode]]
+        "* Foo [[https://orgmode.org][Org mode]]
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t"))))
   (should
@@ -653,7 +692,7 @@ CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
 |-------------------------+---------|
 | [[Foo %5B%5Bhttps://orgmode.org%5D%5D][Foo https://orgmode.org]] | 26:00   |"
     (org-test-with-temp-text
-	"* Foo [[https://orgmode.org]]
+        "* Foo [[https://orgmode.org]]
 CLOCK: [2016-12-27 Wed 13:09]--[2016-12-28 Wed 15:09] => 26:00"
       (test-org-clock-clocktable-contents ":link t")))))
 
@@ -840,14 +879,14 @@ Weekly report starting on: [2017-09-25 Mon]
 | *Total time* | *1:00* |
 |--------------+--------|
 | Foo          | 1:00   |"
-	  (org-test-with-temp-text
-	      "* Foo
+          (org-test-with-temp-text
+              "* Foo
 CLOCK: [2017-09-30 Sat 12:00]--[2017-09-30 Sat 13:00] =>  1:00
 CLOCK: [2017-10-01 Sun 11:00]--[2017-10-01 Sun 13:00] =>  2:00
 CLOCK: [2017-10-02 Mon 11:00]--[2017-10-02 Mon 14:00] =>  3:00"
-	    (let ((system-time-locale "en_US"))
-	      (test-org-clock-clocktable-contents
-		  ":step week :block 2017-09 :stepskip0 t")))))
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step week :block 2017-09 :stepskip0 t")))))
   (should
    (equal "
 Weekly report starting on: [2017-10-01 Sun]
@@ -871,16 +910,16 @@ Weekly report starting on: [2017-10-09 Mon]
 |--------------+--------|
 | Foo          | 5:00   |
 "
-	  (org-test-with-temp-text
-	      "* Foo
+          (org-test-with-temp-text
+              "* Foo
 CLOCK: [2017-09-30 Sat 12:00]--[2017-09-30 Sat 13:00] =>  1:00
 CLOCK: [2017-10-01 Sun 11:00]--[2017-10-01 Sun 13:00] =>  2:00
 CLOCK: [2017-10-02 Mon 11:00]--[2017-10-02 Mon 14:00] =>  3:00
 CLOCK: [2017-10-08 Sun 09:00]--[2017-10-08 Sun 13:00] =>  4:00
 CLOCK: [2017-10-09 Mon 09:00]--[2017-10-09 Mon 14:00] =>  5:00"
-	    (let ((system-time-locale "en_US"))
-	      (test-org-clock-clocktable-contents
-		  ":step week :block 2017-10 :stepskip0 t")))))
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step week :block 2017-10 :stepskip0 t")))))
   ;; :step day
   (should
    (equal "
@@ -922,16 +961,16 @@ Daily report: [2017-10-08 Sun]
 | *Total time* | *4:00* |
 |--------------+--------|
 | Foo          | 4:00   |"
-	  (org-test-with-temp-text
-	      "* Foo
+          (org-test-with-temp-text
+              "* Foo
 CLOCK: [2017-09-30 Sat 12:00]--[2017-09-30 Sat 13:00] =>  1:00
 CLOCK: [2017-10-01 Sun 11:00]--[2017-10-01 Sun 13:00] =>  2:00
 CLOCK: [2017-10-02 Mon 11:00]--[2017-10-02 Mon 14:00] =>  3:00
 CLOCK: [2017-10-08 Sun 09:00]--[2017-10-08 Sun 13:00] =>  4:00
 CLOCK: [2017-10-09 Mon 09:00]--[2017-10-09 Mon 14:00] =>  5:00"
-	    (let ((system-time-locale "en_US"))
-	      (test-org-clock-clocktable-contents
-		  ":step day :block 2017-W40")))))
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step day :block 2017-W40")))))
   ;; Regression test: take :tstart and :tend hours into consideration.
   (should
    (equal "
@@ -941,13 +980,13 @@ Weekly report starting on: [2017-12-25 Mon]
 | *Total time* | *8:00* |
 |--------------+--------|
 | Foo          | 8:00   |"
-	  (org-test-with-temp-text
-	      "* Foo
+          (org-test-with-temp-text
+              "* Foo
 CLOCK: [2017-12-27 Wed 08:00]--[2017-12-27 Wed 16:00] =>  8:00"
-	    (let ((system-time-locale "en_US"))
-	      (test-org-clock-clocktable-contents
-		  (concat ":step week :tstart \"<2017-12-25 Mon>\" "
-			  ":tend \"<2017-12-27 Wed 23:59>\""))))))
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               (concat ":step week :tstart \"<2017-12-25 Mon>\" "
+                       ":tend \"<2017-12-27 Wed 23:59>\""))))))
   (should
    (equal "
 Daily report: [2017-12-27 Wed]
@@ -956,13 +995,186 @@ Daily report: [2017-12-27 Wed]
 | *Total time* | *8:00* |
 |--------------+--------|
 | Foo          | 8:00   |"
-	  (org-test-with-temp-text
-	      "* Foo
+          (org-test-with-temp-text
+              "* Foo
 CLOCK: [2017-12-27 Wed 08:00]--[2017-12-27 Wed 16:00] =>  8:00"
-	    (let ((system-time-locale "en_US"))
-	      (test-org-clock-clocktable-contents
-		  (concat ":step day :tstart \"<2017-12-25 Mon>\" "
-			  ":tend \"<2017-12-27 Wed 23:59>\" :stepskip0 t")))))))
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               (concat ":step day :tstart \"<2017-12-25 Mon>\" "
+                       ":tend \"<2017-12-27 Wed 23:59>\" :stepskip0 t"))))))
+  ;; Test :step week", without or with ":wstart" parameter.
+  (should
+   (equal "
+Weekly report starting on: [2012-03-26 Mon]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+
+Weekly report starting on: [2012-04-02 Mon]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2012-03-29 Thu 08:00]--[2012-03-29 Thu 16:00] =>  8:00
+CLOCK: [2012-04-03 Thu 08:00]--[2012-04-03 Thu 16:00] =>  8:00"
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step week :block 2012 :stepskip0 t")))))
+  (should
+   (equal "
+Weekly report starting on: [2012-03-29 Thu]
+| Headline     | Time    |
+|--------------+---------|
+| *Total time* | *16:00* |
+|--------------+---------|
+| Foo          | 16:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2012-03-29 Thu 08:00]--[2012-03-29 Thu 16:00] =>  8:00
+CLOCK: [2012-04-03 Thu 08:00]--[2012-04-03 Thu 16:00] =>  8:00"
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step week :wstart 4 :block 2012 :stepskip0 t")))))
+  ;; Test ":step month" without and with ":mstart".
+  (should
+   (equal "
+Monthly report starting on: [2014-03-01 Sat]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+
+Monthly report starting on: [2014-04-01 Tue]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2014-03-04 Tue 08:00]--[2014-03-04 Tue 16:00] =>  8:00
+CLOCK: [2014-04-03 Thu 08:00]--[2014-04-03 Thu 16:00] =>  8:00"
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step month :block 2014 :stepskip0 t")))))
+  (should
+   (equal "
+Monthly report starting on: [2014-03-04 Tue]
+| Headline     | Time    |
+|--------------+---------|
+| *Total time* | *16:00* |
+|--------------+---------|
+| Foo          | 16:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2014-03-04 Tue 08:00]--[2014-03-04 Tue 16:00] =>  8:00
+CLOCK: [2014-04-03 Thu 08:00]--[2014-04-03 Thu 16:00] =>  8:00"
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step month :mstart 4 :block 2014 :stepskip0 t")))))
+  ;; Test ":step year".
+  (should
+   (equal "
+Annual report starting on: [2012-01-01 Sun]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+
+Annual report starting on: [2014-01-01 Wed]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2012-03-29 Thu 08:00]--[2012-03-29 Thu 16:00] =>  8:00
+CLOCK: [2014-03-04 Tue 08:00]--[2014-03-04 Tue 16:00] =>  8:00"
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step year :block untilnow :stepskip0 t")))))
+  ;; Regression test: Respect DST
+  (should
+   (equal "
+Daily report: [2018-10-29 Mon]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *8:00* |
+|--------------+--------|
+| Foo          | 8:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2018-10-29 Mon 08:00]--[2018-10-29 Mon 16:00] =>  8:00"
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               (concat ":step day "
+                       ":stepskip0 t "
+                       ":tstart \"2018-10-01\" "
+                       ":tend \"2018-11-01\"")))))))
+
+(ert-deftest test-org-clock/clocktable/extend-today-until ()
+  "Test assignment of clock time to days in presence of \"org-extend-today-until\"."
+  ;; Basic test of :block with org-extend-today-until - the report for
+  ;; 2017-09-30 should include the time clocked on 2017-10-01 before
+  ;; 04:00.
+  (should
+   (equal "| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *2:00* |
+|--------------+--------|
+| Foo          | 2:00   |"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2017-09-30 Sat 12:00]--[2017-09-30 Sat 13:00] =>  1:00
+CLOCK: [2017-10-01 Sun 02:00]--[2017-10-01 Sun 03:00] =>  1:00
+CLOCK: [2017-10-01 Sun 11:00]--[2017-10-01 Sun 13:00] =>  2:00"
+            (setq-local org-extend-today-until 4)
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":block 2017-09-30")))))
+
+  ;; Week-length block - time on Monday before 04:00 should be
+  ;; assigned to previous week.
+  (should
+   (equal "
+Weekly report starting on: [2017-10-01 Sun]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *2:00* |
+|--------------+--------|
+| Foo          | 2:00   |
+
+Weekly report starting on: [2017-10-02 Mon]
+| Headline     | Time   |
+|--------------+--------|
+| *Total time* | *2:00* |
+|--------------+--------|
+| Foo          | 2:00   |
+"
+          (org-test-with-temp-text
+              "* Foo
+CLOCK: [2017-10-01 Sun 12:00]--[2017-10-01 Sun 13:00] =>  1:00
+CLOCK: [2017-10-02 Mon 02:00]--[2017-10-02 Mon 03:00] =>  1:00
+CLOCK: [2017-10-02 Mon 11:00]--[2017-10-02 Mon 13:00] =>  2:00"
+            (setq-local org-extend-today-until 4)
+            (let ((system-time-locale "en_US"))
+              (test-org-clock-clocktable-contents
+               ":step week :block 2017-10 :stepskip0 t"))))))
+
 
 (provide 'test-org-clock)
 ;;; test-org-clock.el end here

@@ -1,6 +1,6 @@
 ;;; test-org-archive.el --- Test for Org Archive     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2017  Jay Kamat
+;; Copyright (C) 2017, 2019  Jay Kamat
 
 ;; Author: Jay Kamat <jaygkamat@gmail.com>
 
@@ -83,7 +83,8 @@
    (equal "* Archive :ARCHIVE:\n** H\n"
 	  (org-test-with-temp-text "* H\n"
 	    (let ((org-archive-sibling-heading "Archive")
-		  (org-archive-tag "ARCHIVE"))
+		  (org-archive-tag "ARCHIVE")
+		  (org-tags-column 1))
 	      (org-archive-to-archive-sibling)
 	      (goto-char (point-min))
 	      (buffer-substring-no-properties
@@ -93,7 +94,8 @@
    (equal "* Archive :ARCHIVE:\n* Top\n** Archive :ARCHIVE:\n*** H\n"
 	  (org-test-with-temp-text "* Archive :ARCHIVE:\n* Top\n<point>** H\n"
 	    (let ((org-archive-sibling-heading "Archive")
-		  (org-archive-tag "ARCHIVE"))
+		  (org-archive-tag "ARCHIVE")
+		  (org-tags-column 0))
 	      (org-archive-to-archive-sibling)
 	      (goto-char (point-min))
 	      (buffer-substring-no-properties

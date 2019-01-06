@@ -1,6 +1,6 @@
 ;;; ob-plantuml.el --- Babel Functions for Plantuml  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2010-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2019 Free Software Foundation, Inc.
 
 ;; Author: Zhang Weize
 ;; Keywords: literate programming, reproducible research
@@ -93,6 +93,8 @@ This function is called by `org-babel-execute-src-block'."
 			    " -teps" "")
 			(if (string= (file-name-extension out-file) "pdf")
 			    " -tpdf" "")
+			(if (string= (file-name-extension out-file) "tex")
+			    " -tlatex" "")
 			(if (string= (file-name-extension out-file) "vdx")
 			    " -tvdx" "")
 			(if (string= (file-name-extension out-file) "xmi")

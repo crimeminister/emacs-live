@@ -1,6 +1,6 @@
 ;;; org-table.el --- The Table Editor for Org        -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -231,9 +231,6 @@ fields."
 	  (const :tag "with yes-or-no" yes-or-no-p)
 	  (const :tag "with y-or-n" y-or-n-p)
 	  (const :tag "no confirmation" nil)))
-(put 'org-table-fix-formulas-confirm
-     'safe-local-variable
-     #'(lambda (x) (member x '(yes-or-no-p y-or-n-p))))
 
 (defcustom org-table-tab-jumps-over-hlines t
   "Non-nil means tab in the last column of a table with jump over a hline.
@@ -526,16 +523,8 @@ Field is restored even in case of abnormal exit."
 	 (org-table-goto-column ,column)
 	 (set-marker ,line nil)))))
 
-(defmacro org-table-with-shrunk-field (&rest body)
-  "Save field shrunk state, execute BODY and restore state."
-  (declare (debug (body)))
-  (org-with-gensyms (end shrunk size)
-    `(let* ((,shrunk (save-match-data (org-table--shrunk-field)))
-	    (,end (and ,shrunk (copy-marker (overlay-end ,shrunk) t)))
-	    (,size (and ,shrunk (- ,end (overlay-start ,shrunk)))))
-       (when ,shrunk (delete-overlay ,shrunk))
-       (unwind-protect (progn ,@body)
-	 (when ,shrunk (move-overlay ,shrunk (- ,end ,size) ,end))))))
+;;; See org-macs.el for the definition of org-table-with-shrunk-field,
+;;; including the reason why it is defined there and not here.
 
 (defmacro org-table-with-shrunk-columns (&rest body)
   "Expand all columns before executing BODY, then shrink them again."
@@ -559,13 +548,13 @@ and table.el tables."
   (interactive)
   (require 'table)
   (cond
-   ((org-at-table.el-p)
-    (if (y-or-n-p "Convert table to Org table? ")
-	(org-table-convert)))
-   ((org-at-table-p)
-    (when (y-or-n-p "Convert table to table.el table? ")
-      (org-table-align)
-      (org-table-convert)))
+   ((and (org-at-table.el-p)
+	 (y-or-n-p "Convert table to Org table? "))
+    (org-table-convert))
+   ((and (org-at-table-p)
+	 (y-or-n-p "Convert table to table.el table? "))
+    (org-table-align)
+    (org-table-convert))
    (t (call-interactively 'table-insert))))
 
 ;;;###autoload
@@ -606,12 +595,11 @@ SIZE is a string Columns x Rows like for example \"3x2\"."
     ;; (mapcar (lambda (x) (insert line)) (make-list rows t))
     (dotimes (_ rows) (insert line))
     (goto-char pos)
-    (if (> rows 1)
-	;; Insert a hline after the first row.
-	(progn
-	  (end-of-line 1)
-	  (insert "\n|-")
-	  (goto-char pos)))
+    (when (> rows 1)
+      ;; Insert a hline after the first row.
+      (end-of-line 1)
+      (insert "\n|-")
+      (goto-char pos))
     (org-table-align)))
 
 ;;;###autoload
@@ -641,8 +629,8 @@ nil      When nil, the command tries to be smart and figure out the
     (if (> (count-lines beg end) org-table-convert-region-max-lines)
 	(user-error "Region is longer than `org-table-convert-region-max-lines' (%s) lines; not converting"
 		    org-table-convert-region-max-lines)
-      (if (equal separator '(64))
-	  (setq separator (read-regexp "Regexp for field separator")))
+      (when (equal separator '(64))
+	(setq separator (read-regexp "Regexp for field separator")))
       (goto-char beg)
       (beginning-of-line 1)
       (setq beg (point-marker))
@@ -1001,9 +989,9 @@ Before doing so, re-align the table if necessary."
   (interactive)
   (org-table-maybe-eval-formula)
   (org-table-maybe-recalculate-line)
-  (if (and org-table-automatic-realign
-	   org-table-may-need-update)
-      (org-table-align))
+  (when (and org-table-automatic-realign
+	     org-table-may-need-update)
+    (org-table-align))
   (let ((end (org-table-end)))
     (if (org-at-table-hline-p)
 	(end-of-line 1))
@@ -1063,7 +1051,7 @@ With numeric argument N, move N-1 fields backward first."
 	(user-error "No more table fields before the current")
       (goto-char (match-end 0))
       (and (looking-at " ") (forward-char 1)))
-    (if (>= (point) pos) (org-table-beginning-of-field 2))))
+    (when (>= (point) pos) (org-table-beginning-of-field 2))))
 
 (defun org-table-end-of-field (&optional n)
   "Move to the end of the current table field.
@@ -1077,9 +1065,9 @@ With numeric argument N, move N-1 fields forward first."
     (when (re-search-forward "|" (point-at-eol 1) t)
       (backward-char 1)
       (skip-chars-backward " ")
-      (if (and (equal (char-before (point)) ?|) (looking-at " "))
-	  (forward-char 1)))
-    (if (<= (point) pos) (org-table-end-of-field 2))))
+      (when (and (equal (char-before (point)) ?|) (equal (char-after (point)) ?\s))
+	(forward-char 1)))
+    (when (<= (point) pos) (org-table-end-of-field 2))))
 
 ;;;###autoload
 (defun org-table-next-row ()
@@ -1155,9 +1143,10 @@ to a number.  In the case of a timestamp, increment by days."
 			     (<= (setq n (1- n)) 0))
 			(throw 'exit (match-string 1))))))
 	  (setq non-empty-up (and field-up (string-match "[^ \t]" field-up))))
-      ;; Above field was not empty, go down to the next row
+      ;; Above field was not empty, go down to the next row.  Skip
+      ;; alignment since we do it at the end of the process anyway.
       (setq txt (org-trim field))
-      (org-table-next-row)
+      (let ((org-table-may-need-update nil)) (org-table-next-row))
       (org-table-blank-field))
     (if non-empty-up (setq txt-up (org-trim field-up)))
     (setq inc (cond
@@ -1440,7 +1429,7 @@ non-nil, the one above is used."
     (cond ((or (> (aref org-table-dlines min) line)
 	       (< (aref org-table-dlines max) line))
 	   nil)
-	  ((= (aref org-table-dlines max) line) max)
+	  ((= line (aref org-table-dlines max)) max)
 	  (t (catch 'exit
 	       (while (> (- max min) 1)
 		 (let* ((mean (/ (+ max min) 2))
@@ -1448,7 +1437,84 @@ non-nil, the one above is used."
 		   (cond ((= v line) (throw 'exit mean))
 			 ((> v line) (setq max mean))
 			 (t (setq min mean)))))
-	       (if above min max))))))
+	       (cond ((= line (aref org-table-dlines max)) max)
+		     ((= line (aref org-table-dlines min)) min)
+		     (above min)
+		     (t max)))))))
+
+(defun org-table--swap-cells (row1 col1 row2 col2)
+  "Swap two cells indicated by the coordinates provided.
+ROW1, COL1, ROW2, COL2 are integers indicating the row/column
+position of the two cells that will be swapped in the table."
+  (let ((content1 (org-table-get row1 col1))
+	(content2 (org-table-get row2 col2)))
+    (org-table-put row1 col1 content2)
+    (org-table-put row2 col2 content1)))
+
+(defun org-table--move-cell (direction)
+  "Move the current cell in a cardinal direction.
+DIRECTION is a symbol among `up', `down', `left', and `right'.
+The contents the current cell are swapped with cell in the
+indicated direction.  Raise an error if the move cannot be done."
+  (let ((row-shift (pcase direction (`up -1) (`down 1) (_ 0)))
+	(column-shift (pcase direction (`left -1) (`right 1) (_ 0))))
+    (when (and (= 0 row-shift) (= 0 column-shift))
+      (error "Invalid direction: %S" direction))
+    ;; Initialize `org-table-current-ncol' and `org-table-dlines'.
+    (org-table-analyze)
+    (let* ((row (org-table-current-line))
+	   (column (org-table-current-column))
+	   (target-row (+ row row-shift))
+	   (target-column (+ column column-shift))
+	   (org-table-current-nrow (1- (length org-table-dlines))))
+      (when (or (< target-column 1)
+		(< target-row 1)
+		(> target-column org-table-current-ncol)
+		(> target-row org-table-current-nrow))
+	(user-error "Cannot move cell further"))
+      (org-table--swap-cells row column target-row target-column)
+      (org-table-goto-line target-row)
+      (org-table-goto-column target-column))))
+
+;;;###autoload
+(defun org-table-move-cell-up ()
+  "Move a single cell up in a table.
+Swap with anything in target cell."
+  (interactive)
+  (unless (org-table-check-inside-data-field)
+    (error "No table at point"))
+  (org-table--move-cell 'up)
+  (org-table-align))
+
+;;;###autoload
+(defun org-table-move-cell-down ()
+  "Move a single cell down in a table.
+Swap with anything in target cell."
+  (interactive)
+  (unless (org-table-check-inside-data-field)
+    (error "No table at point"))
+  (org-table--move-cell 'down)
+  (org-table-align))
+
+;;;###autoload
+(defun org-table-move-cell-left ()
+  "Move a single cell left in a table.
+Swap with anything in target cell."
+  (interactive)
+  (unless (org-table-check-inside-data-field)
+    (error "No table at point"))
+  (org-table--move-cell 'left)
+  (org-table-align))
+
+;;;###autoload
+(defun org-table-move-cell-right ()
+  "Move a single cell right in a table.
+Swap with anything in target cell."
+  (interactive)
+  (unless (org-table-check-inside-data-field)
+    (error "No table at point"))
+  (org-table--move-cell 'right)
+  (org-table-align))
 
 ;;;###autoload
 (defun org-table-delete-column ()
@@ -1835,8 +1901,9 @@ If there is no active region, use just the field at point."
 ;;;###autoload
 (defun org-table-copy-region (beg end &optional cut)
   "Copy rectangular region in table to clipboard.
-A special clipboard is used which can only be accessed
-with `org-table-paste-rectangle'."
+A special clipboard is used which can only be accessed with
+`org-table-paste-rectangle'.  Return the region copied, as a list
+of lists of fields."
   (interactive (list
 		(if (org-region-active-p) (region-beginning) (point))
 		(if (org-region-active-p) (region-end) (point))
@@ -1865,6 +1932,8 @@ with `org-table-paste-rectangle'."
 	(forward-line))
       (set-marker end nil))
     (when cut (org-table-align))
+    (message (substitute-command-keys "Cells in the region copied, use \
+\\[org-table-paste-rectangle] to paste them in a table."))
     (setq org-table-clip (nreverse region))))
 
 ;;;###autoload
@@ -2281,34 +2350,31 @@ When NAMED is non-nil, look for a named equation."
 	 (eq (cond
 	      ((and stored equation (string-match-p "^ *=? *$" equation))
 	       stored)
-	      ((stringp equation)
-	       equation)
-	      (t (org-table-formula-from-user
-		  (read-string
-		   (org-table-formula-to-user
-		    (format "%s formula %s="
-			    (if named "Field" "Column")
-			    scol))
-		   (if stored (org-table-formula-to-user stored) "")
-		   'org-table-formula-history
-		   )))))
+	      ((stringp equation) equation)
+	      (t
+	       (org-table-formula-from-user
+		(read-string
+		 (org-table-formula-to-user
+		  (format "%s formula %s=" (if named "Field" "Column") scol))
+		 (if stored (org-table-formula-to-user stored) "")
+		 'org-table-formula-history)))))
 	 mustsave)
-    (when (not (string-match "\\S-" eq))
-      ;; remove formula
+    (unless (org-string-nw-p eq)
+      ;; Remove formula.
       (setq stored-list (delq (assoc scol stored-list) stored-list))
       (org-table-store-formulas stored-list)
       (user-error "Formula removed"))
-    (if (string-match "^ *=?" eq) (setq eq (replace-match "" t t eq)))
-    (if (string-match " *$" eq) (setq eq (replace-match "" t t eq)))
-    (if (and name (not named))
-	;; We set the column equation, delete the named one.
-	(setq stored-list (delq (assoc name stored-list) stored-list)
-	      mustsave t))
+    (when (string-match "^ *=?" eq) (setq eq (replace-match "" t t eq)))
+    (when (string-match " *$" eq) (setq eq (replace-match "" t t eq)))
+    (when (and name (not named))
+      ;; We set the column equation, delete the named one.
+      (setq stored-list (delq (assoc name stored-list) stored-list)
+	    mustsave t))
     (if stored
 	(setcdr (assoc scol stored-list) eq)
       (setq stored-list (cons (cons scol eq) stored-list)))
-    (if (or mustsave (not (equal stored eq)))
-	(org-table-store-formulas stored-list))
+    (when (or mustsave (not (equal stored eq)))
+      (org-table-store-formulas stored-list))
     eq))
 
 (defun org-table-store-formulas (alist &optional location)
@@ -2376,7 +2442,7 @@ LOCATION is a buffer position, consider the formulas there."
 	      eq-alist seen)
 	  (dolist (string strings (nreverse eq-alist))
 	    (when (string-match "\\`\\(@[-+I<>0-9.$@]+\\|\\$\\([_a-zA-Z0-9]+\\|\
-[<>]+\\)\\) *= *\\(.*[^ \t]\\)"
+\[<>]+\\)\\) *= *\\(.*[^ \t]\\)"
 				string)
 	      (let ((lhs
 		     (let ((m (match-string 1 string)))
@@ -3937,13 +4003,17 @@ Return a list of overlays hiding the field, or nil if field is
 already hidden."
   (cond
    ((org-table--shrunk-field) nil)	;already shrunk: bail out
-   ((eq contents 'hline)		;no contents to hide
-    (list (org-table--make-shrinking-overlay
-	   (+ start width 1) end org-table-shrunk-column-indicator contents)))
    ((or (= 0 width)			;shrink to one character
 	(>= 1 (org-string-width (buffer-substring start end))))
     (list (org-table--make-shrinking-overlay
-	   start end org-table-shrunk-column-indicator contents)))
+	   start end org-table-shrunk-column-indicator
+	   (if (eq 'hline contents) "" contents))))
+   ((eq contents 'hline)		;no contents to hide
+    (list (org-table--make-shrinking-overlay
+	   start end
+	   (concat (make-string (max 0 (1+ width)) ?-)
+		   org-table-shrunk-column-indicator)
+	   "")))
    (t
     ;; If the field is not empty, consider using two overlays: one for
     ;; the blanks at the beginning of the field, and another one at

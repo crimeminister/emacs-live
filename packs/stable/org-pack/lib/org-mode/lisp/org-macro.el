@@ -1,6 +1,6 @@
 ;;; org-macro.el --- Macro Replacement Code for Org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou@gmail.com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -58,14 +58,17 @@
 (declare-function org-element-property "org-element" (property element))
 (declare-function org-element-restriction "org-element" (element))
 (declare-function org-element-type "org-element" (element))
+(declare-function org-entry-get "org" (pom property &optional inherit literal-nil))
 (declare-function org-file-contents "org" (file &optional noerror nocache))
 (declare-function org-file-url-p "org" (file))
 (declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
+(declare-function org-link-search "org" (s &optional avoid-pos stealth))
 (declare-function org-mode "org" ())
-(declare-function org-trim "org" (s &optional keep-lead))
 (declare-function vc-backend "vc-hooks" (f))
 (declare-function vc-call "vc-hooks" (fun file &rest args) t)
 (declare-function vc-exec-after "vc-dispatcher" (code))
+
+(defvar org-link-search-must-match-exact-headline)
 
 ;;; Variables
 
@@ -107,7 +110,7 @@ Return an alist containing all macro templates found."
 				 (if old-cell (setcdr old-cell template)
 				   (push (cons name template) templates))))
 			   ;; Enter setup file.
-			   (let* ((uri (org-unbracket-string "\"" "\"" (org-trim val)))
+			   (let* ((uri (org-strip-quotes (org-trim val)))
 				  (uri-is-url (org-file-url-p uri))
 				  (uri (if uri-is-url
 					   uri
@@ -128,11 +131,14 @@ Return an alist containing all macro templates found."
 
 (defun org-macro-initialize-templates ()
   "Collect macro templates defined in current buffer.
+
 Templates are stored in buffer-local variable
-`org-macro-templates'.  In addition to buffer-defined macros, the
-function installs the following ones: \"property\",
-\"time\". and, if the buffer is associated to a file,
-\"input-file\" and \"modification-time\"."
+`org-macro-templates'.
+
+In addition to buffer-defined macros, the function installs the
+following ones: \"n\", \"author\", \"email\", \"keyword\",
+\"time\", \"property\", and, if the buffer is associated to
+a file, \"input-file\" and \"modification-time\"."
   (org-macro--counter-initialize)	;for "n" macro
   (setq org-macro-templates
 	(nconc
@@ -159,19 +165,9 @@ function installs the following ones: \"property\",
 	  `("author" . ,(org-macro--find-keyword-value "AUTHOR"))
 	  `("email" . ,(org-macro--find-keyword-value "EMAIL"))
 	  '("keyword" . "(eval (org-macro--find-keyword-value $1))")
-	  '("results" . "$1")
 	  '("time" . "(eval (format-time-string $1))")
 	  `("title" . ,(org-macro--find-keyword-value "TITLE"))
-	  '("property" . "(eval
- (save-excursion
-   (let ((l $2))
-     (when (org-string-nw-p l)
-       (condition-case _
-           (let ((org-link-search-must-match-exact-headline t))
-             (org-link-search l nil t))
-         (error
-          (error \"Macro property failed: cannot find location %s\" l)))))
-   (org-entry-get nil $1 'selective)))")
+	  '("property" . "(eval (org-macro--get-property $1 $2))")
 	  `("date" .
 	    ,(let* ((value (org-macro--find-keyword-value "DATE"))
 		    (date (org-element-parse-secondary-string
@@ -247,7 +243,8 @@ a definition in TEMPLATES."
 		     (goto-char (match-beginning 0))
 		     (org-element-macro-parser))))))
 	   (when macro
-	     (let* ((value (org-macro-expand macro templates))
+	     (let* ((key (org-element-property :key macro))
+		    (value (org-macro-expand macro templates))
 		    (begin (org-element-property :begin macro))
 		    (signature (list begin
 				     macro
@@ -256,8 +253,7 @@ a definition in TEMPLATES."
 	       ;; macro with the same arguments is expanded at the
 	       ;; same position twice.
 	       (cond ((member signature record)
-		      (error "Circular macro expansion: %s"
-			     (org-element-property :key macro)))
+		      (error "Circular macro expansion: %s" key))
 		     (value
 		      (push signature record)
 		      (delete-region
@@ -269,6 +265,10 @@ a definition in TEMPLATES."
 		      ;; Leave point before replacement in case of
 		      ;; recursive expansions.
 		      (save-excursion (insert value)))
+		     ;; Special "results" macro: if it is not defined,
+		     ;; simply leave it as-is.  It will be expanded in
+		     ;; a second phase.
+		     ((equal key "results"))
 		     (t
 		      (error "Undefined Org macro: %s; aborting"
 			     (org-element-property :key macro))))))))))))
@@ -316,6 +316,19 @@ Return a list of arguments, as strings.  This is the opposite of
 
 
 ;;; Helper functions and variables for internal macros
+
+(defun org-macro--get-property (property location)
+  "Find PROPERTY's value at LOCATION.
+PROPERTY is a string.  LOCATION is a search string, as expected
+by `org-link-search', or the empty string."
+  (save-excursion
+    (when (org-string-nw-p location)
+      (condition-case _
+	  (let ((org-link-search-must-match-exact-headline t))
+	    (org-link-search location nil t))
+        (error
+	 (error "Macro property failed: cannot find location %s" location))))
+    (org-entry-get nil property 'selective)))
 
 (defun org-macro--find-keyword-value (name)
   "Find value for keyword NAME in current buffer.

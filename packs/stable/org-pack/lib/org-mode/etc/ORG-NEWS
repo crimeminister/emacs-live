@@ -10,12 +10,157 @@ See the end of the file for license conditions.
 
 Please send Org bug reports to mailto:emacs-orgmode@gnu.org.
 
+* Version 9.3
+
+** Incompatible changes
+*** Change in behavior on exit from an Org edit buffer
+Org will no longer attempt to restore the window configuration in the
+frame to which the user returns after editing a source block with
+~org-edit-src-code~.  Instead, the window configuration will remain as
+it is.
+*** Change default value for ~org-email-link-description-format~
+
+When linking from a mail buffer, Org used to truncate the subject of
+the message to 30 characters in order to build the description of the
+link.  This behavior was considered as too surprising.  As
+a consequence, Org no longer truncates subjects.
+
+You can get the old behaviour back with the following:
+
+: (setq org-email-link-description-format "Email %c: %.30s")
+
+*** ~:file~ header argument no longer assume "file" ~:results~
+
+The "file" ~:results~ value is now mandatory for a code block
+returning a link to a file.  The ~:file~ or ~:file-ext~ header
+arguments no longer imply a "file" result is expected.
+
+*** Plain numbers are hours in Column View mode
+
+See [[git:3367ac9457]] for details.
+
+*** All LaTeX preview backends use now xcolor
+
+The dvipng backend was previously relying on fg and bg parameters to
+be passed to the CLI. This didn't work when xcolor was directly or
+indirectly used in the document (e.g. tkiz is a user of xcolor). Since
+every other backend was already using xcolor to set fg and bg, the CLI
+alternative was removed and there is no more a :use-xcolor options
+since now it's implicitly always true.
+
+** New features
+*** Add a dispatcher command to insert dynamic blocks
+
+You can add dynamic block into ~org-dynamic-block-alist~ with function
+~org-dynamic-block-define~.  All dynamic blocks in
+~org-dynamic-block-define~ can be used by
+~org-dynamic-block-insert-dblock~ command.
+
+*** Babel
+**** Add LaTeX output support in PlantUML
+*** New minor mode to display headline numbering
+
+Use =<M-x org-num-mode>= to get a visual indication of the numbering
+in the outline.  The numbering is also automatically updated upon
+changes in the buffer.
+
+*** New property =HTML_HEADLINE_CLASS= in HTML export
+The new property =HTML_HEADLINE_CLASS= assigns a class attribute to
+a headline.
+*** Allow LaTeX attributes and captions for "table.el" tables
+Supported LaTeX attributes are ~:float~, ~:center~, ~:font~ and
+~:caption~.
+*** Attach buffer contents to headline
+With =<b>= key from attachment dispatcher (=<C-c C-a>=), it is now
+possible to write the contents of a buffer to a file in the headline
+attachement directory.
+*** iCalendar export respects a =CLASS= property
+
+Set the =CLASS= property on an entry to specify a visibility class for
+that entry only during iCalendar export. The property can be set to
+anything the calendar server supports. The iCalendar standard defines
+the values =PUBLIC=, =CONFIDENTIAL=, =PRIVATE=, which can be
+interpreted as publicly visable, accessible to a specific group, and
+private respectively.
+
+This property can be inherited during iCalendar export, depending on
+the value of ~org-use-property-inheritance~.
+
+*** New parameter for =INCLUDE= keyword
+Add =:coding CODING-SYSTEM= to include files using a different coding
+system than the main Org document.  For example:
+
+#+begin_example
+,#+INCLUDE: "myfile.cmd" src cmd :coding cp850-dos
+#+end_example
+
+*** New values in clock tables' step: =month= and =year=
+*** ODT export handles numbers cookies in lists
+*** New cell movement functions in tables
+~S-<UP>~, ~S-<DOWN>~, ~S-<RIGHT>~, and ~S-<LEFT>~ now move cells in
+the corresponding direction by swapping with the adjacent cell.
+*** New option to natively fontify LaTeX snippets and environments
+A 'native option was added to org-highlight-latex-and-related. It
+matches the same structures than 'latex but it calls
+org-src-font-lock-fontify-block instead, thus bringing about full
+LaTeX font locking.
+
+** New functions
+*** ~org-dynamic-block-insert-dblock~
+
+Use default keybinding =<C-c C-x x>= to run command
+~org-dynamic-block-insert-dblock~.  It will prompt user to select
+dynamic block in ~org-dynamic-block-alist~.
+
+*** ~org-table-cell-up~
+*** ~org-table-cell-down~
+*** ~org-table-cell-left~
+*** ~org-table-cell-right~
+** Removed functions
+*** ~org-babel-set-current-result-hash~
+
+It was unused throughout the code base.
+
+** Miscellaneous
+*** Org Table reads numbers starting with 0 as strings
+*** Disable fast tag selection interface via prefix arg
+
+A call of ~org-set-tags-command~ with prefix argument C-u C-u avoids
+the fast tag selection interface and instead offers the plain
+interface.
+
 * Version 9.2
 ** Incompatible changes
 *** Removal of OrgStruct mode mode and radio lists
 
 OrgStruct minor mode and radio lists mechanism (~org-list-send-list~
 and ~org-list-radio-lists-templates~) are removed from the code base.
+
+Note that only radio /lists/ have been removed, not radio tables.
+
+If you want to manipulate lists like in Org in other modes, we suggest
+to use orgalist.el, which you can install from GNU ELPA.
+
+If you want to use Org folding outside of Org buffers, you can have a
+look at the outshine package in the MELPA repository.
+
+*** Change in the structure template expansion
+
+Org 9.2 comes with a new template expansion mechanism, combining
+~org-insert-structure-template~ bound to ~C-c C-,~.
+
+If you customized the ~org-structure-template-alist~ option manually,
+you probably need to udpate it, see the docstring for accepted values.
+
+If you prefer using previous patterns, e.g. =<s=, you can activate
+them again by requiring Org Tempo library:
+
+: (require 'org-tempo)
+
+or add it to ~org-modules~.
+
+If you need complex templates, look at the ~tempo-define-template~
+function or at solutions like Yasnippet.
 
 *** Change to Noweb expansion
 
@@ -57,19 +202,31 @@ should become
   ,#+END_SRC
 #+END_SRC
 
-*** Change ~org-calendar-to-agenda-key~ value
+*** Default/accepted values of ~org-calendar-to-agenda-key~
 
-Default value and accepted value types changed.  See [[doc:org-calendar-to-agenda-key][docstring]] for
-details.
+The default value and accepted value of  ~org-calendar-to-agenda-key~
+changed.  This is an excerpt of the new docstring:
 
-*** Change ~org-structure-template-alist~ value
+: When set to ‘default’, bind the function to ‘c’, but only if it is
+: available in the Calendar keymap.  This is the default choice because
+: ‘c’ can then be used to switch back and forth between agenda and calendar.
+:
+: When nil, ‘org-calendar-goto-agenda’ is not bound to any key.
 
-With the new template expansion mechanism (see
-[[*~org-insert-structure-template~]] and =org-tempo.el=), the variable
-changed its data type.  See docstring for details.
+Check the full docstring for more.
 
-*** Change ~org-set-effort~ signature
-See docstring for details.
+*** Change the signature of the ~org-set-effort~ function
+
+Here is the new docstring:
+
+: (org-set-effort &optional INCREMENT VALUE)
+:
+: Set the effort property of the current entry.
+: If INCREMENT is non-nil, set the property to the next allowed
+: value.  Otherwise, if optional argument VALUE is provided, use
+: it.  Eventually, prompt for the new value if none of the previous
+: variables is set.
+
 *** Placeholders in =(eval ...)= macros are always strings
 
 Within =(eval ...)= macros, =$1=-like placeholders are always replaced
@@ -106,13 +263,43 @@ document, use =shrink= value instead, or in addition to align:
 ,#+STARTUP: align shrink
 #+END_EXAMPLE
 
+*** ~org-get-tags~ meaning change
+
+Function ~org-get-tags~ used to return local tags to the current
+headline.  It now returns all the inherited tags in addition to the
+local tags.  In order to get the old behaviour back, you can use:
+
+: (org-get-tags nil t)
+
 *** Alphabetic sorting in tables and lists
 
 When sorting alphabetically, ~org-table-sort-lines~ and ~org-sort-list~
 now sort according to the locale’s collation rules instead of by
 code-point.
 
+*** Change the name of the :tags clocktable option to :match
+
+The =:match= (renamed from =:tags=) option allows to limit clock entries
+to those matching a todo-tags matcher.
+
+The old =:tags= option can be set to =t= to display a headline's tags in a
+dedicated column.
+
+This is consistent with the naming of =org-dblock-write:columnview=
+options, where =:match= is also used as a headlines filter.
+
 ** New features
+*** Add ~:session~ support of ob-clojure for CIDER
+You can initialize source block session with Babel default keybinding
+=[C-c C-v C-z]= to use =sesman= session manager to link current
+project, directory or buffer with specific Clojure session, or
+=cider-jack-in= a new CIDER REPL if no CIDER REPLs available. In older
+CIDER version which has not =sesman= integrated, only has
+=cider-jack-in= without Clojure project is supported.
+#+begin_src clojure :session
+(dissoc Clojure 'JVM)
+(conj clojurists "stardiviner")
+#+end_src
 *** Add ~:results link~ support for Babel
 
 With this output format, create a link to the file specified in
@@ -225,6 +412,11 @@ you should expect to see something like:
 #+BEGIN_EXAMPLE
   ,#+STARTUP: shrink
 #+END_EXAMPLE
+*** Allow to filter by tags/property when capturing colview
+
+You can now use =:match= to filter entries using a todo/tags/properties
+matcher.
+
 *** Add support for Oracle's database alias in Babel blocks
 =ob-sql= library already support running SQL blocks against an Oracle
 database using ~sqlplus~.  Now it's possible to use alias names
@@ -243,7 +435,20 @@ parameters.  See example bellow.
   ,#+END_SRC
 #+END_SRC
 
-** New functions
+*** ~org-agenda-set-restriction-lock~ toggle agenda restriction at point
+
+You can set an agenda restriction lock with =C-x C-x <= or with =<= at the
+beginning of a headline when using Org speed commands.  Now, if there
+is already a restriction at point, hitting =<= again (or =C-x C-x <=) will
+remove it.
+
+*** Headlines can now link to themselves in HTML export
+
+When enabling ~org-html-self-link-headlines~ the headlines exported to
+HTML contain a hyperlink to themselves.
+
+** New commands and functions
+
 *** ~org-insert-structure-template~
 
 This function can be used to wrap existing text of Org elements in
@@ -260,7 +465,29 @@ See docstring for details.
 
 See docstring for details.
 
-** Removed functions
+*** ~org-toggle-narrow-to-subtree~
+
+Toggle the narrowing state of the buffer: when in a narrowed state,
+widen, otherwise call ~org-narrow-to-subtree~ to narrow.
+
+This is attached to the "s" speed command, so that hitting "s" twice
+will go back to the widen state.
+
+*** ~org-browse-news~
+
+Browse https://orgmode.org/Changes.html to let users read informations
+about the last major release.
+
+There is a new menu entry for this in the "Documentation" menu item.
+
+*** ~org-info-find-node~
+
+From an Org file or an agenda switch to a suitable info page depending
+on the context.
+
+The function is bound to =C-c C-x I=.
+
+** Removed commands and functions
 *** ~org-outline-overlay-data~
 Use ~org-save-outline-visibility~ instead.
 *** ~org-set-outline-overlay-data~
@@ -271,11 +498,15 @@ It was not used throughout the code base.
 It was not used throughout code base.
 *** ~org-context-p~
 Use ~org-element-at-point~ instead.
+*** ~org-preserve-lc~
+It is no longer used in the code base.
 *** ~org-try-structure-completion~
 Org Tempo may be used as a replacement.  See details above.
-** Removed variables
+** Removed options
 
 *** org-babel-use-quick-and-dirty-noweb-expansion
+
+See [[*Change to Noweb expansion][Change to Noweb expansion]] for explanations.
 
 ** Miscellaneous
 
@@ -324,6 +555,7 @@ Set option ~org-src-window-setup~ to ~split-window-below~.
 When sorting alphabetically, ~org-sort-entries~ and
 ~org-tags-sort-function~ now sort according to the locale’s collation
 rules instead of by code-point.
+*** New speed command "k" to kill (cut) the subtree at point
 * Version 9.1
 
 ** Incompatible changes
@@ -519,7 +751,7 @@ value of the code will be displayed in the results section.
 
 **** Maxima: new headers ~:prologue~ and ~:epilogue~
 Babel options ~:prologue~ and ~:epilogue~ have been implemented for
-Maxima src blocks which prepend and append, respectively, the given
+Maxima source blocks which prepend and append, respectively, the given
 code strings.  This can be useful for specifying formatting settings
 which would add clutter to exported code.  For instance, you can use
 this ~:prologue "fpprintprec: 2; linel: 50;"~ for presenting Maxima
@@ -801,7 +1033,7 @@ is now obsolete.
 Now ~=...=~ markup uses ~@samp{}~ instead of ~@verb{}~.  You can use
 ~@verb{}~ again by customizing the variable.
 *** Texinfo exports example blocks as ~@example~
-*** Texinfo exports inline src blocks as ~@code{}~
+*** Texinfo exports inline source blocks as ~@code{}~
 *** Texinfo default table markup is ~@asis~
 It used to be ~@samp~ but ~@asis~ is neutral and, therefore, more
 suitable as a default value.
@@ -1618,9 +1850,9 @@ docstring for more information.
 
 ** New features
 
-*** Default lexical evaluation of emacs-lisp src blocks
+*** Default lexical evaluation of emacs-lisp source blocks
 
-Emacs-lisp src blocks in babel are now evaluated using lexical
+Emacs-lisp source blocks in Babel are now evaluated using lexical
 scoping.  There is a new header to control this behavior.
 
 The default results in an eval with lexical scoping.

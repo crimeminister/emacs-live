@@ -22,6 +22,8 @@
 
 ;;; Code:
 
+(eval-and-compile (require 'cl-lib))
+
 
 ;;; Comments
 
@@ -1637,6 +1639,74 @@
 	    (org-toggle-fixed-width)
 	    (buffer-string)))))
 
+(ert-deftest test-org/kill-line ()
+  "Test `org-kill-line' specifications."
+  ;; At the beginning of a line, kill whole line.
+  (should
+   (equal ""
+	  (org-test-with-temp-text "abc"
+	    (org-kill-line)
+	    (buffer-string))))
+  ;; In the middle of a line, kill line until its end.
+  (should
+   (equal "a"
+	  (org-test-with-temp-text "a<point>bc"
+	    (org-kill-line)
+	    (buffer-string))))
+  ;; Do not kill newline character.
+  (should
+   (equal "\n123"
+	  (org-test-with-temp-text "abc\n123"
+	    (org-kill-line)
+	    (buffer-string))))
+  (should
+   (equal "a\n123"
+	  (org-test-with-temp-text "a<point>bc\n123"
+	    (org-kill-line)
+	    (buffer-string))))
+  ;; When `org-special-ctrl-k' is non-nil and point is at a headline,
+  ;; kill until tags.
+  (should
+   (equal "* A :tag:"
+	  (org-test-with-temp-text "* A<point>B :tag:"
+	    (let ((org-special-ctrl-k t)
+		  (org-tags-column 0))
+	      (org-kill-line))
+	    (buffer-string))))
+  ;; If point is on tags, only kill part left until the end of line.
+  (should
+   (equal "* A :tag:"
+	  (org-test-with-temp-text "* A :tag:<point>tag2:"
+	    (let ((org-special-ctrl-k t)
+		  (org-tags-column 0))
+	      (org-kill-line))
+	    (buffer-string))))
+  ;; However, if point is at the beginning of the line, kill whole
+  ;; headline.
+  (should
+   (equal ""
+	  (org-test-with-temp-text "* AB :tag:"
+	    (let ((org-special-ctrl-k t)
+		  (org-tags-column 0))
+	      (org-kill-line))
+	    (buffer-string))))
+  ;; When `org-ctrl-k-protect-subtree' is non-nil, and point is in
+  ;; invisible text, ask before removing it.  When set to `error',
+  ;; throw an error.
+  (should-error
+   (org-test-with-temp-text "* H\n** <point>H2\nContents\n* H3"
+     (org-overview)
+     (let ((org-special-ctrl-k nil)
+	   (org-ctrl-k-protect-subtree t))
+       (cl-letf (((symbol-function 'y-or-n-p) 'ignore))
+	 (org-kill-line)))))
+  (should-error
+   (org-test-with-temp-text "* H\n** <point>H2\nContents\n* H3"
+     (org-overview)
+     (let ((org-special-ctrl-k nil)
+	   (org-ctrl-k-protect-subtree 'error))
+       (org-kill-line)))))
+
 
 
 ;;; Headline
@@ -2266,6 +2336,12 @@ SCHEDULED: <2014-03-04 tue.>"
   (should
    (org-test-with-temp-text
        "* H1\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n* H2\n[[#custom<point>]]"
+     (org-open-at-point)
+     (looking-at-p "\\* H1")))
+  ;; Handle escape characters.
+  (should
+   (org-test-with-temp-text
+       "* H1\n:PROPERTIES:\n:CUSTOM_ID: [%]\n:END:\n* H2\n[[#%5B%25%5D<point>]]"
      (org-open-at-point)
      (looking-at-p "\\* H1")))
   ;; Throw an error on false positives.
@@ -3965,7 +4041,7 @@ Text.
   ;; Pathological case: handle call with point in blank lines right
   ;; after a headline.
   (should
-   (equal "* H2\n* H1\nText\n\n"
+   (equal "* H2\n\n* H1\nText\n"
 	  (org-test-with-temp-text "* H1\nText\n* H2\n\n<point>"
 	    (org-drag-element-backward)
 	    (buffer-string)))))
@@ -4058,18 +4134,19 @@ Text.
        (org-next-block 1 nil "^[ \t]*#\\+BEGIN_QUOTE")
        (looking-at "#\\+begin_quote")))))
 
-(ert-deftest test-org/insert-template ()
+(ert-deftest test-org/insert-structure-template ()
   "Test `org-insert-structure-template'."
   ;; Test in empty buffer.
   (should
-   (string= "#+begin_foo\n\n#+end_foo\n"
+   (string= "#+begin_foo\n#+end_foo\n"
 	    (org-test-with-temp-text ""
 	      (org-insert-structure-template "foo")
 	      (buffer-string))))
   ;; Test with multiple lines in buffer.
   (should
-   (string= "#+begin_foo\nI'm a paragraph\n#+end_foo\nI'm a second paragraph"
+   (string= "#+begin_foo\nI'm a paragraph\n#+end_foo\n\nI'm a second paragraph"
 	    (org-test-with-temp-text "I'm a paragraph\n\nI'm a second paragraph"
+	      (transient-mark-mode 1)
 	      (org-mark-element)
 	      (org-insert-structure-template "foo")
 	      (buffer-string))))
@@ -4077,12 +4154,12 @@ Text.
   (should
    (string= "#+begin_foo\nI'm a paragraph\n#+end_foo\n\nI'm a second paragraph"
 	    (org-test-with-temp-text "I'm a paragraph\n\nI'm a second paragraph"
+	      (transient-mark-mode 1)
 	      (set-mark (point-min))
 	      (end-of-line)
-	      (activate-mark)
 	      (org-insert-structure-template "foo")
 	      (buffer-string))))
-  ;; Middle of paragraph
+  ;; Middle of paragraph.
   (should
    (string= "p1\n#+begin_foo\np2\n#+end_foo\np3"
 	    (org-test-with-temp-text "p1\n<point>p2\np3"
@@ -4120,17 +4197,23 @@ Text.
 	      (org-mark-element)
 	      (org-insert-structure-template "foo")
 	      (buffer-string))))
+  (should
+   (string= " #+begin_foo\n Line 1\n  Line2\n #+end_foo\n"
+	    (org-test-with-temp-text " Line 1\n  Line2"
+	      (org-mark-element)
+	      (org-insert-structure-template "foo")
+	      (buffer-string))))
   ;; Test point location.
   (should
-   (eq (length "#\\+begin_foo\n")
-       (org-test-with-temp-text ""
-	 (org-insert-structure-template "foo")
-	 (point))))
+   (string= "#+begin_foo\n"
+	    (org-test-with-temp-text ""
+	      (org-insert-structure-template "foo")
+	      (buffer-substring (point-min) (point)))))
   (should
-   (eq (length "#\\+begin_src ")
-       (org-test-with-temp-text ""
-	 (org-insert-structure-template "src")
-	 (point)))))
+   (string= "#+begin_src "
+	    (org-test-with-temp-text ""
+	      (org-insert-structure-template "src")
+	      (buffer-substring (point-min) (point))))))
 
 (ert-deftest test-org/previous-block ()
   "Test `org-previous-block' specifications."
@@ -6031,96 +6114,428 @@ Paragraph<point>"
 	    (let ((org-tags-column 0))
 	      (org-fix-tags-on-the-fly)
 	      (insert "x")
-	      (buffer-string))))))
+	      (buffer-string)))))
+  ;; Aligning tags preserve position.
+  (should
+   (= 6 (org-test-with-temp-text "* 345 <point> :tag:"
+	  (let ((org-tags-column 78)
+		(indent-tabs-mode nil))
+	    (org-fix-tags-on-the-fly))
+	  (current-column))))
+  ;; Aligning all tags in visible buffer.
+  (should
+   ;;              12345678901234567890
+   (equal (concat "* Level 1      :abc:\n"
+                  "** Level 2     :def:")
+          (org-test-with-temp-text (concat "* Level 1 :abc:\n"
+                                           "** Level 2 :def:")
+            (let ((org-tags-column -20)
+                  (indent-tabs-mode nil))
+              ;; (org-align-tags :all) must work even when the point
+              ;; is at the end of the buffer.
+              (goto-char (point-max))
+              (org-align-tags :all))
+            (buffer-string)))))
 
-(ert-deftest test-org/tags-at ()
+(ert-deftest test-org/get-tags ()
+  "Test `org-get-tags' specifications."
+  ;; Standard test.
+  (should
+   (equal '("foo")
+	  (org-test-with-temp-text "* Test :foo:" (org-get-tags))))
   (should
    (equal '("foo" "bar")
-	  (org-test-with-temp-text
-	   "* T<point>est :foo:bar:"
-	   (org-get-tags-at)))))
+	  (org-test-with-temp-text "* Test :foo:bar:" (org-get-tags))))
+  ;; Return nil when there is no tag.
+  (should-not
+   (org-test-with-temp-text "* Test" (org-get-tags)))
+  ;; Tags are inherited from parent headlines.
+  (should
+   (equal '("tag")
+	  (let ((org-use-tag-inheritance t))
+	    (org-test-with-temp-text "* H0 :foo:\n* H1 :tag:\n<point>** H2"
+	      (org-get-tags)))))
+  ;; Tags are inherited from `org-file-tags'.
+  (should
+   (equal '("tag")
+	  (org-test-with-temp-text "* H1"
+	    (let ((org-file-tags '("tag"))
+		  (org-use-tag-inheritance t))
+	      (org-get-tags)))))
+  ;; Only inherited tags have the `inherited' text property.
+  (should
+   (get-text-property 0 'inherited
+		      (org-test-with-temp-text "* H1 :foo:\n** <point>H2 :bar:"
+			(let ((org-use-tag-inheritance t))
+			  (assoc-string "foo" (org-get-tags))))))
+  (should-not
+   (get-text-property 0 'inherited
+		      (org-test-with-temp-text "* H1 :foo:\n** <point>H2 :bar:"
+			(let ((org-use-tag-inheritance t))
+			  (assoc-string "bar" (org-get-tags))))))
+  ;; Obey to `org-use-tag-inheritance'.
+  (should-not
+   (org-test-with-temp-text "* H1 :foo:\n** <point>H2 :bar:"
+     (let ((org-use-tag-inheritance nil))
+       (assoc-string "foo" (org-get-tags)))))
+  (should-not
+   (org-test-with-temp-text "* H1 :foo:\n** <point>H2 :bar:"
+     (let ((org-use-tag-inheritance nil)
+	   (org-file-tags '("foo")))
+       (assoc-string "foo" (org-get-tags)))))
+  (should-not
+   (org-test-with-temp-text "* H1 :foo:bar:\n** <point>H2 :baz:"
+     (let ((org-use-tag-inheritance '("bar")))
+       (assoc-string "foo" (org-get-tags)))))
+  (should
+   (org-test-with-temp-text "* H1 :foo:bar:\n** <point>H2 :baz:"
+     (let ((org-use-tag-inheritance '("bar")))
+       (assoc-string "bar" (org-get-tags)))))
+  (should-not
+   (org-test-with-temp-text "* H1 :foo:bar:\n** <point>H2 :baz:"
+     (let ((org-use-tag-inheritance "b.*"))
+       (assoc-string "foo" (org-get-tags)))))
+  (should
+   (org-test-with-temp-text "* H1 :foo:bar:\n** <point>H2 :baz:"
+     (let ((org-use-tag-inheritance "b.*"))
+       (assoc-string "bar" (org-get-tags)))))
+  ;; When optional argument LOCAL is non-nil, ignore tag inheritance.
+  (should
+   (equal '("baz")
+	  (org-test-with-temp-text "* H1 :foo:bar:\n** <point>H2 :baz:"
+	    (let ((org-use-tag-inheritance t))
+	      (org-get-tags nil t)))))
+  ;; When optional argument POS is non-nil, get tags there instead.
+  (should
+   (equal '("foo")
+	  (org-test-with-temp-text "* H1 :foo:\n* <point>H2 :bar:"
+	    (org-get-tags 1))))
+  ;; Make sure tags excluded from inheritance are returned if local
+  (should
+   (equal '("foo")
+	  (org-test-with-temp-text "* Test :foo:"
+            (let ((org-use-tag-inheritance t)
+                  (org-tags-exclude-from-inheritance '("foo")))
+	      (org-get-tags)))))
+  ;; Pathological case: tagged headline with an empty body.
+  (should (org-test-with-temp-text "* :tag:" (org-get-tags))))
 
 (ert-deftest test-org/set-tags ()
   "Test `org-set-tags' specifications."
-  ;; Tags set via fast-tag-selection should be visible afterwards
-  (should
-   (let ((org-tag-alist '(("NEXT" . ?n)))
-	 (org-fast-tag-selection-single-key t))
-     (cl-letf (((symbol-function 'read-char-exclusive) (lambda () ?n))
-	       ((symbol-function 'window-width) (lambda (&rest args) 100)))
-       (org-test-with-temp-text "<point>* Headline\nAnd its content\n* And another headline\n\nWith some content"
-	 ;; Show only headlines
-	 (org-content)
-	 ;; Set NEXT tag on current entry
-	 (org-set-tags nil nil)
-	 ;; Move point to that NEXT tag
-	 (search-forward "NEXT") (backward-word)
-	 ;; And it should be visible (i.e. no overlays)
-	 (not (overlays-at (point))))))))
-
-(ert-deftest test-org/set-tags-to ()
-  "Test `org-set-tags-to' specifications."
   ;; Throw an error on invalid data.
   (should-error
    (org-test-with-temp-text "* H"
-     (org-set-tags-to 'foo)))
+     (org-set-tags 'foo)))
   ;; `nil', an empty, and a blank string remove all tags.
   (should
    (equal "* H"
 	  (org-test-with-temp-text "* H :tag1:tag2:"
-	    (org-set-tags-to nil)
+	    (org-set-tags nil)
 	    (buffer-string))))
   (should
    (equal "* H"
 	  (org-test-with-temp-text "* H :tag1:tag2:"
-	    (org-set-tags-to "")
+	    (org-set-tags "")
 	    (buffer-string))))
   (should
    (equal "* H"
 	  (org-test-with-temp-text "* H :tag1:tag2:"
-	    (org-set-tags-to " ")
+	    (org-set-tags " ")
 	    (buffer-string))))
   ;; If there's nothing to remove, just bail out.
   (should
    (equal "* H"
 	  (org-test-with-temp-text "* H"
-	    (org-set-tags-to nil)
+	    (org-set-tags nil)
 	    (buffer-string))))
   (should
    (equal "* "
 	  (org-test-with-temp-text "* "
-	    (org-set-tags-to nil)
+	    (org-set-tags nil)
 	    (buffer-string))))
   ;; If DATA is a tag string, set current tags to it, even if it means
   ;; replacing old tags.
   (should
    (equal "* H :tag0:"
 	  (org-test-with-temp-text "* H :tag1:tag2:"
-	    (org-set-tags-to ":tag0:")
+	    (let ((org-tags-column 1)) (org-set-tags ":tag0:"))
 	    (buffer-string))))
   (should
    (equal "* H :tag0:"
 	  (org-test-with-temp-text "* H"
-	    (org-set-tags-to ":tag0:")
+	    (let ((org-tags-column 1)) (org-set-tags ":tag0:"))
 	    (buffer-string))))
   ;; If DATA is a list, set tags to this list, even if it means
   ;; replacing old tags.
   (should
    (equal "* H :tag0:"
 	  (org-test-with-temp-text "* H :tag1:tag2:"
-	    (org-set-tags-to '("tag0"))
+	    (let ((org-tags-column 1)) (org-set-tags '("tag0")))
 	    (buffer-string))))
   (should
    (equal "* H :tag0:"
 	  (org-test-with-temp-text "* H"
-	    (org-set-tags-to '("tag0"))
+	    (let ((org-tags-column 1)) (org-set-tags '("tag0")))
 	    (buffer-string))))
+  ;; When set, apply `org-tags-sort-function'.
+  (should
+   (equal "* H :a:b:"
+	  (org-test-with-temp-text "* H"
+	    (let ((org-tags-column 1)
+		  (org-tags-sort-function #'string<))
+	      (org-set-tags '("b" "a"))
+	      (buffer-string)))))
+  ;; When new tags are identical to the previous ones, still align.
+  (should
+   (equal "* H :foo:"
+	  (org-test-with-temp-text "* H     :foo:"
+	    (let ((org-tags-column 1))
+	      (org-set-tags '("foo"))
+	      (buffer-string)))))
+  ;; When tags have been changed, run `org-after-tags-change-hook'.
+  (should
+   (catch :return
+     (org-test-with-temp-text "* H :foo:"
+       (let ((org-after-tags-change-hook (lambda () (throw :return t))))
+	 (org-set-tags '("bar"))
+	 nil))))
+  (should-not
+   (catch :return
+     (org-test-with-temp-text "* H      :foo:"
+       (let ((org-after-tags-change-hook (lambda () (throw :return t))))
+	 (org-set-tags '("foo"))
+	 nil))))
   ;; Special case: handle empty headlines.
   (should
    (equal "* :tag0:"
 	  (org-test-with-temp-text "* "
-	    (org-set-tags-to '("tag0"))
+	    (let ((org-tags-column 1)) (org-set-tags '("tag0")))
+	    (buffer-string))))
+  ;; Modify buffer only when a tag change happens or alignment is
+  ;; done.
+  (should-not
+   (org-test-with-temp-text "* H :foo:"
+     (set-buffer-modified-p nil)
+     (let ((org-tags-column 1)) (org-set-tags '("foo")))
+     (buffer-modified-p)))
+  (should
+   (org-test-with-temp-text "* H :foo:"
+     (set-buffer-modified-p nil)
+     (let ((org-tags-column 10)) (org-set-tags '("foo")))
+     (buffer-modified-p)))
+  (should
+   (org-test-with-temp-text "* H :foo:"
+     (set-buffer-modified-p nil)
+     (let ((org-tags-column 10)) (org-set-tags '("bar")))
+     (buffer-modified-p)))
+  ;; Pathological case: when setting tags of a folded headline, do not
+  ;; let new tags being sucked into invisibility.
+  (should-not
+   (org-test-with-temp-text "* H1\nContent\n* H2\n\n Other Content"
+     ;; Show only headlines
+     (org-content)
+     ;; Set NEXT tag on current entry
+     (org-set-tags ":NEXT:")
+     ;; Move point to that NEXT tag
+     (search-forward "NEXT") (backward-word)
+     ;; And it should be visible (i.e. no overlays)
+     (overlays-at (point)))))
+
+(ert-deftest test-org/set-tags-command ()
+  "Test `org-set-tags-command' specifications"
+  ;; Set tags at current headline.
+  (should
+   (equal "* H1 :foo:"
+	  (org-test-with-temp-text "* H1"
+	    (cl-letf (((symbol-function 'completing-read)
+		       (lambda (&rest args) ":foo:")))
+	      (let ((org-use-fast-tag-selection nil)
+		    (org-tags-column 1))
+		(org-set-tags-command)))
+	    (buffer-string))))
+  ;; Preserve position when called from the section below.
+  (should
+   (equal "* H1 :foo:\nContents"
+	  (org-test-with-temp-text "* H1\n<point>Contents"
+	    (cl-letf (((symbol-function 'completing-read)
+		       (lambda (&rest args) ":foo:")))
+	      (let ((org-use-fast-tag-selection nil)
+		    (org-tags-column 1))
+		(org-set-tags-command)))
+	    (buffer-string))))
+  (should-not
+   (equal "* H1 :foo:\nContents2"
+	  (org-test-with-temp-text "* H1\n<point>Contents2"
+	    (cl-letf (((symbol-function 'completing-read)
+		       (lambda (&rest args) ":foo:")))
+	      (let ((org-use-fast-tag-selection nil)
+		    (org-tags-column 1))
+		(org-set-tags-command)))
+	    (org-at-heading-p))))
+  ;; Strip all forbidden characters from user-entered tags.
+  (should
+   (equal "* H1 :foo:"
+	  (org-test-with-temp-text "* H1"
+	    (cl-letf (((symbol-function 'completing-read)
+		       (lambda (&rest args) ": foo *:")))
+	      (let ((org-use-fast-tag-selection nil)
+		    (org-tags-column 1))
+		(org-set-tags-command)))
+	    (buffer-string))))
+  ;; When a region is active and
+  ;; `org-loop-over-headlines-in-active-region' is non-nil, insert the
+  ;; same value in all headlines in region.
+  (should
+   (equal "* H1 :foo:\nContents\n* H2 :foo:"
+	  (org-test-with-temp-text "* H1\nContents\n* H2"
+	    (cl-letf (((symbol-function 'completing-read)
+		       (lambda (&rest args) ":foo:")))
+	      (let ((org-use-fast-tag-selection nil)
+		    (org-loop-over-headlines-in-active-region t)
+		    (org-tags-column 1))
+		(transient-mark-mode 1)
+		(push-mark (point) t t)
+		(goto-char (point-max))
+		(org-set-tags-command)))
+	    (buffer-string))))
+  (should
+   (equal "* H1\nContents\n* H2 :foo:"
+	  (org-test-with-temp-text "* H1\nContents\n* H2"
+	    (cl-letf (((symbol-function 'completing-read)
+		       (lambda (&rest args) ":foo:")))
+	      (let ((org-use-fast-tag-selection nil)
+		    (org-loop-over-headlines-in-active-region nil)
+		    (org-tags-column 1))
+		(transient-mark-mode 1)
+		(push-mark (point) t t)
+		(goto-char (point-max))
+		(org-set-tags-command)))
+	    (buffer-string))))
+  ;; With a C-u prefix argument, align all tags in the buffer.
+  (should
+   (equal "* H1 :foo:\n* H2 :bar:"
+	  (org-test-with-temp-text "* H1    :foo:\n* H2    :bar:"
+	    (let ((org-tags-column 1)) (org-set-tags-command '(4)))
 	    (buffer-string)))))
+
+(ert-deftest test-org/toggle-tag ()
+  "Test `org-toggle-tag' specifications."
+  ;; Insert missing tag.
+  (should
+   (equal "* H :tag:"
+	  (org-test-with-temp-text "* H"
+	    (let ((org-tags-column 1)) (org-toggle-tag "tag"))
+	    (buffer-string))))
+  (should
+   (equal "* H :tag1:tag2:"
+	  (org-test-with-temp-text "* H :tag1:"
+	    (let ((org-tags-column 1)) (org-toggle-tag "tag2"))
+	    (buffer-string))))
+  ;; Remove existing tag.
+  (should
+   (equal "* H"
+	  (org-test-with-temp-text "* H :tag:"
+	    (org-toggle-tag "tag")
+	    (buffer-string))))
+  (should
+   (equal "* H :tag1:"
+	  (org-test-with-temp-text "* H :tag1:tag2:"
+	    (let ((org-tags-column 1)) (org-toggle-tag "tag2"))
+	    (buffer-string))))
+  (should
+   (equal "* H :tag2:"
+	  (org-test-with-temp-text "* H :tag1:tag2:"
+	    (let ((org-tags-column 1)) (org-toggle-tag "tag1"))
+	    (buffer-string))))
+  ;; With optional argument ONOFF set to `on', try to insert the tag,
+  ;; even if its already there.
+  (should
+   (equal "* H :tag:"
+	  (org-test-with-temp-text "* H"
+	    (let ((org-tags-column 1)) (org-toggle-tag "tag" 'on))
+	    (buffer-string))))
+  (should
+   (equal "* H :tag:"
+	  (org-test-with-temp-text "* H :tag:"
+	    (let ((org-tags-column 1)) (org-toggle-tag "tag" 'on))
+	    (buffer-string))))
+  ;; With optional argument ONOFF set to `off', try to remove the tag,
+  ;; even if its not there.
+  (should
+   (equal "* H"
+	  (org-test-with-temp-text "* H :tag:"
+	    (org-toggle-tag "tag" 'off)
+	    (buffer-string))))
+  (should
+   (equal "* H :tag:"
+	  (org-test-with-temp-text "* H :tag:"
+	    (let ((org-tags-column 1)) (org-toggle-tag "foo" 'off))
+	    (buffer-string))))
+  ;; Special case: Handle properly tag inheritance.  In particular, do
+  ;; not set inherited tags.
+  (should
+   (equal "* H1 :tag:\n** H2 :tag2:tag:"
+	  (org-test-with-temp-text "* H1 :tag:\n** <point>H2 :tag2:"
+	    (let ((org-use-tag-inheritance t)
+		  (org-tags-column 1))
+	      (org-toggle-tag "tag"))
+	    (buffer-string))))
+  (should
+   (equal "* H1 :tag1:tag2:\n** H2 :foo:"
+	  (org-test-with-temp-text "* H1 :tag1:tag2:\n** <point>H2"
+	    (let ((org-use-tag-inheritance t)
+		  (org-tags-column 1))
+	      (org-toggle-tag "foo"))
+	    (buffer-string)))))
+
+(ert-deftest test-org/tags-expand ()
+  "Test `org-tags-expand' specifications."
+  ;; Expand tag groups as a regexp enclosed withing curly brackets.
+  (should
+   (equal "{\\<[ABC]\\>}"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "A")))))
+  (should
+   (equal "{\\<\\(?:Aa\\|Bb\\|Cc\\)\\>}"
+	  (org-test-with-temp-text "#+TAGS: [ Aa : Bb Cc ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "Aa")))))
+  ;; Preserve operator before the regexp.
+  (should
+   (equal "+{\\<[ABC]\\>}"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "+A")))))
+  (should
+   (equal "-{\\<[ABC]\\>}"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "-A")))))
+  ;; Handle "|" syntax.
+  (should
+   (equal "{\\<[ABC]\\>}|D"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "A|D")))))
+  ;; Handle nested groups.
+  (should
+   (equal "{\\<[A-D]\\>}"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]\n#+TAGS: [ B : D ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "A")))))
+  ;; Expand multiple occurrences of the same group.
+  (should
+   (equal "{\\<[ABC]\\>}|{\\<[ABC]\\>}"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "A|A")))))
+  ;; Preserve regexp matches.
+  (should
+   (equal "{A+}"
+	  (org-test-with-temp-text "#+TAGS: [ A : B C ]"
+	    (org-mode-restart)
+	    (let ((org-tag-alist-for-agenda nil)) (org-tags-expand "{A+}"))))))
 
 
 ;;; TODO keywords
@@ -6212,6 +6627,15 @@ Paragraph<point>"
      (org-test-with-temp-text "* TODO H\n<2012-03-29 Thu +2h>"
        (org-todo "DONE")
        (buffer-string))))
+  ;; Also repeat inactive time stamps with a repeater.
+  (should
+   (string-match-p
+    "\\[2014-03-29 .* \\+2y\\]"
+    (let ((org-todo-keywords '((sequence "TODO" "DONE"))))
+      (org-test-with-temp-text
+	  "* TODO H\n[2012-03-29 Thu. +2y]"
+	(org-todo "DONE")
+	(buffer-string)))))
   ;; Do not repeat commented time stamps.
   (should-not
    (string-prefix-p
@@ -6878,7 +7302,7 @@ CLOCK: [2012-03-29 Thu 10:00]--[2012-03-29 Thu 16:40] =>  6:40"
 	     (let (result (line 0))
 	       (while (not (eobp))
 		 (unless (org-invisible-p2) (push line result))
-		 (incf line)
+		 (cl-incf line)
 		 (forward-line))
 	       (nreverse result))))))
     (should (equal '(0 7) (funcall list-visible-lines 'minimal t)))
@@ -7109,6 +7533,37 @@ Contents
 	  (org-test-with-temp-text "* H<point>"
 	    (org-paste-subtree 3 "* Text")
 	    (buffer-string)))))
+
+(ert-deftest test-org/cut-and-paste-subtree ()
+  "Test `org-cut-subtree' and `org-paste-subtree'."
+  (should
+   (equal
+    "* Two
+two
+* One
+"
+    (org-test-with-temp-text
+     "* One
+<point>* Two
+two
+"
+     (call-interactively #'org-cut-subtree)
+     (goto-char (point-min))
+     (call-interactively #'org-paste-subtree)
+     (buffer-string))))
+  (should
+   (equal
+    "* One
+* Two
+"
+    (org-test-with-temp-text
+     "* One
+<point>* Two
+"
+     (call-interactively #'org-cut-subtree)
+     (backward-char)
+     (call-interactively #'org-paste-subtree)
+     (buffer-string)))))
 
 (provide 'test-org)
 

@@ -40,7 +40,7 @@
 @end macro
 @copying
 
-Copyright @copyright{} 2010--2018 Free Software Foundation
+Copyright @copyright{} 2010--2019 Free Software Foundation
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -646,6 +646,12 @@ Re-align, move to previous field.
 @item @key{RET}
 Re-align the table and move down to next row.  Creates a new row if
 necessary.
+@c
+@item S-@key{up}
+@itemx S-@key{down}
+@itemx S-@key{left}
+@itemx S-@key{right}
+Move a cell up, down, left, and right by swapping with adjacent cell.
 
 @tsubheading{Column and row editing}
 @item M-@key{left}
@@ -2156,11 +2162,11 @@ but not any simpler
 @node Emphasis and monospace, Comment lines, Paragraphs, Structural markup elements
 @subheading Emphasis and monospace
 
-You can make words @b{*bold*}, @i{/italic/}, _underlined_, @code{=code=}
-and @code{~verbatim~}, and, if you must, @samp{+strike-through+}.  Text
-in the code and verbatim string is not processed for Org-mode specific
-syntax, it is exported verbatim.  To insert a horizontal rules, use a line 
-consisting of only dashes, and at least 5 of them.
+You can make words @b{*bold*}, @i{/italic/}, _underlined_, @code{=verbatim=}
+and @code{~code~}, and, if you must, @samp{+strike-through+}.  Text in the
+code and verbatim string is not processed for Org-mode specific syntax, it is
+exported verbatim.  To insert a horizontal rules, use a line consisting of
+only dashes, and at least 5 of them.
 
 @node Comment lines,  , Emphasis and monospace, Structural markup elements
 @subheading Comment lines

@@ -1,6 +1,6 @@
 ;;; org-goto.el --- Fast navigation in an Org buffer  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -23,14 +23,12 @@
 ;;; Code:
 
 (require 'org-macs)
+(require 'org-compat)
 
 (declare-function org-at-heading-p "org" (&optional ignored))
 (declare-function org-beginning-of-line "org" (&optional n))
 (declare-function org-defkey "org" (keymap key def))
-(declare-function org-fit-window-to-buffer "org" (&optional window max-height min-height shrink-only))
-(declare-function org-invisible-p "org" (&optional pos))
 (declare-function org-mark-ring-push "org" (&optional pos buffer))
-(declare-function org-no-popups "org" (&rest body))
 (declare-function org-overview "org" ())
 (declare-function org-refile-check-position "org" (refile-pointer))
 (declare-function org-refile-get-location "org" (&optional prompt default-buffer new-nodes))
@@ -178,7 +176,8 @@ When nil, you can use these keybindings to navigate the buffer:
   (let ((keys (this-command-keys)))
     (when (eq (lookup-key isearch-mode-map keys) 'isearch-printing-char)
       (isearch-mode t)
-      (isearch-process-search-char (string-to-char keys)))))
+      (isearch-process-search-char (string-to-char keys))
+      (org-font-lock-ensure))))
 
 (defun org-goto-ret (&optional _arg)
   "Finish `org-goto' by going to the new location."

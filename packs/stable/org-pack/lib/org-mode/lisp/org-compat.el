@@ -1,6 +1,6 @@
 ;;; org-compat.el --- Compatibility Code for Older Emacsen -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -34,6 +34,8 @@
 
 (declare-function org-agenda-diary-entry "org-agenda")
 (declare-function org-agenda-maybe-redo "org-agenda" ())
+(declare-function org-agenda-remove-restriction-lock "org-agenda" (&optional noupdate))
+(declare-function org-align-tags "org" (&optional all))
 (declare-function org-at-heading-p "org" (&optional ignored))
 (declare-function org-at-table.el-p "org" ())
 (declare-function org-element-at-point "org-element" ())
@@ -42,10 +44,12 @@
 (declare-function org-element-type "org-element" (element))
 (declare-function org-element-property "org-element" (property element))
 (declare-function org-end-of-subtree "org" (&optional invisible-ok to-heading))
-(declare-function org-invisible-p "org" (&optional pos))
+(declare-function org-get-heading "org" (&optional no-tags no-todo no-priority no-comment))
+(declare-function org-get-tags "org" (&optional pos local))
 (declare-function org-link-display-format "org" (s))
 (declare-function org-link-set-parameters "org" (type &rest rest))
 (declare-function org-log-into-drawer "org" ())
+(declare-function org-make-tag-string "org" (tags))
 (declare-function org-reduced-level "org" (l))
 (declare-function org-show-context "org" (&optional key))
 (declare-function org-table-end "org-table" (&optional table-type))
@@ -56,10 +60,30 @@
 (defvar calendar-mode-map)
 (defvar org-complex-heading-regexp)
 (defvar org-agenda-diary-file)
+(defvar org-agenda-overriding-restriction)
+(defvar org-agenda-restriction-lock-overlay)
 (defvar org-table-any-border-regexp)
 (defvar org-table-dataline-regexp)
 (defvar org-table-tab-recognizes-table.el)
 (defvar org-table1-hline-regexp)
+
+
+;;; Emacs < 27.1 compatibility
+
+(unless (fboundp 'pcomplete-uniquify-list)
+  ;; The misspelled variant was made obsolete in Emacs 27.1
+  (defalias 'pcomplete-uniquify-list 'pcomplete-uniqify-list))
+
+
+;;; Emacs < 26.1 compatibility
+
+(if (fboundp 'line-number-display-width)
+    (defalias 'org-line-number-display-width 'line-number-display-width)
+  (defun org-line-number-display-width (&rest _) 0))
+
+(if (fboundp 'buffer-hash)
+    (defalias 'org-buffer-hash 'buffer-hash)
+  (defun org-buffer-hash () (md5 (current-buffer))))
 
 
 ;;; Emacs < 25.1 compatibility
@@ -100,7 +124,7 @@ Case is significant."
 ;;; Obsolete aliases (remove them after the next major release).
 
 ;;;; XEmacs compatibility, now removed.
-(define-obsolete-function-alias 'org-activate-mark 'activate-mark)
+(define-obsolete-function-alias 'org-activate-mark 'activate-mark "Org 9.0")
 (define-obsolete-function-alias 'org-add-hook 'add-hook "Org 9.0")
 (define-obsolete-function-alias 'org-bound-and-true-p 'bound-and-true-p "Org 9.0")
 (define-obsolete-function-alias 'org-decompose-region 'decompose-region "Org 9.0")
@@ -115,6 +139,7 @@ Case is significant."
 (define-obsolete-function-alias 'org-match-string-no-properties 'match-string-no-properties "Org 9.0")
 (define-obsolete-function-alias 'org-propertize 'propertize "Org 9.0")
 (define-obsolete-function-alias 'org-select-frame-set-input-focus 'select-frame-set-input-focus "Org 9.0")
+(define-obsolete-function-alias 'org-file-remote-p 'file-remote-p "Org 9.2")
 
 (defmacro org-re (s)
   "Replace posix classes in regular expression S."
@@ -201,6 +226,15 @@ Counting starts at 1."
   'org-activate-links "Org 9.0")
 (define-obsolete-function-alias 'org-activate-plain-links 'ignore "Org 9.0")
 (define-obsolete-function-alias 'org-activate-angle-links 'ignore "Org 9.0")
+(define-obsolete-function-alias 'org-remove-double-quotes 'org-strip-quotes "Org 9.0")
+(define-obsolete-function-alias 'org-get-indentation
+  'current-indentation "Org 9.2")
+(define-obsolete-function-alias 'org-capture-member 'org-capture-get "Org 9.2")
+(define-obsolete-function-alias 'org-remove-from-invisibility-spec
+  'remove-from-invisibility-spec "Org 9.2")
+
+(define-obsolete-variable-alias 'org-effort-durations 'org-duration-units
+  "Org 9.2")
 
 (defun org-in-fixed-width-region-p ()
   "Non-nil if point in a fixed-width region."
@@ -252,6 +286,7 @@ See `org-link-parameters' for documentation on the other parameters."
 
 (make-obsolete 'org-add-link-type "use `org-link-set-parameters' instead." "Org 9.0")
 
+;;;; Functions unused in Org core.
 (defun org-table-recognize-table.el ()
   "If there is a table.el table nearby, recognize it and move into it."
   (when (and org-table-tab-recognizes-table.el (org-at-table.el-p))
@@ -270,18 +305,32 @@ See `org-link-parameters' for documentation on the other parameters."
             (message "recognizing table.el table...done")))
       (error "This should not happen"))))
 
-;; Not used by Org core since commit 6d1e3082, Feb 2010.
+;; Not used since commit 6d1e3082, Feb 2010.
 (make-obsolete 'org-table-recognize-table.el
-               "please notify the org mailing list if you use this function."
+               "please notify Org mailing list if you use this function."
                "Org 9.0")
+
+(defmacro org-preserve-lc (&rest body)
+  (declare (debug (body))
+	   (obsolete "please notify Org mailing list if you use this function."
+		     "Org 9.2"))
+  (org-with-gensyms (line col)
+    `(let ((,line (org-current-line))
+	   (,col (current-column)))
+       (unwind-protect
+	   (progn ,@body)
+	 (org-goto-line ,line)
+	 (org-move-to-column ,col)))))
+
+(defun org-version-check (version &rest _)
+  "Non-nil if VERSION is lower (older) than `emacs-version'."
+  (declare (obsolete "use `version<' or `fboundp' instead."
+		     "Org 9.2"))
+  (version< version emacs-version))
 
 (defun org-remove-angle-brackets (s)
   (org-unbracket-string "<" ">" s))
 (make-obsolete 'org-remove-angle-brackets 'org-unbracket-string "Org 9.0")
-
-(defun org-remove-double-quotes (s)
-  (org-unbracket-string "\"" "\"" s))
-(make-obsolete 'org-remove-double-quotes 'org-unbracket-string "Org 9.0")
 
 (defcustom org-publish-sitemap-file-entry-format "%t"
   "Format string for site-map file entry.
@@ -383,6 +432,37 @@ use of this function is for the stuck project list."
 	       "use `org-show-all' instead."
 	       "Org 9.2")
 
+(define-obsolete-function-alias 'org-get-tags-at 'org-get-tags "Org 9.2")
+
+(defun org-get-local-tags ()
+  "Get a list of tags defined in the current headline."
+  (declare (obsolete "use `org-get-tags' instead." "Org 9.2"))
+  (org-get-tags nil 'local))
+
+(defun org-get-local-tags-at (&optional pos)
+  "Get a list of tags defined in the current headline."
+  (declare (obsolete "use `org-get-tags' instead." "Org 9.2"))
+  (org-get-tags pos 'local))
+
+(defun org-get-tags-string ()
+  "Get the TAGS string in the current headline."
+  (declare (obsolete "use `org-make-tag-string' instead." "Org 9.2"))
+  (org-make-tag-string (org-get-tags nil t)))
+
+(define-obsolete-function-alias 'org-set-tags-to 'org-set-tags "Org 9.2")
+
+(defun org-align-all-tags ()
+  "Align the tags in all headings."
+  (declare (obsolete "use `org-align-tags' instead." "Org 9.2"))
+  (org-align-tags t))
+
+(defmacro org-with-silent-modifications (&rest body)
+  (declare (obsolete "use `with-silent-modifications' instead." "Org 9.2")
+	   (debug (body)))
+  `(with-silent-modifications ,@body))
+
+(define-obsolete-function-alias 'org-babel-strip-quotes
+  'org-strip-quotes "Org 9.2")
 
 ;;;; Obsolete link types
 
@@ -394,30 +474,6 @@ use of this function is for the stuck project list."
 
 
 ;;; Miscellaneous functions
-
-(defun org-version-check (version feature level)
-  (let* ((v1 (mapcar 'string-to-number (split-string version "[.]")))
-         (v2 (mapcar 'string-to-number (split-string emacs-version "[.]")))
-         (rmaj (or (nth 0 v1) 99))
-         (rmin (or (nth 1 v1) 99))
-         (rbld (or (nth 2 v1) 99))
-         (maj (or (nth 0 v2) 0))
-         (min (or (nth 1 v2) 0))
-         (bld (or (nth 2 v2) 0)))
-    (if (or (< maj rmaj)
-            (and (= maj rmaj)
-                 (< min rmin))
-            (and (= maj rmaj)
-                 (= min rmin)
-                 (< bld rbld)))
-        (if (eq level :predicate)
-            ;; just return if we have the version
-            nil
-          (let ((msg (format "Emacs %s or greater is recommended for %s"
-                             version feature)))
-            (display-warning 'org msg level)
-            t))
-      t)))
 
 (defun org-get-x-clipboard (value)
   "Get the value of the X or Windows clipboard."
@@ -431,23 +487,6 @@ use of this function is for the stuck project list."
                 (gui-get-selection value 'TEXT)))))
         ((and (eq window-system 'w32) (fboundp 'w32-get-clipboard-data))
          (w32-get-clipboard-data))))
-
-(defun org-fit-window-to-buffer (&optional window max-height min-height
-                                           shrink-only)
-  "Fit WINDOW to the buffer, but only if it is not a side-by-side window.
-WINDOW defaults to the selected window.  MAX-HEIGHT and MIN-HEIGHT are
-passed through to `fit-window-to-buffer'.  If SHRINK-ONLY is set, call
-`shrink-window-if-larger-than-buffer' instead, the height limit is
-ignored in this case."
-  (cond ((if (fboundp 'window-full-width-p)
-             (not (window-full-width-p window))
-           ;; do nothing if another window would suffer
-           (> (frame-width) (window-width window))))
-        ((and (fboundp 'fit-window-to-buffer) (not shrink-only))
-         (fit-window-to-buffer window max-height min-height))
-        ((fboundp 'shrink-window-if-larger-than-buffer)
-         (shrink-window-if-larger-than-buffer window)))
-  (or window (selected-window)))
 
 ;; `set-transient-map' is only in Emacs >= 24.4
 (defalias 'org-set-transient-map
@@ -475,18 +514,10 @@ Unlike to `use-region-p', this function also checks
 
 ;;; Invisibility compatibility
 
-(defun org-remove-from-invisibility-spec (arg)
-  "Remove elements from `buffer-invisibility-spec'."
-  (if (fboundp 'remove-from-invisibility-spec)
-      (remove-from-invisibility-spec arg)
-    (if (consp buffer-invisibility-spec)
-        (setq buffer-invisibility-spec
-              (delete arg buffer-invisibility-spec)))))
-
 (defun org-in-invisibility-spec-p (arg)
   "Is ARG a member of `buffer-invisibility-spec'?"
-  (if (consp buffer-invisibility-spec)
-      (member arg buffer-invisibility-spec)))
+  (when (consp buffer-invisibility-spec)
+    (member arg buffer-invisibility-spec)))
 
 (defun org-move-to-column (column &optional force _buffer)
   "Move to column COLUMN.
@@ -505,8 +536,8 @@ Pass COLUMN and FORCE to `move-to-column'."
   (let ((start 0) (n 1))
     (while (string-match "\n" s start)
       (setq start (match-end 0) n (1+ n)))
-    (if (and (> (length s) 0) (= (aref s (1- (length s))) ?\n))
-        (setq n (1- n)))
+    (when (and (> (length s) 0) (= (aref s (1- (length s))) ?\n))
+      (setq n (1- n)))
     n))
 
 (defun org-kill-new (string &rest args)
@@ -529,16 +560,6 @@ Pass COLUMN and FORCE to `move-to-column'."
       "Return the local name component of FILE."
       (or (file-remote-p file 'localname) file))))
 
-(defmacro org-no-popups (&rest body)
-  "Suppress popup windows.
-Let-bind some variables to nil around BODY to achieve the desired
-effect, which variables to use depends on the Emacs version."
-  (if (org-version-check "24.2.50" "" :predicate)
-      `(let (pop-up-frames display-buffer-alist)
-         ,@body)
-    `(let (pop-up-frames special-display-buffer-names special-display-regexps special-display-function)
-       ,@body)))
-
 ;;;###autoload
 (defmacro org-check-version ()
   "Try very hard to provide sensible version strings."
@@ -557,11 +578,6 @@ effect, which variables to use depends on the Emacs version."
            (defun org-release () "N/A")
            (defun org-git-version () "N/A !!check installation!!"))))))
 
-(defmacro org-with-silent-modifications (&rest body)
-  (if (fboundp 'with-silent-modifications)
-      `(with-silent-modifications ,@body)
-    `(org-unmodified ,@body)))
-(def-edebug-spec org-with-silent-modifications (body))
 
 
 ;;; Functions for Emacs < 24.4 compatibility
@@ -605,46 +621,42 @@ This also applied for speedbar access."
 (defvar-local org-imenu-markers nil
   "All markers currently used by Imenu.")
 
-(defun org-imenu-new-marker (&optional pos)
-  "Return a new marker for use by Imenu, and remember the marker."
-  (let ((m (make-marker)))
-    (move-marker m (or pos (point)))
-    (push m org-imenu-markers)
-    m))
-
 (defun org-imenu-get-tree ()
   "Produce the index for Imenu."
   (dolist (x org-imenu-markers) (move-marker x nil))
   (setq org-imenu-markers nil)
-  (let* ((case-fold-search nil)
-	 (n org-imenu-depth)
-	 (re (concat "^" (org-get-limited-outline-regexp)))
-	 (subs (make-vector (1+ n) nil))
-	 (last-level 0)
-	 m level head0 head)
-    (org-with-wide-buffer
-     (goto-char (point-max))
+  (org-with-wide-buffer
+   (goto-char (point-max))
+   (let* ((re (concat "^" (org-get-limited-outline-regexp)))
+	  (subs (make-vector (1+ org-imenu-depth) nil))
+	  (last-level 0))
      (while (re-search-backward re nil t)
-       (setq level (org-reduced-level (funcall outline-level)))
-       (when (and (<= level n)
-		  (looking-at org-complex-heading-regexp)
-		  (setq head0 (match-string-no-properties 4)))
-	 (setq head (org-link-display-format head0)
-	       m (org-imenu-new-marker))
-	 (org-add-props head nil 'org-imenu-marker m 'org-imenu t)
-	 (if (>= level last-level)
-	     (push (cons head m) (aref subs level))
-	   (push (cons head (aref subs (1+ level))) (aref subs level))
-	   (cl-loop for i from (1+ level) to n do (aset subs i nil)))
-	 (setq last-level level))))
-    (aref subs 1)))
+       (let ((level (org-reduced-level (funcall outline-level)))
+	     (headline (org-no-properties
+			(org-link-display-format (org-get-heading t t t t)))))
+	 (when (and (<= level org-imenu-depth) (org-string-nw-p headline))
+	   (let* ((m (point-marker))
+		  (item (propertize headline 'org-imenu-marker m 'org-imenu t)))
+	     (push m org-imenu-markers)
+	     (if (>= level last-level)
+		 (push (cons item m) (aref subs level))
+	       (push (cons item
+			   (cl-mapcan #'identity (cl-subseq subs (1+ level))))
+		     (aref subs level))
+	       (cl-loop for i from (1+ level) to org-imenu-depth
+			do (aset subs i nil)))
+	     (setq last-level level)))))
+     (aref subs 1))))
 
 (eval-after-load "imenu"
   '(progn
      (add-hook 'imenu-after-jump-hook
 	       (lambda ()
 		 (when (derived-mode-p 'org-mode)
-		   (org-show-context 'org-goto))))))
+		   (org-show-context 'org-goto))))
+     (add-hook 'org-mode-hook
+	       (lambda ()
+		 (setq imenu-create-index-function 'org-imenu-get-tree)))))
 
 ;;;; Speedbar
 
@@ -658,6 +670,8 @@ This also applied for speedbar access."
 
 (defun org-speedbar-set-agenda-restriction ()
   "Restrict future agenda commands to the location at point in speedbar.
+If there is already a restriction lock at the location, remove it.
+
 To get rid of the restriction, use `\\[org-agenda-remove-restriction-lock]'."
   (interactive)
   (require 'org-agenda)
@@ -668,7 +682,11 @@ To get rid of the restriction, use `\\[org-agenda-remove-restriction-lock]'."
       (setq m (get-text-property p 'org-imenu-marker))
       (with-current-buffer (marker-buffer m)
 	(goto-char m)
-	(org-agenda-set-restriction-lock 'subtree)))
+	(if (and org-agenda-overriding-restriction
+		 (member org-agenda-restriction-lock-overlay
+			 (overlays-at (point))))
+	    (org-agenda-remove-restriction-lock 'noupdate)
+	  (org-agenda-set-restriction-lock 'subtree))))
      ((setq p (text-property-any (point-at-bol) (point-at-eol)
 				 'speedbar-function 'speedbar-find-file))
       (setq tp (previous-single-property-change
@@ -701,6 +719,14 @@ To get rid of the restriction, use `\\[org-agenda-remove-restriction-lock]'."
      (define-key speedbar-file-key-map "\C-c\C-x>" 'org-agenda-remove-restriction-lock)
      (add-hook 'speedbar-visiting-tag-hook
 	       (lambda () (and (derived-mode-p 'org-mode) (org-show-context 'org-goto))))))
+
+;;;; Add Log
+
+(defun org-add-log-current-headline ()
+  "Return current headline or nil.
+This function ignores inlinetasks.  It is meant to be used as
+`add-log-current-defun-function' value."
+  (org-with-limited-levels (org-get-heading t t t t)))
 
 ;;;; Flyspell
 

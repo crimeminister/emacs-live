@@ -1,6 +1,6 @@
 ;;; org-colview.el --- Column View in Org            -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -41,6 +41,7 @@
 (declare-function org-element-property "org-element" (property element))
 (declare-function org-element-restriction "org-element" (element))
 (declare-function org-element-type "org-element" (element))
+(declare-function org-dynamic-block-define "org" (type func))
 
 (defvar org-agenda-columns-add-appointments-to-effort-sum)
 (defvar org-agenda-columns-compute-summary-properties)
@@ -233,21 +234,27 @@ See `org-columns-summary-types' for details.")
     "--"
     ["Quit" org-columns-quit t]))
 
-(defun org-columns--displayed-value (spec value)
+(defun org-columns--displayed-value (spec value &optional no-star)
   "Return displayed value for specification SPEC in current entry.
+
 SPEC is a column format specification as stored in
 `org-columns-current-fmt-compiled'.  VALUE is the real value to
-display, as a string."
+display, as a string.
+
+When NO-STAR is non-nil, do not add asterisks before displayed
+value for ITEM property."
   (or (and (functionp org-columns-modify-value-for-display-function)
 	   (funcall org-columns-modify-value-for-display-function
 		    (nth 1 spec)	;column name
 		    value))
       (pcase spec
 	(`("ITEM" . ,_)
-	 (concat (make-string (1- (org-current-level))
-			      (if org-hide-leading-stars ?\s ?*))
-		 "* "
-		 (org-columns-compact-links value)))
+	 (let ((stars
+		(and (not no-star)
+		     (concat (make-string (1- (org-current-level))
+					  (if org-hide-leading-stars ?\s ?*))
+			     "* "))))
+	   (concat stars (org-link-display-format value))))
 	(`(,_ ,_ ,_ ,_ nil) value)
 	;; If PRINTF is set, assume we are displaying a number and
 	;; obey to the format string.
@@ -280,7 +287,11 @@ possible to override it with optional argument COMPILED-FMT."
 					  (get-text-property (point) 'duration))
 					 'face 'org-warning))
 			"")))
-	    (list spec v (org-columns--displayed-value spec v))))))
+	    ;; A non-nil COMPILED-FMT means we're calling from Org
+	    ;; Agenda mode, where we do not want leading stars for
+	    ;; ITEM.  Hence the optional argument for
+	    ;; `org-columns--displayed-value'.
+	    (list spec v (org-columns--displayed-value spec v compiled-fmt))))))
      (or compiled-fmt org-columns-current-fmt-compiled))))
 
 (defun org-columns--set-widths (cache)
@@ -331,7 +342,11 @@ Return nil if no collect function is associated to OPERATOR."
     (_ (error "Invalid definition for operator %S" operator))))
 
 (defun org-columns--overlay-text (value fmt width property original)
-  "Return text "
+  "Return decorated VALUE string for columns overlay display.
+FMT is a format string.  WIDTH is the width of the column, as an
+integer.  PROPERTY is the property being displayed, as a string.
+ORIGINAL is the real string, i.e., before it is modified by
+`org-columns--displayed-value'."
   (format fmt
           (let ((v (org-columns-add-ellipses value width)))
             (pcase property
@@ -411,14 +426,14 @@ DATELINE is non-nil when the face used should be
 			      (line-beginning-position 2))))
 	(overlay-put ov 'keymap org-columns-map)
 	(push ov org-columns-overlays))
-      (org-with-silent-modifications
-       (let ((inhibit-read-only t))
-	 (put-text-property
-	  (line-end-position 0)
-	  (line-beginning-position 2)
-	  'read-only
-	  (substitute-command-keys
-	   "Type \\<org-columns-map>`\\[org-columns-edit-value]' \
+      (with-silent-modifications
+	(let ((inhibit-read-only t))
+	  (put-text-property
+	   (line-end-position 0)
+	   (line-beginning-position 2)
+	   'read-only
+	   (substitute-command-keys
+	    "Type \\<org-columns-map>`\\[org-columns-edit-value]' \
 to edit property")))))))
 
 (defun org-columns-add-ellipses (string width)
@@ -448,6 +463,7 @@ for the duration of the command.")
   "Overlay the newline before the current line with the table title."
   (interactive)
   (let ((title "")
+	(linum-offset (org-line-number-display-width 'columns))
 	(i 0))
     (dolist (column org-columns-current-fmt-compiled)
       (pcase column
@@ -459,7 +475,7 @@ for the duration of the command.")
     (setq-local org-previous-header-line-format header-line-format)
     (setq org-columns-full-header-line-format
 	  (concat
-	   (org-add-props " " nil 'display '(space :align-to 0))
+	   (org-add-props " " nil 'display `(space :align-to ,linum-offset))
 	   (org-add-props (substring title 0 -1) nil 'face 'org-column-title)))
     (setq org-columns-previous-hscroll -1)
     (add-hook 'post-command-hook 'org-columns-hscroll-title nil 'local)))
@@ -490,23 +506,15 @@ for the duration of the command.")
     (set-marker org-columns-begin-marker nil)
     (when (markerp org-columns-top-level-marker)
       (set-marker org-columns-top-level-marker nil))
-    (org-with-silent-modifications
-     (mapc #'delete-overlay org-columns-overlays)
-     (setq org-columns-overlays nil)
-     (let ((inhibit-read-only t))
-       (remove-text-properties (point-min) (point-max) '(read-only t))))
+    (with-silent-modifications
+      (mapc #'delete-overlay org-columns-overlays)
+      (setq org-columns-overlays nil)
+      (let ((inhibit-read-only t))
+	(remove-text-properties (point-min) (point-max) '(read-only t))))
     (when org-columns-flyspell-was-active
       (flyspell-mode 1))
     (when (local-variable-p 'org-colview-initial-truncate-line-value)
       (setq truncate-lines org-colview-initial-truncate-line-value))))
-
-(defun org-columns-compact-links (s)
-  "Replace [[link][desc]] with [desc] or [link]."
-  (while (string-match org-bracket-link-regexp s)
-    (setq s (replace-match
-	     (concat "[" (match-string (if (match-end 3) 3 1) s) "]")
-	     t t s)))
-  s)
 
 (defun org-columns-show-value ()
   "Show the full value of the property."
@@ -519,10 +527,10 @@ for the duration of the command.")
 (defun org-columns-quit ()
   "Remove the column overlays and in this way exit column editing."
   (interactive)
-  (org-with-silent-modifications
-   (org-columns-remove-overlays)
-   (let ((inhibit-read-only t))
-     (remove-text-properties (point-min) (point-max) '(read-only t))))
+  (with-silent-modifications
+    (org-columns-remove-overlays)
+    (let ((inhibit-read-only t))
+      (remove-text-properties (point-min) (point-max) '(read-only t))))
   (if (not (eq major-mode 'org-agenda-mode))
       (setq org-columns-current-fmt nil)
     (setq org-agenda-columns-active nil)
@@ -568,7 +576,7 @@ Where possible, use the standard interface for changing this line."
 	 (action
 	  (pcase key
 	    ("CLOCKSUM"
-	     (error "This special column cannot be edited"))
+	     (user-error "This special column cannot be edited"))
 	    ("ITEM"
 	     (lambda () (org-with-point-at pom (org-edit-headline))))
 	    ("TODO"
@@ -585,7 +593,7 @@ Where possible, use the standard interface for changing this line."
 			(if (eq org-fast-tag-selection-single-key 'expert)
 			    t
 			  org-fast-tag-selection-single-key)))
-		   (call-interactively #'org-set-tags)))))
+		   (call-interactively #'org-set-tags-command)))))
 	    ("DEADLINE"
 	     (lambda ()
 	       (org-with-point-at pom (call-interactively #'org-deadline))))
@@ -621,8 +629,8 @@ Where possible, use the standard interface for changing this line."
 	(org-agenda-columns)))
      (t
       (let ((inhibit-read-only t))
-	(org-with-silent-modifications
-	 (remove-text-properties (max (point-min) (1- bol)) eol '(read-only t)))
+	(with-silent-modifications
+	  (remove-text-properties (max (point-min) (1- bol)) eol '(read-only t)))
 	(org-columns--call action))
       ;; Some properties can modify headline (e.g., "TODO"), and
       ;; possible shuffle overlays.  Make sure they are still all at
@@ -807,17 +815,17 @@ view for the whole buffer unconditionally.
 When COLUMNS-FMT-STRING is non-nil, use it as the column format."
   (interactive "P")
   (org-columns-remove-overlays)
-  (when global (goto-char (point-min)))
-  (if (markerp org-columns-begin-marker)
-      (move-marker org-columns-begin-marker (point))
-    (setq org-columns-begin-marker (point-marker)))
-  (org-columns-goto-top-level)
-  ;; Initialize `org-columns-current-fmt' and
-  ;; `org-columns-current-fmt-compiled'.
-  (let ((org-columns--time (float-time (current-time))))
-    (org-columns-get-format columns-fmt-string)
-    (unless org-columns-inhibit-recalculation (org-columns-compute-all))
-    (save-excursion
+  (save-excursion
+    (when global (goto-char (point-min)))
+    (if (markerp org-columns-begin-marker)
+	(move-marker org-columns-begin-marker (point))
+      (setq org-columns-begin-marker (point-marker)))
+    (org-columns-goto-top-level)
+    ;; Initialize `org-columns-current-fmt' and
+    ;; `org-columns-current-fmt-compiled'.
+    (let ((org-columns--time (float-time (current-time))))
+      (org-columns-get-format columns-fmt-string)
+      (unless org-columns-inhibit-recalculation (org-columns-compute-all))
       (save-restriction
 	(when (and (not global) (org-at-heading-p))
 	  (narrow-to-region (point) (org-end-of-subtree t t)))
@@ -1035,8 +1043,8 @@ the current buffer."
 
 (defun org-columns-uncompile-format (compiled)
   "Turn the compiled columns format back into a string representation.
-COMPILED is an alist, as returned by
-`org-columns-compile-format', which see."
+
+COMPILED is an alist, as returned by `org-columns-compile-format'."
   (mapconcat
    (lambda (spec)
      (pcase spec
@@ -1109,16 +1117,7 @@ as a canonical duration, i.e., using units defined in
   "Apply FUN to time values TIMES.
 Return the result as a duration."
   (org-duration-from-minutes
-   (apply fun
-	  (mapcar (lambda (time)
-		    ;; Unlike to `org-duration-to-minutes' standard
-		    ;; behavior, we want to consider plain numbers as
-		    ;; hours.  As a consequence, we treat them
-		    ;; differently.
-		    (if (string-match-p "\\`[0-9]+\\(?:\\.[0-9]*\\)?\\'" time)
-			(* 60 (string-to-number time))
-		      (org-duration-to-minutes time)))
-		  times))
+   (apply fun (mapcar #'org-duration-to-minutes times))
    (org-duration-h:mm-only-p times)))
 
 (defun org-columns--compute-spec (spec &optional update)
@@ -1169,9 +1168,9 @@ properties drawers."
 		      (old (assoc spec summaries-alist)))
 		 (if old (setcdr old summary)
 		   (push (cons spec summary) summaries-alist)
-		   (org-with-silent-modifications
-		    (add-text-properties
-		     pos (1+ pos) (list 'org-summaries summaries-alist)))))
+		   (with-silent-modifications
+		     (add-text-properties
+		      pos (1+ pos) (list 'org-summaries summaries-alist)))))
 	       ;; When PROPERTY exists in current node, even if empty,
 	       ;; but its value doesn't match the one computed, use
 	       ;; the latter instead.
@@ -1207,8 +1206,8 @@ column specification."
 
 (defun org-columns-compute-all ()
   "Compute all columns that have operators defined."
-  (org-with-silent-modifications
-   (remove-text-properties (point-min) (point-max) '(org-summaries t)))
+  (with-silent-modifications
+    (remove-text-properties (point-min) (point-max) '(org-summaries t)))
   (let ((org-columns--time (float-time (current-time)))
 	seen)
     (dolist (spec org-columns-current-fmt-compiled)
@@ -1239,7 +1238,7 @@ When PRINTF is non-nil, use it to format the result."
   "Summarize CHECK-BOXES with a check-box cookie."
   (format "[%d/%d]"
 	  (cl-count-if (lambda (b) (or (equal b "[X]")
-				  (string-match-p "\\[\\([1-9]\\)/\\1\\]" b)))
+				   (string-match-p "\\[\\([1-9]\\)/\\1\\]" b)))
 		       check-boxes)
 	  (length check-boxes)))
 
@@ -1288,17 +1287,17 @@ When PRINTF is non-nil, use it to format the result."
    times))
 
 (defun org-columns--summary-min-age (ages _)
-  "Compute the minimum time among AGES."
+  "Compute the minimum age among AGES."
   (org-columns--format-age
    (apply #'min (mapcar #'org-columns--age-to-minutes ages))))
 
 (defun org-columns--summary-max-age (ages _)
-  "Compute the maximum time among AGES."
+  "Compute the maximum age among AGES."
   (org-columns--format-age
    (apply #'max (mapcar #'org-columns--age-to-minutes ages))))
 
 (defun org-columns--summary-mean-age (ages _)
-  "Compute the minimum time among AGES."
+  "Compute the mean age among AGES."
   (org-columns--format-age
    (/ (apply #'+ (mapcar #'org-columns--age-to-minutes ages))
       (float (length ages)))))
@@ -1325,14 +1324,15 @@ and variances (respectively) of the individual estimates."
 
 ;;; Dynamic block for Column view
 
-(defun org-columns--capture-view (maxlevel match skip-empty format local)
+(defun org-columns--capture-view (maxlevel match skip-empty exclude-tags format local)
   "Get the column view of the current buffer.
 
 MAXLEVEL sets the level limit.  SKIP-EMPTY tells whether to skip
 empty rows, an empty row being one where all the column view
-specifiers but ITEM are empty.  FORMAT is a format string for
-columns, or nil.  When LOCAL is non-nil, only capture headings in
-current subtree.
+specifiers but ITEM are empty.  EXCLUDE-TAGS is a list of tags
+that will be excluded from the resulting view.  FORMAT is a
+format string for columns, or nil.  When LOCAL is non-nil, only
+capture headings in current subtree.
 
 This function returns a list containing the title row and all
 other rows.  Each row is a list of fields, as strings, or
@@ -1355,9 +1355,13 @@ other rows.  Each row is a list of fields, as strings, or
 					     'org-columns-value
 					   'org-columns-value-modified)))
 		     row)))
-	   (unless (and skip-empty
-			(let ((r (delete-dups (remove "" row))))
-			  (or (null r) (and has-item (= (length r) 1)))))
+	   (unless (or
+		    (and skip-empty
+			 (let ((r (delete-dups (remove "" row))))
+			   (or (null r) (and has-item (= (length r) 1)))))
+		    (and exclude-tags
+			 (cl-some (lambda (tag) (member tag exclude-tags))
+				  (org-get-tags))))
 	     (push (cons (org-reduced-level (org-current-level)) (nreverse row))
 		   table)))))
      (or (and maxlevel (format "LEVEL<=%d" maxlevel))
@@ -1385,24 +1389,54 @@ an inline src-block."
 ;;;###autoload
 (defun org-dblock-write:columnview (params)
   "Write the column view table.
+
 PARAMS is a property list of parameters:
 
-:id       the :ID: property of the entry where the columns view
-	  should be built.  When the symbol `local', call locally.
-	  When `global' call column view with the cursor at the beginning
-	  of the buffer (usually this means that the whole buffer switches
-	  to column view).  When \"file:path/to/file.org\", invoke column
-	  view at the start of that file.  Otherwise, the ID is located
-	  using `org-id-find'.
-:hlines   When t, insert a hline before each item.  When a number, insert
-	  a hline before each level <= that number.
-:indent   When non-nil, indent each ITEM field according to its level.
-:vlines   When t, make each column a colgroup to enforce vertical lines.
-:maxlevel When set to a number, don't capture headlines below this level.
-:match    When set to a string, use this as a tags/property match filter.
-:skip-empty-rows
-	  When t, skip rows where all specifiers other than ITEM are empty.
-:format   When non-nil, specify the column view format to use."
+`:id' (mandatory)
+
+    The ID property of the entry where the columns view should be
+    built.  When the symbol `local', call locally.  When `global'
+    call column view with the cursor at the beginning of the
+    buffer (usually this means that the whole buffer switches to
+    column view).  When \"file:path/to/file.org\", invoke column
+    view at the start of that file.  Otherwise, the ID is located
+    using `org-id-find'.
+
+`:exclude-tags'
+
+    List of tags to exclude from column view table.
+
+`:format'
+
+    When non-nil, specify the column view format to use.
+
+`:hlines'
+
+    When non-nil, insert a hline before each item.  When
+    a number, insert a hline before each level inferior or equal
+    to that number.
+
+`:indent'
+
+    When non-nil, indent each ITEM field according to its level.
+
+`:match'
+
+    When set to a string, use this as a tags/property match filter.
+
+`:maxlevel'
+
+    When set to a number, don't capture headlines below this level.
+
+`:skip-empty-rows'
+
+    When non-nil, skip rows where all specifiers other than ITEM
+    are empty.
+
+`:vlines'
+
+    When non-nil, make each column a column group to enforce
+    vertical lines."
   (let ((table
 	 (let ((id (plist-get params :id))
 	       view-file view-pos)
@@ -1427,6 +1461,7 @@ PARAMS is a property list of parameters:
 	      (org-columns--capture-view (plist-get params :maxlevel)
 					 (plist-get params :match)
 					 (plist-get params :skip-empty-rows)
+					 (plist-get params :exclude-tags)
 					 (plist-get params :format)
 					 view-pos))))))
     (when table
@@ -1503,6 +1538,7 @@ PARAMS is a property list of parameters:
 		     (id)))))
   (org-update-dblock))
 
+(org-dynamic-block-define "columnview" #'org-columns-insert-dblock)
 
 
 ;;; Column view in the agenda
@@ -1637,8 +1673,8 @@ This will add overlays to the date lines, to show the summary for each day."
     (let ((b (find-buffer-visiting file)))
       (with-current-buffer (or (buffer-base-buffer b) b)
 	(org-with-wide-buffer
-	 (org-with-silent-modifications
-	  (remove-text-properties (point-min) (point-max) '(org-summaries t)))
+	 (with-silent-modifications
+	   (remove-text-properties (point-min) (point-max) '(org-summaries t)))
 	 (goto-char (point-min))
 	 (org-columns-get-format-and-top-level)
 	 (dolist (spec fmt)

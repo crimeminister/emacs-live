@@ -1,6 +1,6 @@
 ;;; org-attach.el --- Manage file attachments to Org tasks -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2008-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@newartisans.com>
 ;; Keywords: org data task
@@ -177,6 +177,7 @@ Shows a list of commands and prompts for another key to execute a command."
 a       Select a file and attach it to the task, using `org-attach-method'.
 c/m/l/y Attach a file using copy/move/link/symbolic-link method.
 u       Attach a file from URL (downloading it).
+b       Select a buffer and attach its contents to the task.
 n       Create a new attachment, as an Emacs buffer.
 z       Synchronize the current task with its attachment
         directory, in case you added attachments yourself.
@@ -193,7 +194,7 @@ D       Delete all of a task's attachments.  A safer way is
 s       Set a specific attachment directory for this entry or reset to default.
 i       Make children of the current entry inherit its attachment directory.")))
 	  (org-fit-window-to-buffer (get-buffer-window "*Org Attach*"))
-	  (message "Select command: [acmlzoOfFdD]")
+	  (message "Select command: [acmlyubnzoOfFdD]")
 	  (setq c (read-char-exclusive))
 	  (and (get-buffer "*Org Attach*") (kill-buffer "*Org Attach*"))))
       (cond
@@ -208,6 +209,7 @@ i       Make children of the current entry inherit its attachment directory.")))
 	(let ((org-attach-method 'lns)) (call-interactively 'org-attach-attach)))
        ((memq c '(?u ?\C-u))
         (let ((org-attach-method 'url)) (call-interactively 'org-attach-url)))
+       ((eq c ?b) (call-interactively 'org-attach-buffer))
        ((memq c '(?n ?\C-n)) (call-interactively 'org-attach-new))
        ((memq c '(?z ?\C-z)) (call-interactively 'org-attach-sync))
        ((memq c '(?o ?\C-o)) (call-interactively 'org-attach-open))
@@ -320,7 +322,8 @@ the ATTACH_DIR property) their own attachment directory."
 (defun org-attach-annex-get-maybe (path)
   "Call git annex get PATH (via shell) if using git annex.
 Signals an error if the file content is not available and it was not retrieved."
-  (let ((path-relative (file-relative-name path)))
+  (let* ((default-directory (expand-file-name org-attach-directory))
+	 (path-relative (file-relative-name path)))
     (when (and (org-attach-use-annex)
 	       (not
 		(string-equal
@@ -388,6 +391,21 @@ Only do this when `org-attach-store-link-p' is non-nil."
 (defun org-attach-url (url)
   (interactive "MURL of the file to attach: \n")
   (org-attach-attach url))
+
+(defun org-attach-buffer (buffer-name)
+  "Attach BUFFER-NAME's contents to current task.
+BUFFER-NAME is a string.  Signals a `file-already-exists' error
+if it would overwrite an existing filename."
+  (interactive "bBuffer whose contents should be attached: ")
+  (let ((output (expand-file-name buffer-name (org-attach-dir t))))
+    (when (file-exists-p output)
+      (signal 'file-already-exists (list "File exists" output)))
+    (when (and org-attach-file-list-property (not org-attach-inherited))
+      (org-entry-add-to-multivalued-property
+       (point) org-attach-file-list-property buffer-name))
+    (org-attach-tag)
+    (with-temp-file output
+      (insert-buffer-substring buffer-name))))
 
 (defun org-attach-attach (file &optional visit-dir method)
   "Move/copy/link FILE into the attachment directory of the current task.
@@ -573,10 +591,8 @@ prefix."
   "Maybe delete subtree attachments when archiving.
 This function is called by `org-archive-hook'.  The option
 `org-attach-archive-delete' controls its behavior."
-  (when (if (eq org-attach-archive-delete 'query)
-	    (yes-or-no-p "Delete all attachments? ")
-	  org-attach-archive-delete)
-    (org-attach-delete-all t)))
+  (when org-attach-archive-delete
+    (org-attach-delete-all (not (eq org-attach-archive-delete 'query)))))
 
 
 ;; Attach from dired.
