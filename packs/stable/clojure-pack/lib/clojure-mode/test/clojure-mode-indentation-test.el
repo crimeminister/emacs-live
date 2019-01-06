@@ -58,7 +58,7 @@ values of customisable variables."
   (let ((fname (intern (format "indentation/%s" description))))
     `(ert-deftest ,fname ()
        (let* ((after ,after)
-              (clojure-indent-style :always-align)
+              (clojure-indent-style 'always-align)
               (expected-cursor-pos (1+ (s-index-of "|" after)))
               (expected-state (delete ?| after))
               ,@var-bindings)
@@ -238,7 +238,7 @@ values of customisable variables."
   (declare (indent 1))
   (when (stringp style)
     (setq forms (cons style forms))
-    (setq style :always-align))
+    (setq style '(quote always-align)))
   `(ert-deftest ,(intern (format "test-backtracking-%s" name)) ()
      (progn
        ,@(mapcar (lambda (form)
@@ -421,7 +421,9 @@ values of customisable variables."
 (def-full-indent-test let-when-while-forms
   "(let-alist [x 1]\n  ())"
   "(while-alist [x 1]\n  ())"
-  "(when-alist [x 1]\n  ())")
+  "(when-alist [x 1]\n  ())"
+  "(if-alist [x 1]\n  ())"
+  "(indents-like-fn-when-let-while-if-are-not-the-start [x 1]\n                                                     ())")
 
 (defun indent-cond (indent-point state)
   (goto-char (elt state 1))
@@ -461,7 +463,7 @@ x
 3))")
 
 (def-full-indent-test align-arguments
-  :align-arguments
+  'align-arguments
   "(some-function
   10
   1
@@ -471,7 +473,7 @@ x
                2)")
 
 (def-full-indent-test always-indent
-  :always-indent
+  'always-indent
   "(some-function
   10
   1
