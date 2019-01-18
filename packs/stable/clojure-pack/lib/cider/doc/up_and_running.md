@@ -1,3 +1,5 @@
+# Up and Running
+
 To use CIDER, you'll need to connect it to a running nREPL server that
 is associated with your program. Most Clojure developers use standard
 build tooling such as Leiningen, Boot, or Gradle, and CIDER can
@@ -7,8 +9,8 @@ nREPL server that is already started and is managed separately.
 
 !!! Note
 
-    CIDER will automatically work with Leiningen 2.5.2+ or Boot
-    2.7.0+. Older versions are not supported.
+    CIDER will automatically work with Leiningen 2.8.3+ or Boot
+    2.8.2+. Older versions are not supported.
 
 There are two ways to connect CIDER to an nREPL server:
 
@@ -87,7 +89,7 @@ $ boot repl -s wait (or whatever task launches a repl)
 It is also possible for plain `clj`, although the command is somewhat longer:
 
 ```sh
-$ clj -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.19.0"}}}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"
+$ clj -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.20.0"}}}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"
 ```
 
 Alternatively, you can start nREPL either manually or using the facilities

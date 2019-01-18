@@ -1,3 +1,5 @@
+# Installation
+
 The canonical way to install CIDER is via `package.el` (Emacs's built-in package
 manager), but it can be installed manually or via alternative package managers such
 as `el-get`.
@@ -167,7 +169,7 @@ Use the convenient plugin for defaults, either in your project's
 A minimal `profiles.clj` for CIDER would be:
 
 ```clojure
-{:repl {:plugins [[cider/cider-nrepl "0.19.0"]]}}
+{:repl {:plugins [[cider/cider-nrepl "0.20.0"]]}}
 ```
 
 !!! warning
@@ -190,7 +192,7 @@ all of their projects using a `~/.boot/profile.boot` file like so:
 (require 'boot.repl)
 
 (swap! boot.repl/*default-dependencies*
-       concat '[[cider/cider-nrepl "0.19.0"]])
+       concat '[[cider/cider-nrepl "0.20.0"]])
 
 (swap! boot.repl/*default-middleware*
        conj 'cider.nrepl/cider-middleware)
