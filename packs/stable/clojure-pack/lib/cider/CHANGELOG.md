@@ -2,6 +2,8 @@
 
 ## master (unreleased)
 
+## 0.21.0 (2019-02-19)
+
 ### New features
 
 * The `cider-test-run-*` and `cider-ns-refresh-*` commands are now interruptible by the `cider-interrupt` command.
@@ -27,6 +29,7 @@
 * `cider-expected-ns` no longer requires an absolute path as its argument, and now internally handles paths canonically and consistently.
 * Fixed a bug causing REPL output to be inserted after the prompt.
 * Fixed a bug causing `cider-pprint-eval-last-sexp-to-comment` and `cider-pprint-eval-defun-to-comment` to not insert anything.
+* `cider-find-var` now correctly uses a new window when passed a prefix of `-` or a double prefix argument.
 
 ## 0.20.0 (2019-01-14)
 
