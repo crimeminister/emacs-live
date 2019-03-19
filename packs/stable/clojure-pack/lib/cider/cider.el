@@ -11,7 +11,7 @@
 ;;         Steve Purcell <steve@sanityinc.com>
 ;; Maintainer: Bozhidar Batsov <bozhidar@batsov.com>
 ;; URL: http://www.github.com/clojure-emacs/cider
-;; Version: 0.21.0
+;; Version: 0.22.0-snapshot
 ;; Package-Requires: ((emacs "25") (clojure-mode "5.9") (pkg-info "0.4") (queue "0.2") (spinner "1.7") (seq "2.16") (sesman "0.3.2"))
 ;; Keywords: languages, clojure, cider
 
@@ -86,12 +86,12 @@
 (require 'seq)
 (require 'sesman)
 
-(defconst cider-version "0.21.0"
+(defconst cider-version "0.22.0-snapshot"
   "Fallback version used when it cannot be extracted automatically.
 Normally it won't be used, unless `pkg-info' fails to extract the
 version from the CIDER package or library.")
 
-(defconst cider-codename "New York"
+(defconst cider-codename "Lima"
   "Codename used to denote stable releases.")
 
 (defcustom cider-lein-command
@@ -402,7 +402,7 @@ Elements of the list are artifact name and list of exclusions to apply for the a
 (defconst cider-required-middleware-version "0.21.0"
   "The minimum CIDER nREPL version that's known to work properly with CIDER.")
 
-(defconst cider-latest-middleware-version "0.21.1"
+(defconst cider-latest-middleware-version "0.21.2-SNAPSHOT"
   "The latest CIDER nREPL version that's known to work properly with CIDER.")
 
 (defcustom cider-jack-in-auto-inject-clojure nil
@@ -701,7 +701,8 @@ Generally you should not disable this unless you run into some faulty check."
   (if (or (string-prefix-p "{" options)
           (string-prefix-p "(" options)
           (string-prefix-p "[" options)
-          (string-prefix-p ":" options))
+          (string-prefix-p ":" options)
+          (string-prefix-p "\"" options))
       options
     (concat ":" options)))
 
@@ -763,6 +764,8 @@ The supplied string will be wrapped in a do form if needed."
     (figwheel "(do (require 'figwheel-sidecar.repl-api) (figwheel-sidecar.repl-api/start-figwheel!) (figwheel-sidecar.repl-api/cljs-repl))"
               cider-check-figwheel-requirements)
     (figwheel-main cider-figwheel-main-init-form cider-check-figwheel-main-requirements)
+    (figwheel-connected "(figwheel-sidecar.repl-api/cljs-repl)"
+                        cider-check-figwheel-requirements)
     (node "(do (require 'cljs.repl.node) (cider.piggieback/cljs-repl (cljs.repl.node/repl-env)))"
           cider-check-node-requirements)
     (weasel "(do (require 'weasel.repl.websocket) (cider.piggieback/cljs-repl (weasel.repl.websocket/repl-env :ip \"127.0.0.1\" :port 9001)))"
@@ -923,7 +926,8 @@ nil."
 (defun cider-jack-in-clj (params)
   "Start an nREPL server for the current project and connect to it.
 PARAMS is a plist optionally containing :project-dir and :jack-in-cmd.
-With the prefix argument, prompt for all these parameters."
+With the prefix argument, allow editing of the jack in command; with a
+double prefix prompt for all these parameters."
   (interactive "P")
   (let ((params (thread-first params
                   (cider--update-project-dir)
@@ -940,7 +944,8 @@ With the prefix argument, prompt for all these parameters."
   "Start an nREPL server for the current project and connect to it.
 PARAMS is a plist optionally containing :project-dir, :jack-in-cmd and
 :cljs-repl-type (e.g. Node, Figwheel, etc).  With the prefix argument,
-prompt for all these parameters."
+allow editing of the jack in command; with a double prefix prompt for all
+these parameters."
   (interactive "P")
   (let ((cider-jack-in-dependencies (append cider-jack-in-dependencies cider-jack-in-cljs-dependencies))
         (cider-jack-in-lein-plugins (append cider-jack-in-lein-plugins cider-jack-in-cljs-lein-plugins))
@@ -963,8 +968,9 @@ prompt for all these parameters."
   "Start an nREPL server and connect with clj and cljs REPLs.
 PARAMS is a plist optionally containing :project-dir, :jack-in-cmd and
 :cljs-repl-type (e.g. Node, Figwheel, etc).  With the prefix argument,
-prompt for all these parameters.  When SOFT-CLJS-START is non-nil, start
-cljs REPL only when the ClojureScript dependencies are met."
+allow for editing of the jack in command; with a double prefix prompt for
+all these parameters.  When SOFT-CLJS-START is non-nil, start cljs REPL
+only when the ClojureScript dependencies are met."
   (interactive "P")
   (let ((cider-jack-in-dependencies (append cider-jack-in-dependencies cider-jack-in-cljs-dependencies))
         (cider-jack-in-lein-plugins (append cider-jack-in-lein-plugins cider-jack-in-cljs-lein-plugins))
@@ -1103,9 +1109,9 @@ non-nil, don't start if ClojureScript requirements are not met."
 
 (defun cider--update-do-prompt (params)
   "Update :do-prompt in PARAMS."
-  (if (equal params '(4))
-      (list :do-prompt t)
-    params))
+  (cond ((equal params '(4)) (list :edit-jack-in-command t))
+        ((equal params '(16)) (list :do-prompt t))
+        (t params)))
 
 (defun cider--update-project-dir (params)
   "Update :project-dir in PARAMS."
@@ -1154,6 +1160,12 @@ non-nil, don't start if ClojureScript requirements are not met."
                    (or inferred-type
                        (cider-select-cljs-repl)))))))
 
+(defcustom cider-edit-jack-in-command nil
+  "When truthy allow the user to edit the command."
+  :type 'boolean
+  :safe #'booleanp
+  :version '(cider . "0.22.0"))
+
 (defun cider--update-jack-in-cmd (params)
   "Update :jack-in-cmd key in PARAMS."
   (let* ((params (cider--update-do-prompt params))
@@ -1179,8 +1191,11 @@ non-nil, don't start if ClojureScript requirements are not met."
                           (and (null project-dir)
                                (eq cider-allow-jack-in-without-project 'warn)
                                (y-or-n-p "Are you sure you want to run `cider-jack-in' without a Clojure project? ")))
-                  (let* ((cmd (format "%s %s" command-resolved cmd-params)))
-                    (plist-put params :jack-in-cmd cmd)))
+                  (let ((cmd (format "%s %s" command-resolved cmd-params)))
+                    (plist-put params :jack-in-cmd (if (or cider-edit-jack-in-command
+                                                           (plist-get params :edit-jack-in-command))
+                                                       (read-string "jack-in command: " cmd t)
+                                                     cmd))))
               (user-error "`cider-jack-in' is not allowed without a Clojure project"))))
       (user-error "The %s executable isn't on your `exec-path'" command))))
 

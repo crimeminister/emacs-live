@@ -2,6 +2,20 @@
 
 ## master (unreleased)
 
+### New features
+
+* Allow editing of jack in command with prefix or when `cider-edit-jack-in-command` is truthy.
+
+### Changes
+
+* `cider-print-options` is now supported by the `pr` option for `cider-print-fn`. The options will now be also used by interactive eval commands that do not use pretty-printing.
+
+### Bug fixes
+
+* Stop cursor moving when initialising the CIDER REPL, when `cider-repl-pop-to-buffer-on-connect` is nil. This fixes a bug introduced by [commit e0aca78b](https://github.com/clojure-emacs/cider/commit/e0aca78ba56425e50ea895c5adc7c0331cee0b19).
+* [#2577](https://github.com/clojure-emacs/cider/issues/2577): Ensure user friendly error messages if a repl connection is expected but none was found in certain situations. 
+* [#2593](https://github.com/clojure-emacs/cider/issues/2593): The REPL's initial namespace is now set correctly if configured in another tool (e.g. Leiningen's `:init-ns`).
+
 ## 0.21.0 (2019-02-19)
 
 ### New features
@@ -13,6 +27,7 @@
 
 ### Changes
 
+* * Add new defcustom `cider-switch-to-repl-on-insert`: Set to prevent cursor from going to the repl when inserting a form in the repl with the insert-to-repl commands. Replaces obsoleted `cider-switch-to-repl-after-insert-p`
 * **(Breaking)** Upgrade to nREPL 0.6.0. This is now the minimum required version.
 * **(Breaking)** Upgrade to piggieback 0.4.0. This is now the minimum required version.
 * **(Breaking)** Remove `cider.nrepl.middleware.pprint`. All functionality has been replaced by the built-in printing support in nREPL 0.6.

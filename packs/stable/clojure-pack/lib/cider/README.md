@@ -6,7 +6,7 @@
 [![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
 [![MELPA](http://melpa.org/packages/cider-badge.svg)](http://melpa.org/#/cider)
 [![MELPA Stable](http://stable.melpa.org/packages/cider-badge.svg)](http://stable.melpa.org/#/cider)
-[![Build Status](https://travis-ci.org/clojure-emacs/cider.png?branch=master)](https://travis-ci.org/clojure-emacs/cider)
+[![CircleCI](https://circleci.com/gh/clojure-emacs/cider.svg?style=svg)](https://circleci.com/gh/clojure-emacs/cider)
 
 CIDER is the **C**lojure(Script) **I**nteractive **D**evelopment **E**nvironment
 that **R**ocks!
@@ -110,6 +110,7 @@ does a lot of the groundwork on major new features.
 
 * [Bozhidar Batsov](https://github.com/bbatsov) (author & head maintainer)
 * [Vitalie Spinu](https://github.com/vspinu)
+* [Michael Griffiths](https://github.com/cichli)
 * [Lars Andersen](https://github.com/expez)
 
 ### CIDER Alumni
@@ -122,7 +123,6 @@ core team members. Lovingly known as The Alumni:
 * [Hugo Duncan](https://github.com/hugoduncan)
 * [Steve Purcell](https://github.com/purcell)
 * [Artur Malabarba](https://github.com/malabarba)
-* [Michael Griffiths](https://github.com/cichli)
 * [Jeff Valk](https://github.com/jeffvalk)
 
 ## Release policy
