@@ -35,11 +35,7 @@
 ;;; cider-client tests
 
 (describe "cider-var-info"
-  (it "handles gracefully empty input"
-    (expect (cider-var-info nil) :to-equal nil)
-    (expect (cider-var-info "") :to-equal nil))
-
-  (it "returns vars info as an nREPL dict"
+  (it "returns vars info as an alist"
     (spy-on 'cider-sync-request:info :and-return-value
             '(dict
               "arglists" "([] [x] [x & ys])"
@@ -53,29 +49,12 @@
               "file" "jar:file:/clojure-1.5.1.jar!/clojure/core.clj"
               "tag" "class java.lang.String"
               "status" ("done")))
-    (spy-on 'cider-nrepl-op-supported-p :and-return-value t)
+    (spy-on 'cider-ensure-op-supported :and-return-value t)
     (spy-on 'cider-nrepl-eval-session :and-return-value nil)
     (spy-on 'cider-current-ns :and-return-value "user")
     (expect (nrepl-dict-get (cider-var-info "str") "doc")
-            :to-equal "stub"))
-
-  (it "fallbacks to eval in the absence of the info middleware"
-    (spy-on 'cider-fallback-eval:info :and-return-value
-            '(dict
-              "arglists" "([] [x] [x & ys])"
-              "ns" "clojure.core"
-              "name" "str"
-              "column" 1
-              "added" "1.0"
-              "static" "true"
-              "doc" "stub"
-              "line" 504
-              "file" "jar:file:/clojure-1.5.1.jar!/clojure/core.clj"
-              "tag" "class java.lang.String"
-              "status" ("done")))
-    (spy-on 'cider-nrepl-op-supported-p :and-return-value nil)
-    (expect (nrepl-dict-get (cider-var-info "str") "doc")
-            :to-equal "stub")))
+            :to-equal "stub")
+    (expect (cider-var-info "") :to-equal nil)))
 
 
 (describe "cider-repl-type-for-buffer"
@@ -132,7 +111,7 @@
 (describe "cider-expected-ns"
   (before-each
     (spy-on 'cider-connected-p :and-return-value t)
-    (spy-on 'cider-classpath-entries :and-return-value
+    (spy-on 'cider-sync-request:classpath :and-return-value
             '("/a" "/b" "/c" "/c/inner" "/base/clj" "/base/clj-dev"))
     (spy-on 'file-directory-p :and-return-value t)
     (spy-on 'file-in-directory-p :and-call-fake (lambda (file dir)

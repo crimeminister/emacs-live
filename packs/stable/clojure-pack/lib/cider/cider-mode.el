@@ -396,11 +396,6 @@ If invoked with a prefix ARG eval the expression after inserting it."
      ["Find resource" cider-find-resource]
      ["Find keyword" cider-find-keyword]
      ["Go back" cider-pop-back])
-    ("Xref"
-     ["Find fn references" cider-xref-fn-refs]
-     ["Find fn references and select" cider-xref-fn-refs-select]
-     ["Find fn dependencies" cider-xref-fn-defs]
-     ["Find fn dependencies and select" cider-xref-fn-defs-select])
     ("Browse"
      ["Browse namespace" cider-browse-ns]
      ["Browse all namespaces" cider-browse-ns-all]
@@ -1032,7 +1027,9 @@ property."
       (progn
         (setq-local sesman-system 'CIDER)
         (cider-eldoc-setup)
-        (add-hook 'completion-at-point-functions #'cider-complete-at-point nil t)
+        (make-local-variable 'completion-at-point-functions)
+        (add-to-list 'completion-at-point-functions
+                     #'cider-complete-at-point)
         (font-lock-add-keywords nil cider--static-font-lock-keywords)
         (cider-refresh-dynamic-font-lock)
         (font-lock-add-keywords nil cider--reader-conditionals-font-lock-keywords)
@@ -1048,7 +1045,6 @@ property."
           (setq-local clojure-get-indent-function #'cider--get-symbol-indent))
         (setq-local clojure-expected-ns-function #'cider-expected-ns)
         (setq next-error-function #'cider-jump-to-compilation-error))
-    ;; Mode cleanup
     (mapc #'kill-local-variable '(completion-at-point-functions
                                   next-error-function
                                   x-gtk-use-system-tooltips
@@ -1058,8 +1054,7 @@ property."
     (font-lock-add-keywords nil cider--reader-conditionals-font-lock-keywords)
     (font-lock-remove-keywords nil cider--dynamic-font-lock-keywords)
     (font-lock-remove-keywords nil cider--static-font-lock-keywords)
-    (cider--font-lock-flush)
-    (remove-hook 'completion-at-point-functions #'cider-complete-at-point t)))
+    (cider--font-lock-flush)))
 
 (defun cider-set-buffer-ns (ns)
   "Set this buffer's namespace to NS and refresh font-locking."

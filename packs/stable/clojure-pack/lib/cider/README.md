@@ -19,6 +19,7 @@ compilation, debugging, definition and documentation lookup, running tests and
 so on.
 
 ----------
+[![Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/bbatsov/donate)
 [![OpenCollective](https://opencollective.com/cider/backers/badge.svg)](#open-collective-backers)
 [![OpenCollective](https://opencollective.com/cider/sponsors/badge.svg)](#open-collective-sponsors)
 [![Patreon](https://img.shields.io/badge/patreon-donate-orange.svg)](https://www.patreon.com/bbatsov)
@@ -45,7 +46,7 @@ and [MELPA](http://melpa.org).
 
 You can install CIDER with the following command:
 
-<kbd>M-x</kbd> `package-install` <kbd>RET</kbd> `cider` <kbd>RET</kbd>
+<kbd>M-x</kbd> `package-install` <kbd>[RET]</kbd> `cider` <kbd>[RET]</kbd>
 
 ### Launch an nREPL server and client from Emacs
 
@@ -151,13 +152,6 @@ the logo in various formats
 The logo is licensed under a
 [Creative Commons Attribution-NonCommercial 4.0 International License](http://creativecommons.org/licenses/by-nc/4.0/deed.en_GB).
 
-## Homepage
-
-CIDER's homepage <https://cider.mx> is in the `gh-pages` branch of this repository and is deployed
-automatically when changes are made to it.
-
-It's just a single `index.html` file and a bit of Bootstrap 4. Contributions to it are very welcome!
-
 ## Funding
 
 While CIDER is free software and will always be, the project would benefit immensely from some funding.
@@ -175,8 +169,10 @@ to become a CIDER sponsor.
 You can support the development of CIDER, [clojure-mode][] and [inf-clojure][] via
 [Open Collective](https://opencollective.com/cider),
 [Salt](https://salt.bountysource.com/teams/cider),
-[Patreon](https://www.patreon.com/bbatsov) and
-[PayPal](https://www.paypal.me/bbatsov).
+[Patreon](https://www.patreon.com/bbatsov),
+[Liberapay](https://liberapay.com/bbatsov/donate) and PayPal.
+
+[![Paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=GRQKNBM6P8VRQ)
 
 ### Open Collective Backers
 

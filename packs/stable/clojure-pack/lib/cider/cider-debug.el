@@ -630,7 +630,6 @@ needed.  It is expected to contain at least \"key\", \"input-type\", and
              (setq cider--debug-mode-response response)
              (cider--debug-mode 1)))
           (when inspect
-            (setq cider-inspector--current-repl (cider-current-repl))
             (cider-inspector--render-value inspect)))
       ;; If something goes wrong, we send a "quit" or the session hangs.
       (error (cider-debug-mode-send-reply ":quit" key)
@@ -721,7 +720,7 @@ The boolean value of FORCE will be sent in the reply."
                   (forward-sexp 1)
                   (> here (point))))
         (user-error "Point is outside the sexp being debugged"))
-      ;; Move forward until start of sexp.
+      ;; Move forward untill start of sexp.
       (comment-normalize-vars)
       (comment-forward (point-max))
       ;; Find the coordinate and send it.

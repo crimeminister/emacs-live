@@ -217,10 +217,10 @@ message in the REPL area."
     (cond
      ((null middleware-version)
       (cider-emit-manual-warning "troubleshooting/#cider-complains-of-the-cider-nrepl-version"
-                                 "CIDER requires cider-nrepl to be fully functional. Some features will not be available without it!"))
-     ((not (string= middleware-version cider-required-middleware-version))
+                                 "CIDER requires cider-nrepl to be fully functional. Many things will not work without it!"))
+     ((version< middleware-version cider-required-middleware-version)
       (cider-emit-manual-warning "troubleshooting/#cider-complains-of-the-cider-nrepl-version"
-                                 "CIDER %s requires cider-nrepl %s, but you're currently using cider-nrepl %s. The version mismatch might break some functionality!"
+                                 "CIDER %s requires cider-nrepl %s+, but you're currently using cider-nrepl %s. Things will break!"
                                  cider-version cider-required-middleware-version middleware-version)))))
 
 (declare-function cider-interactive-eval-handler "cider-eval")
@@ -431,7 +431,7 @@ REPL defaults to the current REPL."
     (when (process-live-p proc)
       (let* ((classpath (or (process-get proc :cached-classpath)
                             (let ((cp (with-current-buffer repl
-                                        (cider-classpath-entries))))
+                                        (cider-sync-request:classpath))))
                               (process-put proc :cached-classpath cp)
                               cp)))
              (classpath-roots (or (process-get proc :cached-classpath-roots)

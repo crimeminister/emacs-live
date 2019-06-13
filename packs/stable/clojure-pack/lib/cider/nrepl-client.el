@@ -175,7 +175,7 @@ To be used for tooling calls (i.e. completion, eldoc, etc)")
   "Version information received from the describe op.")
 
 (defvar-local nrepl-aux nil
-  "Auxiliary information received from the describe op.")
+  "Auxillary information received from the describe op.")
 
 
 ;;; nREPL Buffer Names
