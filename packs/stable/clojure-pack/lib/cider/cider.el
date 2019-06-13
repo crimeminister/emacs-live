@@ -12,7 +12,7 @@
 ;; Maintainer: Bozhidar Batsov <bozhidar@batsov.com>
 ;; URL: http://www.github.com/clojure-emacs/cider
 ;; Version: 0.22.0-snapshot
-;; Package-Requires: ((emacs "25") (clojure-mode "5.9") (pkg-info "0.4") (queue "0.2") (spinner "1.7") (seq "2.16") (sesman "0.3.2"))
+;; Package-Requires: ((emacs "25") (clojure-mode "5.9") (parseedn "0.1") (pkg-info "0.4") (queue "0.2") (spinner "1.7") (seq "2.16") (sesman "0.3.2"))
 ;; Keywords: languages, clojure, cider
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -130,7 +130,7 @@ version from the CIDER package or library.")
   :package-version '(cider . "0.14.0"))
 
 (defcustom cider-boot-parameters
-  "cider.tasks/nrepl-server -b localhost wait"
+  "repl -s -b localhost wait"
   "Params passed to boot to start an nREPL server via `cider-jack-in'."
   :type 'string
   :group 'cider
@@ -383,7 +383,7 @@ Throws an error if PROJECT-TYPE is unknown."
   "List of dependencies where elements are lists of artifact name and version.
 Added to `cider-jack-in-dependencies' when doing `cider-jack-in-cljs'.")
 (put 'cider-jack-in-cljs-dependencies 'risky-local-variable t)
-(cider-add-to-alist 'cider-jack-in-cljs-dependencies "cider/piggieback" "0.4.0")
+(cider-add-to-alist 'cider-jack-in-cljs-dependencies "cider/piggieback" "0.4.1")
 
 (defvar cider-jack-in-dependencies-exclusions nil
   "List of exclusions for jack in dependencies.
@@ -399,11 +399,8 @@ Elements of the list are artifact name and list of exclusions to apply for the a
 (defconst cider-latest-clojure-version "1.10.0"
   "Latest supported version of Clojure.")
 
-(defconst cider-required-middleware-version "0.21.0"
-  "The minimum CIDER nREPL version that's known to work properly with CIDER.")
-
-(defconst cider-latest-middleware-version "0.21.2-SNAPSHOT"
-  "The latest CIDER nREPL version that's known to work properly with CIDER.")
+(defconst cider-required-middleware-version "0.22.0-beta4"
+  "The CIDER nREPL version that's known to work properly with CIDER.")
 
 (defcustom cider-jack-in-auto-inject-clojure nil
   "Version of clojure to auto-inject into REPL.
@@ -432,7 +429,7 @@ that extend CIDER, not for users.  For example, a refactoring package might
 want to inject some middleware only when within a project context.)")
 (put 'cider-jack-in-lein-plugins 'risky-local-variable t)
 (cider-add-to-alist 'cider-jack-in-lein-plugins
-                    "cider/cider-nrepl" cider-latest-middleware-version)
+                    "cider/cider-nrepl" cider-required-middleware-version)
 
 (defvar cider-jack-in-cljs-lein-plugins nil
   "List of Leiningen plugins to be injected at jack-in.
@@ -649,12 +646,12 @@ Generally you should not disable this unless you run into some faulty check."
 
 (defun cider-verify-clojurescript-is-present ()
   "Check whether ClojureScript is present."
-  (unless (cider-library-present-p "clojure/clojurescript")
+  (unless (cider-library-present-p "cljs.core")
     (user-error "ClojureScript is not available.  See https://docs.cider.mx/en/latest/clojurescript for details")))
 
 (defun cider-verify-piggieback-is-present ()
   "Check whether the piggieback middleware is present."
-  (unless (cider-library-present-p "cider/piggieback")
+  (unless (cider-library-present-p "cider.piggieback")
     (user-error "Piggieback 0.4.x (aka cider/piggieback) is not available.  See https://docs.cider.mx/en/latest/clojurescript for details")))
 
 (defun cider-check-nashorn-requirements ()
@@ -670,30 +667,30 @@ Generally you should not disable this unless you run into some faulty check."
 (defun cider-check-figwheel-requirements ()
   "Check whether we can start a Figwheel ClojureScript REPL."
   (cider-verify-piggieback-is-present)
-  (unless (cider-library-present-p "figwheel-sidecar/figwheel-sidecar")
+  (unless (cider-library-present-p "figwheel-sidecar.repl")
     (user-error "Figwheel-sidecar is not available.  Please check https://docs.cider.mx/en/latest/clojurescript")))
 
 (defun cider-check-figwheel-main-requirements ()
   "Check whether we can start a Figwheel ClojureScript REPL."
   (cider-verify-piggieback-is-present)
-  (unless (cider-library-present-p "bhauman/figwheel-main")
+  (unless (cider-library-present-p "figwheel.main")
     (user-error "Figwheel-main is not available.  Please check https://docs.cider.mx/en/latest/clojurescript")))
 
 (defun cider-check-weasel-requirements ()
   "Check whether we can start a Weasel ClojureScript REPL."
   (cider-verify-piggieback-is-present)
-  (unless (cider-library-present-p "weasel/weasel")
+  (unless (cider-library-present-p "weasel.repl.server")
     (user-error "Weasel in not available.  Please check https://docs.cider.mx/en/latest/clojurescript/#browser-connected-clojurescript-repl")))
 
 (defun cider-check-boot-requirements ()
   "Check whether we can start a Boot ClojureScript REPL."
   (cider-verify-piggieback-is-present)
-  (unless (cider-library-present-p "adzerk/boot-cljs-repl")
+  (unless (cider-library-present-p "adzerk.boot-cljs-repl")
     (user-error "The Boot ClojureScript REPL is not available.  Please check https://github.com/adzerk-oss/boot-cljs-repl/blob/master/README.md")))
 
 (defun cider-check-shadow-cljs-requirements ()
   "Check whether we can start a shadow-cljs REPL."
-  (unless (cider-library-present-p "thheller/shadow-cljs")
+  (unless (cider-library-present-p "shadow.repl")
     (user-error "The shadow-cljs ClojureScript REPL is not available")))
 
 (defun cider-normalize-cljs-init-options (options)

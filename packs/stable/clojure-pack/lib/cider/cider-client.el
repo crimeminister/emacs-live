@@ -28,6 +28,7 @@
 (require 'map)
 (require 'seq)
 (require 'subr-x)
+(require 'parseedn)
 
 (require 'clojure-mode)
 (require 'spinner)
@@ -114,6 +115,14 @@ will return nil instead of \"user\"."
         (buffer-local-value 'cider-buffer-ns repl))
       (if no-default nil "user")))
 
+(defun cider-path-to-ns (relpath)
+  "Transform RELPATH to Clojure namespace.
+Remove extension and substitute \"/\" with \".\", \"_\" with \"-\"."
+  (thread-last relpath
+    (file-name-sans-extension)
+    (replace-regexp-in-string "/" ".")
+    (replace-regexp-in-string "_" "-")))
+
 (defun cider-expected-ns (&optional path)
   "Return the namespace string matching PATH, or nil if not found.
 If PATH is nil, use the path to the file backing the current buffer.  The
@@ -121,7 +130,7 @@ command falls back to `clojure-expected-ns' in the absence of an active
 nREPL connection."
   (if (cider-connected-p)
       (let* ((path (file-truename (or path buffer-file-name)))
-             (relpath (thread-last (cider-sync-request:classpath)
+             (relpath (thread-last (cider-classpath-entries)
                         (seq-filter #'file-directory-p)
                         (seq-map (lambda (dir)
                                    (when (file-in-directory-p path dir)
@@ -131,10 +140,7 @@ nREPL connection."
                                     (< (length a) (length b))))
                         (car))))
         (if relpath
-            (thread-last relpath
-              (file-name-sans-extension)
-              (replace-regexp-in-string "/" ".")
-              (replace-regexp-in-string "_" "-"))
+            (cider-path-to-ns relpath)
           (clojure-expected-ns path)))
     (clojure-expected-ns path)))
 
@@ -345,30 +351,11 @@ clobber *1/2/3)."
                            ns
                            'tooling))
 
-;; TODO: Add some unit tests and pretty those two functions up.
-;; FIXME: Currently that's broken for group-id with multiple segments (e.g. org.clojure/clojure)
-(defun cider-classpath-libs ()
-  "Return a list of all libs on the classpath."
-  (let ((libs (seq-filter (lambda (cp-entry)
-                            (string-suffix-p ".jar" cp-entry))
-                          (cider-sync-request:classpath)))
-        (dir-sep (if (string-equal system-type "windows-nt") "\\\\" "/")))
-    (thread-last libs
-      (seq-map (lambda (s) (split-string s dir-sep)))
-      (seq-map #'reverse)
-      (seq-map (lambda (l) (reverse (seq-take l 4)))))))
-
-(defun cider-library-present-p (lib)
-  "Check whether LIB is present on the classpath.
-The library is a string of the format \"group-id/artifact-id\"."
-  (let* ((lib (split-string lib "/"))
-         (group-id (car lib))
-         (artifact-id (cadr lib)))
-    (seq-find (lambda (lib)
-                (let ((g (car lib))
-                      (a (cadr lib)))
-                  (and (equal group-id g) (equal artifact-id a))))
-              (cider-classpath-libs))))
+(defun cider-library-present-p (lib-ns)
+  "Check whether LIB-NS is present.
+If a certain well-known ns in a library is present we assume that library
+itself is present."
+  (nrepl-dict-get (cider-sync-tooling-eval (format "(require '%s)" lib-ns)) "value"))
 
 
 ;;; Interrupt evaluation
@@ -412,12 +399,36 @@ contain a `candidates' key, it is returned as is."
           info)
       var-info)))
 
+(defconst cider-info-form "
+(do
+  (require 'clojure.java.io)
+  (require 'clojure.walk)
+
+  (if-let [var (resolve '%s)]
+    (let [info (meta var)]
+      (-> info
+          (update :ns str)
+          (update :name str)
+          (update :file (comp str clojure.java.io/resource))
+          (assoc :arglists-str (str (:arglists info)))
+          (clojure.walk/stringify-keys)))))
+")
+
+(defun cider-fallback-eval:info (var)
+  "Obtain VAR metadata via a regular eval.
+Used only when the info nREPL middleware is not available."
+  (let* ((response (cider-sync-tooling-eval (format cider-info-form var)))
+         (var-info (nrepl-dict-from-hash (parseedn-read-str (nrepl-dict-get response "value")))))
+    var-info))
+
 (defun cider-var-info (var &optional all)
   "Return VAR's info as an alist with list cdrs.
 When multiple matching vars are returned you'll be prompted to select one,
 unless ALL is truthy."
   (when (and var (not (string= var "")))
-    (let ((var-info (cider-sync-request:info var)))
+    (let ((var-info (if (cider-nrepl-op-supported-p "info")
+                        (cider-sync-request:info var)
+                      (cider-fallback-eval:info var))))
       (if all var-info (cider--var-choice var-info)))))
 
 (defun cider-member-info (class member)
@@ -484,6 +495,16 @@ Optional arguments include SEARCH-NS, DOCS-P, PRIVATES-P, CASE-SENSITIVE-P."
     (cider-nrepl-send-sync-request)
     (nrepl-dict-get "classpath")))
 
+(defun cider-fallback-eval:classpath ()
+  "Return a list of classpath entries using eval."
+  (read (nrepl-dict-get (cider-sync-tooling-eval "(seq (.split (System/getProperty \"java.class.path\") \":\"))") "value")))
+
+(defun cider-classpath-entries ()
+  "Return a list of classpath entries."
+  (if (cider-nrepl-op-supported-p "classpath")
+      (cider-sync-request:classpath)
+    (cider-fallback-eval:classpath)))
+
 (defun cider-sync-request:complete (str context)
   "Return a list of completions for STR using nREPL's \"complete\" op.
 CONTEXT represents a completion context for compliment."
@@ -542,14 +563,16 @@ Optional argument FILTER-REGEX filters specs.  By default, all specs are
 returned."
   (setq filter-regex (or filter-regex ""))
   (thread-first `("op" "spec-list"
-                  "filter-regex" ,filter-regex)
+                  "filter-regex" ,filter-regex
+                  "ns" ,(cider-current-ns))
     (cider-nrepl-send-sync-request)
     (nrepl-dict-get "spec-list")))
 
 (defun cider-sync-request:spec-form (spec)
   "Get SPEC's form from registry."
   (thread-first `("op" "spec-form"
-                  "spec-name" ,spec)
+                  "spec-name" ,spec
+                  "ns" ,(cider-current-ns))
     (cider-nrepl-send-sync-request)
     (nrepl-dict-get "spec-form")))
 
@@ -608,6 +631,24 @@ The result entries are relative to the classpath."
                            (cider-nrepl-send-sync-request)
                            (nrepl-dict-get "resources-list"))))
     (seq-map (lambda (resource) (nrepl-dict-get resource "relpath")) resources)))
+
+(defun cider-sync-request:fn-refs (ns sym)
+  "Return a list of functions that reference the function identified by NS and SYM."
+  (cider-ensure-op-supported "fn-refs")
+  (thread-first `("op" "fn-refs"
+                  "ns" ,ns
+                  "symbol" ,sym)
+    (cider-nrepl-send-sync-request)
+    (nrepl-dict-get "fn-refs")))
+
+(defun cider-sync-request:fn-deps (ns sym)
+  "Return a list of function deps for the function identified by NS and SYM."
+  (cider-ensure-op-supported "fn-deps")
+  (thread-first `("op" "fn-deps"
+                  "ns" ,ns
+                  "symbol" ,sym)
+    (cider-nrepl-send-sync-request)
+    (nrepl-dict-get "fn-deps")))
 
 (defun cider-sync-request:format-code (code)
   "Perform nREPL \"format-code\" op with CODE."
