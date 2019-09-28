@@ -33,6 +33,9 @@
 (live-add-pack-lib "marshal.el")
 (require 'marshal)
 
+(live-add-pack-lib "transient/lisp")
+(require 'transient)
+
 (live-load-config-file "backup-dir-conf.el")
 (live-load-config-file "util-fns.el")
 (live-load-config-file "built-in.el")

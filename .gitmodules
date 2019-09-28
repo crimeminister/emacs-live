@@ -182,9 +182,9 @@
 [submodule "packs/dev/clojure-pack/vendor/submodules/parseedn"]
 	path = packs/dev/clojure-pack/vendor/submodules/parseedn
 	url = https://github.com/clojure-emacs/parseedn.git
-[submodule "packs/dev/foundation-pack/vendor/submodules/magit-popup"]
-	path = packs/dev/foundation-pack/vendor/submodules/magit-popup
-	url = https://github.com/magit/magit-popup.git
 [submodule "packs/dev/foundation-pack/vendor/submodules/marshal.el"]
 	path = packs/dev/foundation-pack/vendor/submodules/marshal.el
 	url = https://github.com/sigma/marshal.el.git
+[submodule "packs/dev/foundation-pack/vendor/submodules/transient"]
+	path = packs/dev/foundation-pack/vendor/submodules/transient
+	url = https://github.com/magit/transient.git
