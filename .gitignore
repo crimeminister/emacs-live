@@ -26,3 +26,4 @@ tmp/*
 swank/*
 ido.last
 smex-items
+.yas-compiled-snippets.el
