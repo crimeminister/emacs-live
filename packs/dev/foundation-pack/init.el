@@ -32,7 +32,8 @@
 
 (live-add-pack-lib "marshal.el")
 (require 'marshal)
-
+(live-add-pack-lib "a.el")
+(require 'a)
 (live-add-pack-lib "transient/lisp")
 (require 'transient)
 

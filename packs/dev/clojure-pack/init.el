@@ -9,6 +9,8 @@
 (live-add-pack-lib "edn")
 (require 'edn)
 
+(live-add-pack-lib "parseclj")
+(require 'parseclj)
 (live-add-pack-lib "parseedn")
 (require 'parseedn)
 
