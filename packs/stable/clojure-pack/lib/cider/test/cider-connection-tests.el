@@ -347,17 +347,35 @@
           sesman-links-alist nil
           cider-default-cljs-repl 'node)
     (spy-on 'cider--gather-session-params
-            :and-return-value '(:project-dir "some/project" :host "localhost" :port 1234))
+            :and-return-value '(:project-dir "/some/project" :host "localhost" :port 1234))
+    (spy-on 'cider-jack-in-resolve-command :and-return-value "lein")
     (spy-on 'nrepl-start-server-process
             :and-return-value nil)
     (spy-on 'sesman-current-sessions
             :and-return-value '(("a-session")))
     (spy-on 'y-or-n-p
             :and-return-value t)
-    (cider-jack-in-clj&cljs '(:project-dir "some/project" :host "localhost" :port 1234))
-    (cider-jack-in-clj&cljs '(:project-dir "some/project" :host "localhost"))
-    (cider-jack-in-clj&cljs '(:project-dir "some/project"))
-    (cider-jack-in-clj&cljs '(:project-dir "some/project" :host "other-host"))
-    (cider-jack-in-clj&cljs '(:project-dir "some/other/project")))
+    (cider-jack-in-clj&cljs '(:project-dir "/some/project" :host "localhost" :port 1234))
+    (cider-jack-in-clj&cljs '(:project-dir "/some/project" :host "localhost"))
+    (cider-jack-in-clj&cljs '(:project-dir "/some/project"))
+    (cider-jack-in-clj&cljs '(:project-dir "/some/project" :host "other-host"))
+    (cider-jack-in-clj&cljs '(:project-dir "/some/other/project")))
   (it "detects existing project"
     (expect 'y-or-n-p :to-have-been-called-times 3)))
+
+(describe "cider-compatible-middleware-version-p"
+  (describe "correctly check compatible required and middleware versions"
+    (expect (cider--compatible-middleware-version-p "0.24.0" "0.24.1")
+            :to-be t)
+    (expect (cider--compatible-middleware-version-p "0.24.1" "0.23.2")
+            :to-be nil)
+    (expect (cider--compatible-middleware-version-p "0.24.1" "0.24.1-alpha2")
+            :to-be t)
+    (expect (cider--compatible-middleware-version-p "1.24.1" "0.24.1-alpha2")
+            :to-be nil)
+    (expect (cider--compatible-middleware-version-p "1.24.1" "1.24.1-alpha2")
+            :to-be t)
+    (expect (cider--compatible-middleware-version-p "1.24.3" "1.25.2-alpha2")
+            :to-be t)
+    (expect (cider--compatible-middleware-version-p "1.25.3" "1.25.2-alpha2")
+            :to-be t)))

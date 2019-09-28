@@ -108,11 +108,6 @@
   :type 'hook
   :group 'nrepl)
 
-(defcustom nrepl-file-loaded-hook nil
-  "List of functions to call when a load file has completed."
-  :type 'hook
-  :group 'nrepl)
-
 (defcustom nrepl-force-ssh-for-remote-hosts nil
   "If non-nil, do not attempt a direct connection for remote hosts."
   :type 'boolean
@@ -175,7 +170,7 @@ To be used for tooling calls (i.e. completion, eldoc, etc)")
   "Version information received from the describe op.")
 
 (defvar-local nrepl-aux nil
-  "Auxillary information received from the describe op.")
+  "Auxiliary information received from the describe op.")
 
 
 ;;; nREPL Buffer Names
@@ -1025,7 +1020,7 @@ been determined."
       (set-process-filter serv-proc 'nrepl-server-filter)
       (set-process-sentinel serv-proc 'nrepl-server-sentinel)
       (set-process-coding-system serv-proc 'utf-8-unix 'utf-8-unix)
-      (message "[nREPL] Starting server via %s..."
+      (message "[nREPL] Starting server via %s"
                (propertize cmd 'face 'font-lock-keyword-face))
       serv-proc)))
 

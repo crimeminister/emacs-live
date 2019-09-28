@@ -251,6 +251,73 @@
     (it "prepends colon to plain names"
       (expect (cider-normalize-cljs-init-options "dev") :to-equal ":dev"))))
 
+(describe "cider--shadow-parse-builds"
+  (it "parses valid input"
+    (expect (cider--shadow-parse-builds
+             (parseedn-read-str "{:builds {:app {} :release {}}}"))
+            :to-have-same-items-as '(:release :app browser-repl node-repl)))
+  (it "returns default options on empty / invalid input"
+    (expect (cider--shadow-parse-builds (parseedn-read-str "{}"))
+            :to-equal '(browser-repl node-repl))
+    (expect (cider--shadow-parse-builds (parseedn-read-str "[oops]"))
+            :to-equal '(browser-repl node-repl))))
+
+(describe "cider--powershell-encode-command"
+  (it "base64 encodes command and parameters"
+    (expect (cider--powershell-encode-command "cmd-params")
+            :to-equal (concat "-encodedCommand "
+                              ;; Eval to reproduce reference string below: (base64-encode-string (encode-coding-string "clojure cmd-params" 'utf-16le) t)
+                              "YwBsAG8AagB1AHIAZQAgAGMAbQBkAC0AcABhAHIAYQBtAHMA")))
+  (it "escapes double quotes by repeating them"
+    (expect (cider--powershell-encode-command "\"cmd-params\"")
+            :to-equal (concat "-encodedCommand "
+                              ;; Eval to reproduce reference string below: (base64-encode-string (encode-coding-string "clojure \"\"cmd-params\"\"" 'utf-16le) t)
+                              "YwBsAG8AagB1AHIAZQAgACIAIgBjAG0AZAAtAHAAYQByAGEAbQBzACIAIgA="))))
+
+(describe "cider--update-jack-in-cmd"
+  (describe "when 'clojure-cli project type and \"powershell\" command"
+    (it "returns a jack-in command using encodedCommand option"
+      (setq-local cider-clojure-cli-command "powershell")
+      (setq-local cider-inject-dependencies-at-jack-in nil)
+      (setq-local cider-allow-jack-in-without-project t)
+      (setq-local cider-edit-jack-in-command nil)
+      (spy-on 'cider-project-type :and-return-value 'clojure-cli)
+      (spy-on 'cider-jack-in-resolve-command :and-return-value "resolved-powershell")
+      (spy-on 'cider-jack-in-global-options)
+      (spy-on 'cider-jack-in-params :and-return-value "\"cmd-params\"")
+      (expect (plist-get (cider--update-jack-in-cmd nil) :jack-in-cmd)
+              :to-equal (concat "resolved-powershell -encodedCommand "
+                                ;; Eval to reproduce reference string below: (base64-encode-string (encode-coding-string "clojure \"\"cmd-params\"\"" 'utf-16le) t)
+                                "YwBsAG8AagB1AHIAZQAgACIAIgBjAG0AZAAtAHAAYQByAGEAbQBzACIAIgA=")))))
+
+(defmacro with-temp-shadow-config (contents &rest body)
+  "Run BODY with a mocked shadow-cljs.edn project file with the CONTENTS."
+  `(let* ((edn-file "shadow-cljs.edn")
+          (file-path (concat temporary-file-directory edn-file)))
+     (with-temp-file file-path
+       (insert ,contents))
+     (spy-on 'clojure-project-dir :and-return-value temporary-file-directory)
+     ,@body
+     (delete-file file-path)))
+
+(describe "cider--shadow-get-builds"
+  (it "handles EDN reader tags"
+    (with-temp-shadow-config
+     "{:builds {:app {} :release {}} :key #shadow/env \"foo\"}"
+     (expect (cider--shadow-get-builds)
+             :to-have-same-items-as '(:release :app browser-repl node-repl))))
+
+  (it "returns default options on empty / invalid input"
+    (with-temp-shadow-config
+     "{}"
+     (expect (cider--shadow-get-builds)
+             :to-have-same-items-as '(browser-repl node-repl)))
+
+    (with-temp-shadow-config
+     "[oops]"
+     (expect (cider--shadow-get-builds)
+             :to-have-same-items-as '(browser-repl node-repl)))))
+
 (provide 'cider-tests)
 
 ;;; cider-tests.el ends here

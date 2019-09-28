@@ -55,6 +55,7 @@ Only the background color is significant."
   "Holds the current LV window.")
 
 (defvar display-line-numbers)
+(defvar display-fill-column-indicator)
 
 (defun lv-window ()
   "Ensure that LV window is live and return it."
@@ -73,8 +74,10 @@ Only the background color is significant."
           (set-window-hscroll lv-wnd 0)
           (setq window-size-fixed t)
           (setq mode-line-format nil)
+          (setq header-line-format nil)
           (setq cursor-type nil)
           (setq display-line-numbers nil)
+          (setq display-fill-column-indicator nil)
           (set-window-dedicated-p lv-wnd t)
           (set-window-parameter lv-wnd 'no-other-window t))
         (select-window ori)))))

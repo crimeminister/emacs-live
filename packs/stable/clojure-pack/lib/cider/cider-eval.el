@@ -112,6 +112,11 @@ If t, save the file without confirmation."
   :group 'cider
   :package-version '(cider . "0.6.0"))
 
+(defcustom cider-file-loaded-hook nil
+  "List of functions to call when a load file has completed."
+  :type 'hook
+  :group 'cider
+  :package-version '(cider . "0.1.7"))
 
 (defconst cider-output-buffer "*cider-out*")
 
@@ -486,8 +491,9 @@ or it can be a list with (START END) of the evaluated region."
                                    (cider-handle-compilation-errors err eval-buffer))
                                  '())))
 
-(defun cider-load-file-handler (&optional buffer)
-  "Make a load file handler for BUFFER."
+(defun cider-load-file-handler (&optional buffer done-handler)
+  "Make a load file handler for BUFFER.
+Optional argument DONE-HANDLER lambda will be run once load is complete."
   (let ((eval-buffer (current-buffer)))
     (nrepl-make-response-handler (or buffer eval-buffer)
                                  (lambda (buffer value)
@@ -501,7 +507,7 @@ or it can be a list with (START END) of the evaluated region."
                                  (lambda (_buffer err)
                                    (cider-emit-interactive-eval-err-output err)
                                    (cider-handle-compilation-errors err eval-buffer))
-                                 '()
+                                 (or done-handler '())
                                  (lambda ()
                                    (funcall nrepl-err-handler)))))
 
@@ -522,13 +528,13 @@ or it can be a list with (START END) of the evaluated region."
 
 (defun cider-eval-print-with-comment-handler (buffer location comment-prefix)
   "Make a handler for evaluating and printing commented results in BUFFER.
-LOCATION is the location at which to insert.  COMMENT-PREFIX is the comment
-prefix to use."
+LOCATION is the location marker at which to insert.  COMMENT-PREFIX is the
+comment prefix to use."
   (nrepl-make-response-handler buffer
                                (lambda (buffer value)
                                  (with-current-buffer buffer
                                    (save-excursion
-                                     (goto-char location)
+                                     (goto-char (marker-position location))
                                      (insert (concat comment-prefix
                                                      value "\n")))))
                                (lambda (_buffer out)
@@ -540,7 +546,7 @@ prefix to use."
 (defun cider-eval-pprint-with-multiline-comment-handler (buffer location comment-prefix continued-prefix comment-postfix)
   "Make a handler for evaluating and inserting results in BUFFER.
 The inserted text is pretty-printed and region will be commented.
-LOCATION is the location at which to insert.
+LOCATION is the location marker at which to insert.
 COMMENT-PREFIX is the comment prefix for the first line of output.
 CONTINUED-PREFIX is the comment prefix to use for the remaining lines.
 COMMENT-POSTFIX is the text to output after the last line."
@@ -554,7 +560,7 @@ COMMENT-POSTFIX is the text to output after the last line."
      (lambda (buffer)
        (with-current-buffer buffer
          (save-excursion
-           (goto-char location)
+           (goto-char (marker-position location))
            (let ((lines (split-string res "[\n]+" t)))
              ;; only the first line gets the normal comment-prefix
              (insert (concat comment-prefix (pop lines)))
@@ -738,7 +744,7 @@ With the prefix arg INSERT-BEFORE, insert before the form, otherwise afterwards.
     (cider-interactive-eval nil
                             (cider-eval-print-with-comment-handler
                              (current-buffer)
-                             insertion-point
+                             (set-marker (make-marker) insertion-point)
                              cider-comment-prefix)
                             bounds
                             (cider--nrepl-pr-request-map))))
@@ -766,7 +772,7 @@ If INSERT-BEFORE is non-nil, insert before the form, otherwise afterwards."
     (cider-interactive-eval nil
                             (cider-eval-pprint-with-multiline-comment-handler
                              (current-buffer)
-                             insertion-point
+                             (set-marker (make-marker) insertion-point)
                              cider-comment-prefix
                              cider-comment-continued-prefix
                              comment-postfix)
@@ -1033,7 +1039,8 @@ passing arguments."
     (define-key map (kbd "C-c e") #'cider-pprint-eval-last-sexp-to-comment)
     (define-key map (kbd "C-c C-e") #'cider-pprint-eval-last-sexp-to-comment)
     (define-key map (kbd "C-c d") #'cider-pprint-eval-defun-to-comment)
-    (define-key map (kbd "C-c C-d") #'cider-pprint-eval-defun-to-comment)))
+    (define-key map (kbd "C-c C-d") #'cider-pprint-eval-defun-to-comment)
+    map))
 
 (defvar cider-eval-commands-map
   (let ((map (define-prefix-command 'cider-eval-commands-map)))
@@ -1063,18 +1070,22 @@ passing arguments."
     (define-key map (kbd "C-z") #'cider-eval-defun-up-to-point)
     (define-key map (kbd "C-c") #'cider-eval-last-sexp-in-context)
     (define-key map (kbd "C-b") #'cider-eval-sexp-at-point-in-context)
-    (define-key map (kbd "C-f") 'cider-eval-pprint-commands-map)))
+    (define-key map (kbd "C-f") 'cider-eval-pprint-commands-map)
+    map))
 
 (defun cider--file-string (file)
   "Read the contents of a FILE and return as a string."
   (with-current-buffer (find-file-noselect file)
-    (substring-no-properties (buffer-string))))
+    (save-restriction
+      (widen)
+      (substring-no-properties (buffer-string)))))
 
-(defun cider-load-buffer (&optional buffer)
+(defun cider-load-buffer (&optional buffer callback)
   "Load (eval) BUFFER's file in nREPL.
 If no buffer is provided the command acts on the current buffer.  If the
 buffer is for a cljc file, and both a Clojure and ClojureScript REPL exists
-for the project, it is evaluated in both REPLs."
+for the project, it is evaluated in both REPLs.
+Optional argument CALLBACK will override the default ‘cider-load-file-handler’."
   (interactive)
   (setq buffer (or buffer (current-buffer)))
   ;; When cider-load-buffer or cider-load-file are called in programs the
@@ -1105,7 +1116,8 @@ for the project, it is evaluated in both REPLs."
                                        (funcall cider-to-nrepl-filename-function
                                                 (cider--server-filename filename))
                                        (file-name-nondirectory filename)
-                                       repl)))
+                                       repl
+                                       callback)))
           (message "Loading %s..." filename))))))
 
 (defun cider-load-file (filename)

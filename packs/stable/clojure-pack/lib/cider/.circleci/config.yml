@@ -1,0 +1,56 @@
+version: 2.1
+
+# Default actions to perform on each Emacs version
+commands:
+  setup:
+    steps:
+      - checkout
+      - run: make elpa
+      - run: emacs --version
+  test:
+    steps:
+      - run: make test
+  lint:
+    steps:
+      - run: make lint
+
+jobs:
+  test-emacs-25:
+    docker:
+      - image: silex/emacs:25-dev
+        entrypoint: bash
+    steps:
+      - setup
+      - test
+
+  test-emacs-26:
+    docker:
+      - image: silex/emacs:26-dev
+        entrypoint: bash
+    steps:
+      - setup
+      - test
+
+  test-emacs-master:
+    docker:
+      - image: silex/emacs:master-dev
+        entrypoint: bash
+    steps:
+      - setup
+      - test
+
+  test-lint:
+    docker:
+      - image: silex/emacs:26-dev
+    steps:
+      - setup
+      - lint
+
+workflows:
+  version: 2
+  ci-test-matrix:
+    jobs:
+      - test-emacs-25
+      - test-emacs-26
+      - test-emacs-master
+      - test-lint

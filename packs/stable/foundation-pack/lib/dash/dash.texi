@@ -96,8 +96,7 @@ Development
 @node Installation
 @chapter Installation
 
-It's available on @uref{http://marmalade-repo.org/,marmalade} and
-@uref{https://melpa.org/,Melpa}; use @code{M-x
+It's available on @uref{https://melpa.org/,Melpa}; use @code{M-x
 package-install}:
 
 @table @kbd
@@ -1425,12 +1424,32 @@ Return the longest common prefix of @var{lists}.
     @result{} '(1)
 @end group
 @group
-(-common-prefix '(1 2) nil '(1 2))
+(-common-prefix '(1 2) '(3 4) '(1 2))
     @result{} nil
 @end group
 @group
 (-common-prefix '(1 2) '(1 2 3) '(1 2 3 4))
     @result{} '(1 2)
+@end group
+@end example
+@end defun
+
+@anchor{-common-suffix}
+@defun -common-suffix (&rest lists)
+Return the longest common suffix of @var{lists}.
+
+@example
+@group
+(-common-suffix '(1))
+    @result{} '(1)
+@end group
+@group
+(-common-suffix '(1 2) '(3 4) '(1 2))
+    @result{} nil
+@end group
+@group
+(-common-suffix '(1 2 3 4) '(2 3 4) '(3 4))
+    @result{} '(3 4)
 @end group
 @end example
 @end defun
@@ -2047,15 +2066,15 @@ Partition directly after each time @var{pred} is true on an element of @var{list
 
 @example
 @group
-(-partition-after-pred #'oddp '())
+(-partition-after-pred #'odd? '())
     @result{} '()
 @end group
 @group
-(-partition-after-pred #'oddp '(1))
+(-partition-after-pred #'odd? '(1))
     @result{} '((1))
 @end group
 @group
-(-partition-after-pred #'oddp '(0 1))
+(-partition-after-pred #'odd? '(0 1))
     @result{} '((0 1))
 @end group
 @end example
@@ -2067,15 +2086,15 @@ Partition directly before each time @var{pred} is true on an element of @var{lis
 
 @example
 @group
-(-partition-before-pred #'oddp '())
+(-partition-before-pred #'odd? '())
     @result{} '()
 @end group
 @group
-(-partition-before-pred #'oddp '(1))
+(-partition-before-pred #'odd? '(1))
     @result{} '((1))
 @end group
 @group
-(-partition-before-pred #'oddp '(0 1))
+(-partition-before-pred #'odd? '(0 1))
     @result{} '((0) (1))
 @end group
 @end example
@@ -2425,6 +2444,10 @@ Alias: @code{-uniq}
 (-distinct '(1 2 2 4))
     @result{} '(1 2 4)
 @end group
+@group
+(-distinct '(t t t))
+    @result{} '(t)
+@end group
 @end example
 @end defun
 
@@ -2449,6 +2472,10 @@ The time complexity is @var{o}(n).
 @group
 (-rotate -3 '(1 2 3 4 5 6 7))
     @result{} '(4 5 6 7 1 2 3)
+@end group
+@group
+(-rotate 16 '(1 2 3 4 5 6 7))
+    @result{} '(6 7 1 2 3 4 5)
 @end group
 @end example
 @end defun
@@ -3905,6 +3932,19 @@ the target form.
 @group
 (-doto '(1 . 2) (setcar 3) (setcdr 4))
     @result{} '(3 . 4)
+@end group
+@end example
+@end defmac
+
+@anchor{--doto}
+@defmac --doto (eval-initial-value &rest forms)
+Anaphoric form of @code{-doto} (@pxref{-doto}).
+Note: @code{it} is not required in each form.
+
+@example
+@group
+(gethash "key" (--doto (make-hash-table :test 'equal) (puthash "key" "value" it)))
+    @result{} "value"
 @end group
 @end example
 @end defmac

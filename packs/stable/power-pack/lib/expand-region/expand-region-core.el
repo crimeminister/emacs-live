@@ -50,8 +50,8 @@
     (push-mark nil t)  ;; one for keeping starting position
     (push-mark nil t)) ;; one for replace by set-mark in expansions
 
-  (when (not (eq t transient-mark-mode))
-    (setq transient-mark-mode (cons 'only transient-mark-mode))))
+  (when (not transient-mark-mode)
+    (setq-local transient-mark-mode (cons 'only transient-mark-mode))))
 
 (defun er--copy-region-to-register ()
   (when (and (stringp expand-region-autocopy-register)
@@ -87,7 +87,7 @@ moving point or mark as little as possible."
     ;; unless we're already at maximum size
     (unless (and (= start best-start)
                  (= end best-end))
-      (push (cons start end) er/history))
+      (push (cons p1 p2) er/history))
 
     (when (and expand-region-skip-whitespace
                (er--point-is-surrounded-by-white-space)
@@ -108,8 +108,13 @@ moving point or mark as little as possible."
       (setq try-list (cdr try-list)))
 
     (setq deactivate-mark nil)
-    (goto-char best-start)
-    (set-mark best-end)
+    ;; if smart cursor enabled, decide to put it at start or end of region:
+    (if (and expand-region-smart-cursor
+             (not (= start best-start)))
+        (progn (goto-char best-end)
+               (set-mark best-start))
+      (goto-char best-start)
+      (set-mark best-end))
 
     (er--copy-region-to-register)
 
@@ -145,7 +150,7 @@ before calling `er/expand-region' for the first time."
         (setq arg (length er/history)))
 
       (when (not transient-mark-mode)
-        (setq transient-mark-mode (cons 'only transient-mark-mode)))
+        (setq-local transient-mark-mode (cons 'only transient-mark-mode)))
 
       ;; Advance through the list the desired distance
       (while (and (cdr er/history)

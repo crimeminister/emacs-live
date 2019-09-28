@@ -4,7 +4,7 @@ A modern list api for Emacs. No 'cl required.
 
 ## Installation
 
-It's available on [marmalade](http://marmalade-repo.org/) and [Melpa](https://melpa.org/):
+It's available on [Melpa](https://melpa.org/):
 
     M-x package-install dash
 
@@ -19,11 +19,11 @@ If you want the function combinators, then also:
 
 Add this to the big comment block at the top:
 
-    ;; Package-Requires: ((dash "2.14.1"))
+    ;; Package-Requires: ((dash "2.16.0"))
 
 To get function combinators:
 
-    ;; Package-Requires: ((dash "2.14.1") (dash-functional "1.2.0") (emacs "24"))
+    ;; Package-Requires: ((dash "2.16.0") (dash-functional "1.2.0") (emacs "24"))
 
 ## Upcoming breaking change!
 
@@ -147,6 +147,7 @@ Functions reducing lists into single value.
 * [-inits](#-inits-list) `(list)`
 * [-tails](#-tails-list) `(list)`
 * [-common-prefix](#-common-prefix-rest-lists) `(&rest lists)`
+* [-common-suffix](#-common-suffix-rest-lists) `(&rest lists)`
 * [-min](#-min-list) `(list)`
 * [-min-by](#-min-by-comparator-list) `(comparator list)`
 * [-max](#-max-list) `(list)`
@@ -302,6 +303,7 @@ Functions iterating over lists for side-effect only.
 * [-each-r-while](#-each-r-while-list-pred-fn) `(list pred fn)`
 * [-dotimes](#-dotimes-num-fn) `(num fn)`
 * [-doto](#-doto-eval-initial-value-rest-forms) `(eval-initial-value &rest forms)`
+* [--doto](#--doto-eval-initial-value-rest-forms) `(eval-initial-value &rest forms)`
 
 ### Destructive operations
 
@@ -1052,8 +1054,18 @@ Return the longest common prefix of `lists`.
 
 ```el
 (-common-prefix '(1)) ;; => '(1)
-(-common-prefix '(1 2) nil '(1 2)) ;; => nil
+(-common-prefix '(1 2) '(3 4) '(1 2)) ;; => nil
 (-common-prefix '(1 2) '(1 2 3) '(1 2 3 4)) ;; => '(1 2)
+```
+
+#### -common-suffix `(&rest lists)`
+
+Return the longest common suffix of `lists`.
+
+```el
+(-common-suffix '(1)) ;; => '(1)
+(-common-suffix '(1 2) '(3 4) '(1 2)) ;; => nil
+(-common-suffix '(1 2 3 4) '(2 3 4) '(3 4)) ;; => '(3 4)
 ```
 
 #### -min `(list)`
@@ -1405,9 +1417,9 @@ other value (the body).
 Partition directly after each time `pred` is true on an element of `list`.
 
 ```el
-(-partition-after-pred #'oddp '()) ;; => '()
-(-partition-after-pred #'oddp '(1)) ;; => '((1))
-(-partition-after-pred #'oddp '(0 1)) ;; => '((0 1))
+(-partition-after-pred #'odd? '()) ;; => '()
+(-partition-after-pred #'odd? '(1)) ;; => '((1))
+(-partition-after-pred #'odd? '(0 1)) ;; => '((0 1))
 ```
 
 #### -partition-before-pred `(pred list)`
@@ -1415,9 +1427,9 @@ Partition directly after each time `pred` is true on an element of `list`.
 Partition directly before each time `pred` is true on an element of `list`.
 
 ```el
-(-partition-before-pred #'oddp '()) ;; => '()
-(-partition-before-pred #'oddp '(1)) ;; => '((1))
-(-partition-before-pred #'oddp '(0 1)) ;; => '((0) (1))
+(-partition-before-pred #'odd? '()) ;; => '()
+(-partition-before-pred #'odd? '(1)) ;; => '((1))
+(-partition-before-pred #'odd? '(0 1)) ;; => '((0) (1))
 ```
 
 #### -partition-before-item `(item list)`
@@ -1613,6 +1625,7 @@ Alias: `-uniq`
 ```el
 (-distinct '()) ;; => '()
 (-distinct '(1 2 2 4)) ;; => '(1 2 4)
+(-distinct '(t t t)) ;; => '(t)
 ```
 
 
@@ -1629,6 +1642,7 @@ The time complexity is `o`(n).
 ```el
 (-rotate 3 '(1 2 3 4 5 6 7)) ;; => '(5 6 7 1 2 3 4)
 (-rotate -3 '(1 2 3 4 5 6 7)) ;; => '(4 5 6 7 1 2 3)
+(-rotate 16 '(1 2 3 4 5 6 7)) ;; => '(6 7 1 2 3 4 5)
 ```
 
 #### -repeat `(n x)`
@@ -2574,6 +2588,15 @@ the target form.
 (-doto '(1 . 2) (setcar 3) (setcdr 4)) ;; => '(3 . 4)
 ```
 
+#### --doto `(eval-initial-value &rest forms)`
+
+Anaphoric form of [`-doto`](#-doto-eval-initial-value-rest-forms).
+Note: `it` is not required in each form.
+
+```el
+(gethash "key" (--doto (make-hash-table :test 'equal) (puthash "key" "value" it))) ;; => "value"
+```
+
 
 ## Destructive operations
 
@@ -2855,6 +2878,25 @@ Oh, and don't edit `README.md` directly, it is auto-generated.
 Change `readme-template.md` or `examples-to-docs.el` instead.
 
 ## Changelist
+
+### From 2.15 to 2.16
+
+- Added `--doto`, anaphoric version of `-doto` (#282)
+- Aliased `-cons-pair-p` to `-cons-pair?`(#288)
+- Generalized `-rotate` for |n| greater than the length of the list (@leungbk, #290)
+- Added a mechanism to extend destructuring with custom matchers (@yyoncho, #277)
+
+### From 2.14 to 2.15
+
+This release brings new destructuring features, some new control flow
+functions and performance optimizations.
+
+- Added `-setq` with destructuring binding support similar to `-let` family ([#116](https://github.com/magnars/dash.el/issues/116))
+- Added smarter key destructuring in `-let` and friends where variables are auto-derived from keys ([#111](https://github.com/magnars/dash.el/issues/111))
+- Allow `-let` bindings with place only ([#256](https://github.com/magnars/dash.el/issues/256))
+- Added `-each-r` and `-each-r-while` (@doublep, [#159](https://github.com/magnars/dash.el/issues/159))
+- Added `-common-suffix` (@basil-conto, [#263](https://github.com/magnars/dash.el/issues/263))
+- Improved performance of folds (`-reduce` and friends) (@basil-conto, [#264](https://github.com/magnars/dash.el/issues/264))
 
 ### From 2.13 to 2.14
 

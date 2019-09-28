@@ -266,7 +266,7 @@ If SORT is non-nil, sort in relevance order."
                            (mapcar (lambda (x) (format "%s" x))
                                    (plist-get info :objects)))))
           (mapconcat (lambda (str)
-                       (replace-regexp-in-string ses-name "%%s" str nil t))
+                       (replace-regexp-in-string ses-name "..." str nil t))
                      strings sep))
       (format "%s" info))))
 
@@ -282,7 +282,8 @@ If SORT is non-nil, sort in relevance order."
          (session (gethash (car link) sesman-sessions-hashmap)))
     (format "%s(%s) -> %s [%s]"
             (sesman--lnk-context-type link)
-            (propertize (sesman--abbrev-path-maybe (sesman--lnk-value link)) 'face 'bold)
+            (propertize (format "%s" (sesman--abbrev-path-maybe (sesman--lnk-value link)))
+                        'face 'bold)
             (propertize (sesman--lnk-session-name link) 'face 'bold)
             (if session
                 (sesman--format-session-objects system session)
@@ -511,13 +512,14 @@ buffer."
     ["Link with Buffer" sesman-link-with-buffer :active (sesman-current-session (sesman--system))]
     ["Link with Directory" sesman-link-with-directory :active (sesman-current-session (sesman--system))]
     ["Link with Project" sesman-link-with-project :active (sesman-current-session (sesman--system))]
+    ["Unlink" sesman-unlink :active (sesman-current-session (sesman--system))]
     "--"
-    ["Unlink" sesman-unlink :active (sesman-current-session (sesman--system))])
+    ["Browser" sesman-browser :active (sesman-current-session (sesman--system))])
   "Sesman Menu.")
 
 (defun sesman-install-menu (map)
   "Install `sesman-menu' into MAP."
-  (easy-menu-do-define 'seman-menu-open
+  (easy-menu-do-define 'sesman-menu-open
                        map
                        (get 'sesman-menu 'variable-documentation)
                        sesman-menu))
@@ -926,16 +928,17 @@ buffers."
 (defun sesman-expand-path (path)
   "Expand PATH with optionally follow symlinks.
 Whether symlinks are followed is controlled by `sesman-follow-symlinks' custom
-variable."
-  (if sesman-follow-symlinks
-      (let ((true-name (or (gethash path sesman--path-cache)
-                           (puthash path (file-truename path) sesman--path-cache))))
-        (if (or (eq sesman-follow-symlinks t)
-                vc-follow-symlinks)
-            true-name
-          ;; sesman-follow-symlinks is 'vc but vc-follow-symlinks is nil
-          (expand-file-name path)))
-    (expand-file-name path)))
+variable. Always return the expansion without the trailing directory slash."
+  (directory-file-name
+   (if sesman-follow-symlinks
+       (let ((true-name (or (gethash path sesman--path-cache)
+                            (puthash path (file-truename path) sesman--path-cache))))
+         (if (or (eq sesman-follow-symlinks t)
+                 vc-follow-symlinks)
+             true-name
+           ;; sesman-follow-symlinks is 'vc but vc-follow-symlinks is nil
+           (expand-file-name path)))
+     (expand-file-name path))))
 
 
 ;;; Contexts

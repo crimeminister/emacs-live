@@ -41,6 +41,35 @@
        ("SPC" hydra-repeat "rep" :bind nil)))
     '(progn
       (set
+       (defvar hydra-error/params nil
+         "Params of hydra-error.")
+       (quote (global-map "M-g")))
+      (set
+       (defvar hydra-error/docstring nil
+         "Docstring of hydra-error.")
+       "error")
+      (set
+       (defvar hydra-error/heads nil
+         "Heads for hydra-error.")
+       (quote
+        (("h"
+          first-error
+          "first"
+          :exit nil)
+         ("j"
+          next-error
+          "next"
+          :exit nil)
+         ("k"
+          previous-error
+          "prev"
+          :exit nil)
+         ("SPC"
+          hydra-repeat
+          "rep"
+          :bind nil
+          :exit nil))))
+      (set
        (defvar hydra-error/keymap nil
          "Keymap for hydra-error.")
        (quote
@@ -72,27 +101,6 @@
          (48 . hydra--digit-argument)
          (45 . hydra--negative-argument)
          (21 . hydra--universal-argument))))
-      (set
-       (defvar hydra-error/heads nil
-         "Heads for hydra-error.")
-       (quote
-        (("h"
-          first-error
-          "first"
-          :exit nil)
-         ("j"
-          next-error
-          "next"
-          :exit nil)
-         ("k"
-          previous-error
-          "prev"
-          :exit nil)
-         ("SPC"
-          hydra-repeat
-          "rep"
-          :bind nil
-          :exit nil))))
       (set
        (defvar hydra-error/hint nil
          "Dynamic hint for hydra-error.")
@@ -129,8 +137,7 @@ The body can be accessed via `hydra-error/body', which is bound to \"M-g\"."
                (function first-error)))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-error/hint
          (quote hydra-error))
@@ -166,8 +173,7 @@ The body can be accessed via `hydra-error/body', which is bound to \"M-g\"."
                (function next-error)))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-error/hint
          (quote hydra-error))
@@ -203,8 +209,7 @@ The body can be accessed via `hydra-error/body', which is bound to \"M-g\"."
                (function previous-error)))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-error/hint
          (quote hydra-error))
@@ -269,6 +274,35 @@ The body can be accessed via `hydra-error/body', which is bound to \"M-g\"."
        ("q" nil "cancel")))
     '(progn
       (set
+       (defvar hydra-toggle/params nil
+         "Params of hydra-toggle.")
+       (quote
+        (nil
+         nil
+         :exit t
+         :foreign-keys nil)))
+      (set
+       (defvar hydra-toggle/docstring nil
+         "Docstring of hydra-toggle.")
+       "toggle")
+      (set
+       (defvar hydra-toggle/heads nil
+         "Heads for hydra-toggle.")
+       (quote
+        (("t"
+          toggle-truncate-lines
+          "truncate"
+          :exit t)
+         ("f"
+          auto-fill-mode
+          "fill"
+          :exit t)
+         ("a"
+          abbrev-mode
+          "abbrev"
+          :exit t)
+         ("q" nil "cancel" :exit t))))
+      (set
        (defvar hydra-toggle/keymap nil
          "Keymap for hydra-toggle.")
        (quote
@@ -300,23 +334,6 @@ The body can be accessed via `hydra-error/body', which is bound to \"M-g\"."
          (48 . hydra--digit-argument)
          (45 . hydra--negative-argument)
          (21 . hydra--universal-argument))))
-      (set
-       (defvar hydra-toggle/heads nil
-         "Heads for hydra-toggle.")
-       (quote
-        (("t"
-          toggle-truncate-lines
-          "truncate"
-          :exit t)
-         ("f"
-          auto-fill-mode
-          "fill"
-          :exit t)
-         ("a"
-          abbrev-mode
-          "abbrev"
-          :exit t)
-         ("q" nil "cancel" :exit t))))
       (set
        (defvar hydra-toggle/hint nil
          "Dynamic hint for hydra-toggle.")
@@ -457,6 +474,30 @@ The body can be accessed via `hydra-toggle/body'."
        ("q" nil "quit")))
     '(progn
       (set
+       (defvar hydra-vi/params nil
+         "Params of hydra-vi.")
+       (quote
+        (nil
+         nil
+         :exit nil
+         :foreign-keys warn
+         :post (set-cursor-color "#ffffff")
+         :pre (set-cursor-color "#e52b50"))))
+      (set
+       (defvar hydra-vi/docstring nil
+         "Docstring of hydra-vi.")
+       "vi")
+      (set
+       (defvar hydra-vi/heads nil
+         "Heads for hydra-vi.")
+       (quote
+        (("j" next-line "" :exit nil)
+         ("k"
+          previous-line
+          ""
+          :exit nil)
+         ("q" nil "quit" :exit t))))
+      (set
        (defvar hydra-vi/keymap nil
          "Keymap for hydra-vi.")
        (quote
@@ -487,16 +528,6 @@ The body can be accessed via `hydra-toggle/body'."
          (48 . hydra--digit-argument)
          (45 . hydra--negative-argument)
          (21 . hydra--universal-argument))))
-      (set
-       (defvar hydra-vi/heads nil
-         "Heads for hydra-vi.")
-       (quote
-        (("j" next-line "" :exit nil)
-         ("k"
-          previous-line
-          ""
-          :exit nil)
-         ("q" nil "quit" :exit t))))
       (set
        (defvar hydra-vi/hint nil
          "Dynamic hint for hydra-vi.")
@@ -532,8 +563,7 @@ The body can be accessed via `hydra-vi/body'."
                (function next-line)))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-vi/hint
          (quote hydra-vi))
@@ -569,8 +599,7 @@ The body can be accessed via `hydra-vi/body'."
                (function previous-line)))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-vi/hint
          (quote hydra-vi))
@@ -638,6 +667,32 @@ The body can be accessed via `hydra-vi/body'."
        ("1" (text-scale-set 0) nil :bind nil :exit t)))
     '(progn
       (set
+       (defvar hydra-zoom/params nil
+         "Params of hydra-zoom.")
+       (quote (nil nil)))
+      (set
+       (defvar hydra-zoom/docstring nil
+         "Docstring of hydra-zoom.")
+       "zoom")
+      (set
+       (defvar hydra-zoom/heads nil
+         "Heads for hydra-zoom.")
+       (quote
+        (("r"
+          (text-scale-set 0)
+          "reset"
+          :exit nil)
+         ("0"
+          (text-scale-set 0)
+          ""
+          :bind nil
+          :exit t)
+         ("1"
+          (text-scale-set 0)
+          nil
+          :bind nil
+          :exit t))))
+      (set
        (defvar hydra-zoom/keymap nil
          "Keymap for hydra-zoom.")
        (quote
@@ -666,24 +721,6 @@ The body can be accessed via `hydra-vi/body'."
          (48 . hydra-zoom/lambda-0-and-exit)
          (45 . hydra--negative-argument)
          (21 . hydra--universal-argument))))
-      (set
-       (defvar hydra-zoom/heads nil
-         "Heads for hydra-zoom.")
-       (quote
-        (("r"
-          (text-scale-set 0)
-          "reset"
-          :exit nil)
-         ("0"
-          (text-scale-set 0)
-          ""
-          :bind nil
-          :exit t)
-         ("1"
-          (text-scale-set 0)
-          nil
-          :bind nil
-          :exit t))))
       (set
        (defvar hydra-zoom/hint nil
          "Dynamic hint for hydra-zoom.")
@@ -717,8 +754,7 @@ The body can be accessed via `hydra-zoom/body'."
                (text-scale-set 0))))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-zoom/hint
          (quote hydra-zoom))
@@ -789,6 +825,32 @@ The body can be accessed via `hydra-zoom/body'."
        ("1" (text-scale-set 0) nil :bind nil)))
     '(progn
       (set
+       (defvar hydra-zoom/params nil
+         "Params of hydra-zoom.")
+       (quote (nil nil)))
+      (set
+       (defvar hydra-zoom/docstring nil
+         "Docstring of hydra-zoom.")
+       "zoom")
+      (set
+       (defvar hydra-zoom/heads nil
+         "Heads for hydra-zoom.")
+       (quote
+        (("r"
+          (text-scale-set 0)
+          "reset"
+          :exit nil)
+         ("0"
+          (text-scale-set 0)
+          ""
+          :bind nil
+          :exit t)
+         ("1"
+          (text-scale-set 0)
+          nil
+          :bind nil
+          :exit nil))))
+      (set
        (defvar hydra-zoom/keymap nil
          "Keymap for hydra-zoom.")
        (quote
@@ -817,24 +879,6 @@ The body can be accessed via `hydra-zoom/body'."
          (48 . hydra-zoom/lambda-0-and-exit)
          (45 . hydra--negative-argument)
          (21 . hydra--universal-argument))))
-      (set
-       (defvar hydra-zoom/heads nil
-         "Heads for hydra-zoom.")
-       (quote
-        (("r"
-          (text-scale-set 0)
-          "reset"
-          :exit nil)
-         ("0"
-          (text-scale-set 0)
-          ""
-          :bind nil
-          :exit t)
-         ("1"
-          (text-scale-set 0)
-          nil
-          :bind nil
-          :exit nil))))
       (set
        (defvar hydra-zoom/hint nil
          "Dynamic hint for hydra-zoom.")
@@ -868,8 +912,7 @@ The body can be accessed via `hydra-zoom/body'."
                (text-scale-set 0))))
           ((quit error)
            (message
-            (error-message-string err))
-           (unless hydra-lv (sit-for 0.8))))
+            (error-message-string err))))
         (hydra-show-hint
          hydra-zoom/hint
          (quote hydra-zoom))
@@ -1047,10 +1090,14 @@ _f_ auto-fill-mode:    %`auto-fill-function
     ("t" toggle-truncate-lines nil)
     ("w" whitespace-mode nil)
     ("q" nil "quit"))))
-           '(concat (format "%s abbrev-mode:       %S
+           '(format
+             "%s abbrev-mode:       %S
 %s debug-on-error:    %S
 %s auto-fill-mode:    %S
-" "{a}" abbrev-mode "{d}" debug-on-error "{f}" auto-fill-function) "[{q}]: quit."))))
+[{q}]: quit."
+             "{a}" abbrev-mode
+             "{d}" debug-on-error
+             "{f}" auto-fill-function))))
 
 (ert-deftest hydra-format-2 ()
   (should (equal
@@ -1062,7 +1109,7 @@ _f_ auto-fill-mode:    %`auto-fill-function
               "\n  bar %s`foo\n"
               '(("a" (quote t) "" :cmd-name bar/lambda-a :exit nil)
                 ("q" nil "" :cmd-name bar/nil :exit t))))
-           '(concat (format "  bar %s\n" foo) "{a}, [q]."))))
+           '(format "  bar %s\n{a}, [q]." foo))))
 
 (ert-deftest hydra-format-3 ()
   (should (equal
@@ -1073,7 +1120,7 @@ _f_ auto-fill-mode:    %`auto-fill-function
               nil
               "\n_<SPC>_   ^^ace jump\n"
               '(("<SPC>" ace-jump-char-mode nil :cmd-name bar/ace-jump-char-mode))))
-           '(concat (format "%s   ace jump\n" "{<SPC>}") ""))))
+           '(format "%s   ace jump\n" "{<SPC>}"))))
 
 (ert-deftest hydra-format-4 ()
   (should
@@ -1082,9 +1129,9 @@ _f_ auto-fill-mode:    %`auto-fill-function
            '(nil nil :hint nil)
            "\n_j_,_k_"
            '(("j" nil nil :exit t) ("k" nil nil :exit t)))
-          '(concat (format "%s,%s"
-                    #("j" 0 1 (face hydra-face-blue))
-                    #("k" 0 1 (face hydra-face-blue))) ""))))
+          '(format "%s,%s"
+            #("j" 0 1 (face hydra-face-blue))
+            #("k" 0 1 (face hydra-face-blue))))))
 
 (ert-deftest hydra-format-5 ()
   (should
@@ -1092,12 +1139,10 @@ _f_ auto-fill-mode:    %`auto-fill-function
            nil nil "\n_-_: mark          _u_: unmark\n"
            '(("-" Buffer-menu-mark nil)
              ("u" Buffer-menu-unmark nil)))
-          '(concat
-            (format
-             "%s: mark          %s: unmark\n"
-             #("-" 0 1 (face hydra-face-red))
-             #("u" 0 1 (face hydra-face-red)))
-            ""))))
+          '(format
+            "%s: mark          %s: unmark\n"
+            #("-" 0 1 (face hydra-face-red))
+            #("u" 0 1 (face hydra-face-red))))))
 
 (ert-deftest hydra-format-6 ()
   (should
@@ -1105,16 +1150,14 @@ _f_ auto-fill-mode:    %`auto-fill-function
            nil nil "\n[_]_] forward [_[_] backward\n"
            '(("]" forward-char nil)
              ("[" backward-char nil)))
-          '(concat
-            (format
-             "[%s] forward [%s] backward\n"
-             #("]"
-               0 1 (face
-                    hydra-face-red))
-             #("["
-               0 1 (face
-                    hydra-face-red)))
-            ""))))
+          '(format
+            "[%s] forward [%s] backward\n"
+            #("]"
+              0 1 (face
+                   hydra-face-red))
+            #("["
+              0 1 (face
+                   hydra-face-red))))))
 
 (ert-deftest hydra-format-7 ()
   (should
@@ -1133,12 +1176,10 @@ _f_ auto-fill-mode:    %`auto-fill-function
    (equal
     (hydra--format nil nil "\n_%_ forward\n"
                    '(("%" forward-char nil :exit nil)))
-    '(concat
-      (format
-       "%s forward\n"
-       #("%%"
-         0 2 (face hydra-face-red)))
-      ""))))
+    '(format
+      "%s forward\n"
+      #("%%"
+        0 2 (face hydra-face-red))))))
 
 (ert-deftest hydra-format-8 ()
   (should
@@ -1155,11 +1196,28 @@ _f_ auto-fill-mode:    %`auto-fill-function
    (equal
     (hydra--format nil '(nil nil :hint nil) "\n_f_(foo)"
                    '(("f" forward-char nil :exit nil)))
+    '(format
+      "%s(foo)"
+      #("f" 0 1 (face hydra-face-red))))))
+
+(ert-deftest hydra-format-10 ()
+  (should
+   (equal
+    (hydra--format nil '(nil nil) "Test:"
+                   '(("j" next-line (format-time-string "%H:%M:%S" (current-time))
+                      :exit nil)))
     '(concat
-      (format
-       "%s(foo)"
-       #("f" 0 1 (face hydra-face-red)))
-      ""))))
+      (format "Test:\n")
+      (mapconcat
+       (function
+        hydra--eval-and-format)
+       (quote
+        ((#("j" 0 1 (face hydra-face-red))
+           format-time-string
+           "%H:%M:%S"
+           (current-time))))
+       ", ")
+      "."))))
 
 (ert-deftest hydra-format-with-sexp-1 ()
   (should (equal
@@ -1169,12 +1227,12 @@ _f_ auto-fill-mode:    %`auto-fill-function
               'hydra-toggle nil
               "\n_n_ narrow-or-widen-dwim %(progn (message \"checking\")(buffer-narrowed-p))asdf\n"
               '(("n" narrow-to-region nil) ("q" nil "cancel" :exit t))))
-           '(concat (format "%s narrow-or-widen-dwim %Sasdf\n"
-                     "{n}"
-                     (progn
-                       (message "checking")
-                       (buffer-narrowed-p)))
-             "[[q]]: cancel."))))
+           '(format
+             "%s narrow-or-widen-dwim %Sasdf\n[[q]]: cancel."
+             "{n}"
+             (progn
+               (message "checking")
+               (buffer-narrowed-p))))))
 
 (ert-deftest hydra-format-with-sexp-2 ()
   (should (equal
@@ -1184,72 +1242,72 @@ _f_ auto-fill-mode:    %`auto-fill-function
               'hydra-toggle nil
               "\n_n_ narrow-or-widen-dwim %s(progn (message \"checking\")(buffer-narrowed-p))asdf\n"
               '(("n" narrow-to-region nil) ("q" nil "cancel" :exit t))))
-           '(concat (format "%s narrow-or-widen-dwim %sasdf\n"
-                     "{n}"
-                     (progn
-                       (message "checking")
-                       (buffer-narrowed-p)))
-             "[[q]]: cancel."))))
+           '(format
+             "%s narrow-or-widen-dwim %sasdf\n[[q]]: cancel."
+             "{n}"
+             (progn
+               (message "checking")
+               (buffer-narrowed-p))))))
 
 (ert-deftest hydra-compat-colors-2 ()
   (should
    (equal
-    (macroexpand
-     '(defhydra hydra-test (:color amaranth)
-       ("a" fun-a)
-       ("b" fun-b :color blue)
-       ("c" fun-c :color blue)
-       ("d" fun-d :color blue)
-       ("e" fun-e :color blue)
-       ("f" fun-f :color blue)))
-    (macroexpand
-     '(defhydra hydra-test (:color teal)
-       ("a" fun-a :color red)
-       ("b" fun-b)
-       ("c" fun-c)
-       ("d" fun-d)
-       ("e" fun-e)
-       ("f" fun-f))))))
+    (cddr (macroexpand
+           '(defhydra hydra-test (:color amaranth)
+             ("a" fun-a)
+             ("b" fun-b :color blue)
+             ("c" fun-c :color blue)
+             ("d" fun-d :color blue)
+             ("e" fun-e :color blue)
+             ("f" fun-f :color blue))))
+    (cddr (macroexpand
+           '(defhydra hydra-test (:color teal)
+             ("a" fun-a :color red)
+             ("b" fun-b)
+             ("c" fun-c)
+             ("d" fun-d)
+             ("e" fun-e)
+             ("f" fun-f)))))))
 
 (ert-deftest hydra-compat-colors-3 ()
   (should
    (equal
-    (macroexpand
-     '(defhydra hydra-test ()
-       ("a" fun-a)
-       ("b" fun-b :color blue)
-       ("c" fun-c :color blue)
-       ("d" fun-d :color blue)
-       ("e" fun-e :color blue)
-       ("f" fun-f :color blue)))
-    (macroexpand
-     '(defhydra hydra-test (:color blue)
-       ("a" fun-a :color red)
-       ("b" fun-b)
-       ("c" fun-c)
-       ("d" fun-d)
-       ("e" fun-e)
-       ("f" fun-f))))))
+    (cddr (macroexpand
+           '(defhydra hydra-test ()
+             ("a" fun-a)
+             ("b" fun-b :color blue)
+             ("c" fun-c :color blue)
+             ("d" fun-d :color blue)
+             ("e" fun-e :color blue)
+             ("f" fun-f :color blue))))
+    (cddr (macroexpand
+           '(defhydra hydra-test (:color blue)
+             ("a" fun-a :color red)
+             ("b" fun-b)
+             ("c" fun-c)
+             ("d" fun-d)
+             ("e" fun-e)
+             ("f" fun-f)))))))
 
 (ert-deftest hydra-compat-colors-4 ()
   (should
    (equal
-    (macroexpand
-     '(defhydra hydra-test ()
-       ("a" fun-a)
-       ("b" fun-b :exit t)
-       ("c" fun-c :exit t)
-       ("d" fun-d :exit t)
-       ("e" fun-e :exit t)
-       ("f" fun-f :exit t)))
-    (macroexpand
-     '(defhydra hydra-test (:exit t)
-       ("a" fun-a :exit nil)
-       ("b" fun-b)
-       ("c" fun-c)
-       ("d" fun-d)
-       ("e" fun-e)
-       ("f" fun-f))))))
+    (cddr (macroexpand
+           '(defhydra hydra-test ()
+             ("a" fun-a)
+             ("b" fun-b :exit t)
+             ("c" fun-c :exit t)
+             ("d" fun-d :exit t)
+             ("e" fun-e :exit t)
+             ("f" fun-f :exit t))))
+    (cddr (macroexpand
+           '(defhydra hydra-test (:exit t)
+             ("a" fun-a :exit nil)
+             ("b" fun-b)
+             ("c" fun-c)
+             ("d" fun-d)
+             ("e" fun-e)
+             ("f" fun-f)))))))
 
 (ert-deftest hydra--pad ()
   (should (equal (hydra--pad '(a b c) 3)
@@ -1264,9 +1322,9 @@ _f_ auto-fill-mode:    %`auto-fill-function
                  '((a b c d) (e f g h) (i nil nil nil)))))
 
 (ert-deftest hydra--cell ()
-  (should (equal (hydra--cell "% -75s %%`%s" '(hydra-lv hydra-verbose))
-                 "When non-nil, `lv-message' (not `message') will be used to display hints.   %`hydra-lv^^^^^
-When non-nil, hydra will issue some non essential style warnings.           %`hydra-verbose")))
+  (should (equal (hydra--cell "% -75s %%`%s" '(hydra-hint-display-type hydra-verbose))
+                 "The utility to show hydra hint                                              %`hydra-hint-display-type
+When non-nil, hydra will issue some non essential style warnings.           %`hydra-verbose^^^^^^^^^^")))
 
 (ert-deftest hydra--vconcat ()
   (should (equal (hydra--vconcat '("abc\ndef" "012\n34" "def\nabc"))
@@ -1407,7 +1465,7 @@ _w_ Worf:                      % -8`hydra-tng/worf^^    _h_ Set phasers to      
   (should (equal (eval
                   (cadr
                    (nth 2
-                        (nth 3
+                        (nth 5
                              (macroexpand
                               '(defhydra hydra-info (:color blue
                                                      :columns 3)
@@ -1470,7 +1528,7 @@ t: info-to"
   (should (equal (eval
                   (cadr
                    (nth 2
-                        (nth 3
+                        (nth 5
                              (macroexpand
                               '(defhydra hydra-foo (:color blue)
                                 "Silly hydra"
@@ -1498,7 +1556,7 @@ y: back     | b: up
   (should (equal (eval
                   (cadr
                    (nth 2
-                        (nth 3
+                        (nth 5
                              (macroexpand
                               '(defhydra hydra-rectangle (:body-pre (rectangle-mark-mode 1)
                                                           :color pink
@@ -1563,7 +1621,7 @@ o: ok       | s: string
   (should (equal (eval
                   (cadr
                    (nth 2
-                        (nth 3
+                        (nth 5
                              (macroexpand
                               '(defhydra hydra-window-order
                                 (:color red :timeout 4)
@@ -1605,6 +1663,59 @@ k: ↑ window |                            |                     |
                    461 462 (face hydra-face-red)
                    512 513 (face hydra-face-red)
                    578 579 (face hydra-face-blue)))))
+
+(ert-deftest hydra-column-sexp ()
+  (should (equal
+           (eval (nth 5
+                      (macroexpand
+                       '(defhydra hydra-toggle-stuff ()
+                         "Toggle"
+                         ("d" toggle-debug-on-error "debug-on-error" :column "Misc")
+                         ("a" abbrev-mode
+                          (format "abbrev: %s"
+                           (if (bound-and-true-p abbrev-mode)
+                               "[x]"
+                             "[ ]")))))))
+           '(concat
+             (format "Toggle:\n")
+             "Misc"
+             "\n"
+             "-----------------"
+             "\n"
+             #("d: debug-on-error"
+               0 1 (face hydra-face-red))
+             "\n"
+             (format
+              "%1s: %-15s"
+              #("a" 0 1 (face hydra-face-red))
+              (format
+               "abbrev: %s"
+               (if (bound-and-true-p abbrev-mode)
+                   "[x]"
+                 "[ ]")))
+             "\n"))))
+
+(defhydra hydra-extendable ()
+  "extendable"
+  ("j" next-line "down"))
+
+(ert-deftest hydra-extend ()
+  (should (equal (macroexpand
+                  '(defhydra+ hydra-extendable ()
+                    ("k" previous-line "up")))
+                 (macroexpand
+                  '(defhydra hydra-extendable ()
+                    "extendable"
+                    ("j" next-line "down")
+                    ("k" previous-line "up")))))
+  (should (equal (macroexpand
+                  '(defhydra+ hydra-extendable ()
+                    ("k" previous-line "up" :exit t)))
+                 (macroexpand
+                  '(defhydra hydra-extendable ()
+                    "extendable"
+                    ("j" next-line "down")
+                    ("k" previous-line "up" :exit t))))))
 
 (provide 'hydra-test)
 

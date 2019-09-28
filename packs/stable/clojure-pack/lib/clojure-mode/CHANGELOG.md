@@ -2,9 +2,22 @@
 
 ## master (unreleased)
 
+### Bugs fixed
+
+* [#520](https://github.com/clojure-emacs/clojure-mode/issues/508): Fix allow `clojure-align-cond-forms` to recognize qualified forms.
+* Enhance add arity refactoring to support a defn inside a reader conditional.
+
+### Changes
+
+* Enhance add arity refactoring to support new forms: letfn, fn, defmacro, defmethod, defprotocol, reify and proxy.
+
+## 5.11.0 (2019-07-16)
+
 ### New features
 
 * [#496](https://github.com/clojure-emacs/clojure-mode/issues/496): Highlight `[[wikilinks]]` in comments.
+* [#366](https://github.com/clojure-emacs/clj-refactor.el/issues/366): Add support for renaming ns aliases (`clojure-rename-ns-alias`, default binding `C-c C-r n r`).
+* [#410](https://github.com/clojure-emacs/clojure-mode/issues/410): Add support for adding an arity to a function (`clojure-add-arity`, default binding `C-c C-r a`).
 
 ### Bugs fixed
 
@@ -14,10 +27,12 @@
 * [#506](https://github.com/clojure-emacs/clojure-mode/issues/506): `clojure-mode-display-version` correctly displays the package's version.
 * [#445](https://github.com/clojure-emacs/clojure-mode/issues/445), [#405](https://github.com/clojure-emacs/clojure-mode/issues/405), [#469](https://github.com/clojure-emacs/clojure-mode/issues/469): Correct font-locking on string definitions with docstrings, e.g: `(def foo "doc" "value")`. Correct indentation as well.
 * [#518](https://github.com/clojure-emacs/clojure-mode/issues/518): Fix `clojure-find-ns` when there's an `ns` form inside a string.
+* [#530](https://github.com/clojure-emacs/clojure-mode/pull/530): Prevent electric indentation within inlined docstrings.
 
 ### Changes
 
 * [#524](https://github.com/clojure-emacs/clojure-mode/issues/524): Add proper indentation rule for `delay` (same as for `future`).
+* [#538](https://github.com/clojure-emacs/clojure-mode/pull/538): Refactor `clojure-unwind` to take numeric prefix argument for unwinding N steps, and universal argument for unwinding completely. The dedicated `C-c C-r a` binding for `clojure-unwind-all`is now removed and replaced with the universal arg convention `C-u C-c C-r u`.
 
 ## 5.10.0 (2019-01-05)
 
@@ -32,6 +47,7 @@
 
 * [#489](https://github.com/clojure-emacs/clojure-mode/issues/489): Inserting parens before comment form doesn't move point.
 * [#500](https://github.com/clojure-emacs/clojure-mode/pull/500): Fix project.el integration.
+* [#513](https://github.com/clojure-emacs/clojure-mode/pull/513): Fix incorrect indentation of namespaced map.
 
 ### Changes
 

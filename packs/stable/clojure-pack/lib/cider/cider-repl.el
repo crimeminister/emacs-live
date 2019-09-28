@@ -143,6 +143,12 @@ will be used."
   :group 'cider-repl
   :package-version '(cider . "0.10.0"))
 
+(defcustom cider-repl-require-ns-on-set nil
+  "Controls whether to require the ns before setting it in the REPL."
+  :type 'boolean
+  :group 'cider-repl
+  :package-version '(cider . "0.22.0"))
+
 (defcustom cider-repl-result-prefix ""
   "The prefix displayed in the REPL before a result value.
 By default there's no prefix, but you can specify something
@@ -163,9 +169,10 @@ you'd like to use the default Emacs behavior use
 (make-obsolete-variable 'cider-repl-print-level 'cider-print-options "0.21")
 
 (defvar cider-repl-require-repl-utils-code
-  "(clojure.core/apply clojure.core/require clojure.main/repl-requires)")
+  '((clj . "(clojure.core/apply clojure.core/require clojure.main/repl-requires)")
+    (cljs . "(use '[cljs.repl :only [apropos dir doc find-doc print-doc pst source]])")))
 
-(defcustom cider-repl-init-code (list cider-repl-require-repl-utils-code)
+(defcustom cider-repl-init-code (list (cdr (assoc 'clj cider-repl-require-repl-utils-code)))
   "Clojure code to evaluate when starting a REPL.
 Will be evaluated with bindings for set!-able vars in place."
   :type '(list string)
@@ -251,12 +258,13 @@ This cache is stored in the connection buffer.")
 (defun cider-repl-require-repl-utils ()
   "Require standard REPL util functions into the current REPL."
   (interactive)
-  (nrepl-send-sync-request
-   (lax-plist-put
-    (nrepl--eval-request
-     cider-repl-require-repl-utils-code)
-    "inhibit-cider-middleware" "true")
-   (cider-current-repl nil 'ensure)))
+  (let* ((current-repl (cider-current-repl nil 'ensure))
+         (require-code (cdr (assoc (cider-repl-type current-repl) cider-repl-require-repl-utils-code))))
+    (nrepl-send-sync-request
+     (lax-plist-put
+      (nrepl--eval-request require-code)
+      "inhibit-cider-middleware" "true")
+     current-repl)))
 
 (defun cider-repl-init-eval-handler (&optional callback)
   "Make an nREPL evaluation handler for use during REPL init.
@@ -1083,7 +1091,9 @@ command will prompt for the name of the namespace to switch to."
     (user-error "No namespace selected"))
   (cider-map-repls :auto
     (lambda (connection)
-      (cider-nrepl-request:eval (format "(in-ns '%s)" ns)
+      (cider-nrepl-request:eval (if cider-repl-require-ns-on-set
+                                    (format "(do (require '%s) (in-ns '%s))" ns ns)
+                                  (format "(in-ns '%s)" ns))
                                 (cider-repl-switch-ns-handler connection)))))
 
 
@@ -1151,17 +1161,24 @@ regexes from `cider-locref-regexp-alist' to infer locations at point."
       (let* ((var (plist-get loc :var))
              (line (plist-get loc :line))
              (file (or
-                    ;; retrieve from info middleware
+                    ;; 1) retrieve from info middleware
                     (when var
                       (or (cider-sync-request:ns-path var)
                           (nrepl-dict-get (cider-sync-request:info var) "file")))
-                    ;; when not found, return the file detected by regexp
                     (when-let* ((file (plist-get loc :file)))
-                      (if (file-name-absolute-p file)
-                          file
-                        ;; when not absolute, expand within the current project
-                        (when-let* ((proj (clojure-project-dir)))
-                          (expand-file-name file proj)))))))
+                      ;; 2) file detected by the regexp
+                      (or
+                       (if (file-name-absolute-p file)
+                           file
+                         ;; when not absolute, expand within the current project
+                         (when-let* ((proj (clojure-project-dir)))
+                           (let ((path (expand-file-name file proj)))
+                             (when (file-exists-p path)
+                               path))))
+                       ;; 3) infer ns from the abbreviated path (common in
+                       ;; reflection warnings)
+                       (let ((ns (cider-path-to-ns file)))
+                         (cider-sync-request:ns-path ns)))))))
         (if file
             (cider--jump-to-loc-from-info (nrepl-dict "file" file "line" line) t)
           (error "No source location for %s" var)))
@@ -1188,7 +1205,7 @@ One for all REPLs.")
 WIN, BUFFER and POS are the window, buffer and point under mouse position."
   (with-current-buffer buffer
     (if-let* ((hl (plist-get (cider-locref-at-point pos) :highlight)))
-        (move-overlay cider-locref-hoover-overlay (car hl) (cdr hl))
+        (move-overlay cider-locref-hoover-overlay (car hl) (cdr hl) buffer)
       (delete-overlay cider-locref-hoover-overlay))
     nil))
 
@@ -1432,6 +1449,8 @@ constructs."
 (declare-function cider-repl-history "cider-repl-history")
 (declare-function cider-run "cider-mode")
 (declare-function cider-ns-refresh "cider-ns")
+(declare-function cider-ns-reload "cider-ns")
+(declare-function cider-find-var "cider-find")
 (declare-function cider-version "cider")
 (declare-function cider-test-run-loaded-tests "cider-test")
 (declare-function cider-test-run-project-tests "cider-test")
@@ -1447,6 +1466,9 @@ constructs."
 (cider-repl-add-shortcut "trace-ns" #'cider-toggle-trace-ns)
 (cider-repl-add-shortcut "undef" #'cider-undef)
 (cider-repl-add-shortcut "refresh" #'cider-ns-refresh)
+(cider-repl-add-shortcut "reload" #'cider-ns-reload)
+(cider-repl-add-shortcut "find-var" #'cider-find-var)
+(cider-repl-add-shortcut "doc" #'cider-doc)
 (cider-repl-add-shortcut "help" #'cider-repl-shortcuts-help)
 (cider-repl-add-shortcut "test-ns" #'cider-test-run-ns-tests)
 (cider-repl-add-shortcut "test-all" #'cider-test-run-loaded-tests)
@@ -1457,13 +1479,13 @@ constructs."
 (cider-repl-add-shortcut "test-report" #'cider-test-show-report)
 (cider-repl-add-shortcut "run" #'cider-run)
 (cider-repl-add-shortcut "conn-info" #'cider-describe-connection)
-(cider-repl-add-shortcut "hasta la vista" #'cider-quit)
+(cider-repl-add-shortcut "version" #'cider-version)
+(cider-repl-add-shortcut "require-repl-utils" #'cider-repl-require-repl-utils)
+;; So many ways to quit :-)
 (cider-repl-add-shortcut "adios" #'cider-quit)
 (cider-repl-add-shortcut "sayonara" #'cider-quit)
 (cider-repl-add-shortcut "quit" #'cider-quit)
 (cider-repl-add-shortcut "restart" #'cider-restart)
-(cider-repl-add-shortcut "version" #'cider-version)
-(cider-repl-add-shortcut "require-repl-utils" #'cider-repl-require-repl-utils)
 
 (defconst cider-repl-shortcuts-help-buffer "*CIDER REPL Shortcuts Help*")
 
@@ -1668,9 +1690,6 @@ constructs."
               (cider-repl-wrap-fontify-function font-lock-fontify-region-function))
   (setq-local font-lock-unfontify-region-function
               (cider-repl-wrap-fontify-function font-lock-unfontify-region-function))
-  (make-local-variable 'completion-at-point-functions)
-  (add-to-list 'completion-at-point-functions
-               #'cider-complete-at-point)
   (set-syntax-table cider-repl-mode-syntax-table)
   (cider-eldoc-setup)
   ;; At the REPL, we define beginning-of-defun and end-of-defun to be
@@ -1685,6 +1704,7 @@ constructs."
     (cider-repl-history-load cider-repl-history-file)
     (add-hook 'kill-buffer-hook #'cider-repl-history-just-save t t)
     (add-hook 'kill-emacs-hook #'cider-repl-history-just-save))
+  (add-hook 'completion-at-point-functions #'cider-complete-at-point nil t)
   (add-hook 'paredit-mode-hook (lambda () (clojure-paredit-setup cider-repl-mode-map))))
 
 (provide 'cider-repl)

@@ -24,9 +24,17 @@
 
 (require 'dash)
 
+;; FIXME: These definitions ought to be exported along with the
+;; examples, if they are going to be used there.
+(defun odd? (num) (= 1 (% num 2)))
 (defun even? (num) (= 0 (% num 2)))
 (defun square (num) (* num num))
 (defun three-letters () '("A" "B" "C"))
+
+(defun dash-expand:&hash-or-plist (key source)
+  "Sample destructoring which works with plists and hash-tables."
+  `(if (hash-table-p ,source) (gethash ,key ,source)
+     (plist-get ,source ,key)))
 
 ;; Allow approximate comparison of floating-point results, to work
 ;; around differences in implementation between systems. Use the `~>'
@@ -587,19 +595,19 @@ new list."
     (-partition-by-header 'even? '(2 1 1 1 4 1 3 5 6 6 1)) => '((2 1 1 1) (4 1 3 5) (6 6 1)))
 
   (defexamples -partition-after-pred
-    (-partition-after-pred #'oddp '()) => '()
-    (-partition-after-pred #'oddp '(1)) => '((1))
-    (-partition-after-pred #'oddp '(0 1)) => '((0 1))
-    (-partition-after-pred #'oddp '(1 1)) => '((1) (1))
-    (-partition-after-pred #'oddp '(0 0 0 1 0 1 1 0 1)) => '((0 0 0 1) (0 1) (1) (0 1)))
+    (-partition-after-pred #'odd? '()) => '()
+    (-partition-after-pred #'odd? '(1)) => '((1))
+    (-partition-after-pred #'odd? '(0 1)) => '((0 1))
+    (-partition-after-pred #'odd? '(1 1)) => '((1) (1))
+    (-partition-after-pred #'odd? '(0 0 0 1 0 1 1 0 1)) => '((0 0 0 1) (0 1) (1) (0 1)))
 
   (defexamples -partition-before-pred
-    (-partition-before-pred #'oddp '()) => '()
-    (-partition-before-pred #'oddp '(1)) => '((1))
-    (-partition-before-pred #'oddp '(0 1)) => '((0) (1))
-    (-partition-before-pred #'oddp '(1 1)) => '((1) (1))
-    (-partition-before-pred #'oddp '(0 1 0)) => '((0) (1 0))
-    (-partition-before-pred #'oddp '(0 0 0 1 0 1 1 0 1)) => '((0 0 0) (1 0) (1) (1 0) (1)))
+    (-partition-before-pred #'odd? '()) => '()
+    (-partition-before-pred #'odd? '(1)) => '((1))
+    (-partition-before-pred #'odd? '(0 1)) => '((0) (1))
+    (-partition-before-pred #'odd? '(1 1)) => '((1) (1))
+    (-partition-before-pred #'odd? '(0 1 0)) => '((0) (1 0))
+    (-partition-before-pred #'odd? '(0 0 0 1 0 1 1 0 1)) => '((0 0 0) (1 0) (1) (1 0) (1)))
 
   (defexamples -partition-before-item
     (-partition-before-item 3 '()) => '()
@@ -687,14 +695,28 @@ new list."
 
   (defexamples -distinct
     (-distinct '()) => '()
-    (-distinct '(1 2 2 4)) => '(1 2 4)))
+    (-distinct '(1 2 2 4)) => '(1 2 4)
+    (-distinct '(t t t)) => '(t)
+    (-distinct '(nil nil nil)) => '(nil)
+    (let ((-compare-fn nil))
+      (-distinct '((1) (2) (1) (1)))) => '((1) (2))
+    (let ((-compare-fn #'eq))
+      (-distinct '((1) (2) (1) (1)))) => '((1) (2) (1) (1))
+    (let ((-compare-fn #'eq))
+      (-distinct '(:a :b :a :a))) => '(:a :b)
+    (let ((-compare-fn #'eql))
+      (-distinct '(2.1 3.1 2.1 2.1))) => '(2.1 3.1)
+    (let ((-compare-fn #'string=))
+      (-distinct '(dash "dash" "ash" "cash" "bash"))) => '(dash "ash" "cash" "bash")))
 
 (def-example-group "Other list operations"
   "Other list functions not fit to be classified elsewhere."
 
   (defexamples -rotate
     (-rotate 3 '(1 2 3 4 5 6 7)) => '(5 6 7 1 2 3 4)
-    (-rotate -3 '(1 2 3 4 5 6 7)) => '(4 5 6 7 1 2 3))
+    (-rotate -3 '(1 2 3 4 5 6 7)) => '(4 5 6 7 1 2 3)
+    (-rotate 16 '(1 2 3 4 5 6 7)) => '(6 7 1 2 3 4 5)
+    (-rotate -16 '(1 2 3 4 5 6 7)) => '(3 4 5 6 7 1 2))
 
   (defexamples -repeat
     (-repeat 3 :a) => '(:a :a :a)
@@ -1142,7 +1164,14 @@ new list."
       (puthash :foo 1 hash)
       (puthash :bar 2 hash)
       (-let (((&hash :foo :bar) hash)) (list foo bar))) => '(1 2)
-      (-let (((_ &keys :foo :bar) (list 'ignored :foo 1 :bar 2))) (list foo bar)) => '(1 2)
+    (-let (((&hash :foo (&hash? :bar)) (make-hash-table)))) => nil
+    ;; Ensure `hash?' expander evaluates its arg only once
+    (let* ((ht (make-hash-table :test #'equal))
+           (fn (lambda (ht) (push 3 (gethash 'a ht)) ht)))
+      (puthash 'a nil ht)
+      (-let (((&hash? 'a) (funcall fn ht)))
+        a)) => '(3)
+    (-let (((_ &keys :foo :bar) (list 'ignored :foo 1 :bar 2))) (list foo bar)) => '(1 2)
     ;;; go over all the variations of match-form derivation
     (-let (((&plist :foo foo :bar) (list :foo 1 :bar 2))) (list foo bar)) => '(1 2)
     (-let (((&plist :foo foo :bar bar) (list :foo 1 :bar 2))) (list foo bar)) => '(1 2)
@@ -1181,7 +1210,12 @@ new list."
     (-let [(list &as _ _ _ a _ _ _ b _ _ _ c) (list 1 2 3 4 5 6 7 8 9 10 11 12)] (list a b c list)) => '(4 8 12 (1 2 3 4 5 6 7 8 9 10 11 12))
     (-let (((x &as a b) (list 1 2))
            ((y &as c d) (list 3 4)))
-      (list a b c d x y)) => '(1 2 3 4 (1 2) (3 4)))
+      (list a b c d x y)) => '(1 2 3 4 (1 2) (3 4))
+    (-let (((&hash-or-plist :key) (--doto (make-hash-table)
+                                    (puthash :key "value" it))))
+      key) => "value"
+    (-let (((&hash-or-plist :key) '(:key "value")))
+      key) => "value")
 
   (defexamples -let*
     (-let* (((a . b) (cons 1 2))
@@ -1259,7 +1293,12 @@ new list."
 
   (defexamples -doto
     (-doto '(1 2 3) (!cdr) (!cdr)) => '(3)
-    (-doto '(1 . 2) (setcar 3) (setcdr 4)) => '(3 . 4)))
+    (-doto '(1 . 2) (setcar 3) (setcdr 4)) => '(3 . 4))
+
+  (defexamples --doto
+    (gethash "key"
+             (--doto (make-hash-table :test 'equal)
+               (puthash "key" "value" it))) => "value"))
 
 (def-example-group "Destructive operations" nil
   (defexamples !cons
