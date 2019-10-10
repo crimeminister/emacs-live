@@ -2,13 +2,20 @@
 
 ## master (unreleased)
 
+## 0.23.0 (2019-10-08)
+
 ### New features
+
 * New configuration variable `cider-result-overlay-position` determining where debugger and inline eval result overlays should be displayed. Current options are 'at-eol and 'at-point.
+* [#2606](https://github.com/clojure-emacs/cider/pull/2606): Defcustom `cider-path-translations` for translating paths from nREPL messages (useful where a file appears to be somewhere, but it's actually somewhere else).
+* [#2698](https://github.com/clojure-emacs/cider/pull/2689): Infer figwheel builds automatically.
+* New command `cider-clojuredocs-refresh-cache`.
 
 ### Changes
 
 * [#2711](https://github.com/clojure-emacs/cider/pull/2711): `cider-selector` has more robust handling for edge cases.
 * [#2572](https://github.com/clojure-emacs/cider/issues/2572): Make it possible to a start a one off ClojureScript REPL without defining a new REPL type.
+* Dynamic cljs completions (via suitable) can be disable by setting `cider-enhanced-cljs-completion-p` to nil.
 
 ### Bugs fixed
 
@@ -16,6 +23,7 @@
 * [#2705](https://github.com/clojure-emacs/cider/issues/2705): Middleware version check looks at only at the minor version for comparison (when the major version is 0) and ensures a matching major and a minor >= required otherwise.
 * Fixed some bugs related to the new suitable-powered ClojureScript code completion (this was fixed by upgrading the `suitable` used by `cider-nrepl`).
 * Remove a misplaced error message when doing `clojuredocs-lookup`.
+* [#2721](https://github.com/clojure-emacs/cider/issues/2721): Handle properly symbols ending in `.` (e.g. `SomeRecord.`).
 
 ## 0.22.0 (2019-09-01)
 

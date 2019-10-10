@@ -11,7 +11,7 @@
 ;;         Steve Purcell <steve@sanityinc.com>
 ;; Maintainer: Bozhidar Batsov <bozhidar@batsov.com>
 ;; URL: http://www.github.com/clojure-emacs/cider
-;; Version: 0.23.0-snapshot
+;; Version: 0.24.0-snapshot
 ;; Package-Requires: ((emacs "25") (clojure-mode "5.9") (parseedn "0.1") (pkg-info "0.4") (queue "0.2") (spinner "1.7") (seq "2.16") (sesman "0.3.2"))
 ;; Keywords: languages, clojure, cider
 
@@ -87,7 +87,7 @@
 (require 'seq)
 (require 'sesman)
 
-(defconst cider-version "0.23.0-snapshot"
+(defconst cider-version "0.24.0-snapshot"
   "Fallback version used when it cannot be extracted automatically.
 Normally it won't be used, unless `pkg-info' fails to extract the
 version from the CIDER package or library.")
@@ -388,7 +388,7 @@ Throws an error if PROJECT-TYPE is unknown."
   "List of dependencies where elements are lists of artifact name and version.
 Added to `cider-jack-in-dependencies' when doing `cider-jack-in-cljs'.")
 (put 'cider-jack-in-cljs-dependencies 'risky-local-variable t)
-(cider-add-to-alist 'cider-jack-in-cljs-dependencies "cider/piggieback" "0.4.1")
+(cider-add-to-alist 'cider-jack-in-cljs-dependencies "cider/piggieback" "0.4.2")
 
 (defvar cider-jack-in-dependencies-exclusions nil
   "List of exclusions for jack in dependencies.
@@ -404,7 +404,7 @@ Elements of the list are artifact name and list of exclusions to apply for the a
 (defconst cider-latest-clojure-version "1.10.0"
   "Latest supported version of Clojure.")
 
-(defconst cider-required-middleware-version "0.22.3"
+(defconst cider-required-middleware-version "0.22.4"
   "The CIDER nREPL version that's known to work properly with CIDER.")
 
 (defcustom cider-jack-in-auto-inject-clojure nil
@@ -762,13 +762,25 @@ Figwheel for details."
   :safe (lambda (s) (or (null s) (stringp s)))
   :package-version '(cider . "0.18.0"))
 
+(defun cider--figwheel-main-get-builds ()
+  "Extract build names from the <build-id>.cljs.edn config files in the project root."
+  (when-let ((project-dir (clojure-project-dir)))
+    (let ((builds (directory-files project-dir nil ".*\\.cljs\\.edn")))
+      (mapcar (lambda (f) (string-match "^\\(.*\\)\\.cljs\\.edn" f)
+                (match-string 1 f)) builds))))
+
 (defun cider-figwheel-main-init-form ()
   "Produce the figwheel-main ClojureScript init form."
   (let ((form "(do (require 'figwheel.main) (figwheel.main/start %s))")
-        (options (string-trim
-                  (or cider-figwheel-main-default-options
-                      (read-from-minibuffer "Select figwheel-main build (e.g. :dev): ")))))
-    (format form (cider-normalize-cljs-init-options options))))
+        (builds (cider--figwheel-main-get-builds)))
+    (cond
+     (cider-figwheel-main-default-options
+      (format form (cider-normalize-cljs-init-options (string-trim cider-figwheel-main-default-options))))
+
+     (builds
+      (format form (cider-normalize-cljs-init-options (completing-read "Select figwheel-main build: " builds))))
+
+     (t (user-error "No figwheel-main build files (<build-id>.cljs.edn) were found")))))
 
 (defcustom cider-custom-cljs-repl-init-form nil
   "The form used to start a custom ClojureScript REPL.
