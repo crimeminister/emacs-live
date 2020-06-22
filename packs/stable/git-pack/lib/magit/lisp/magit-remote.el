@@ -1,6 +1,6 @@
 ;;; magit-remote.el --- transfer Git commits  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2019  The Magit Project Contributors
+;; Copyright (C) 2008-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -57,14 +57,14 @@ has to be used to view and change remote related variables."
 
 (defcustom magit-prefer-push-default nil
   "Whether to prefer `remote.pushDefault' over per-branch variables."
-  :package-version '(magit . "2.91.0")
+  :package-version '(magit . "3.0.0")
   :group 'magit-commands
   :type 'boolean)
 
 ;;; Commands
 
 ;;;###autoload (autoload 'magit-remote "magit-remote" nil t)
-(define-transient-command magit-remote (remote)
+(transient-define-prefix magit-remote (remote)
   "Add, configure or remove a remote."
   :man-page "git-remote"
   :value '("-f")
@@ -251,7 +251,7 @@ Delete the symbolic-ref \"refs/remotes/<remote>/HEAD\"."
 ;;; Configure
 
 ;;;###autoload (autoload 'magit-remote-configure "magit-remote" nil t)
-(define-transient-command magit-remote-configure (remote)
+(transient-define-prefix magit-remote-configure (remote)
   "Configure a remote."
   :man-page "git-remote"
   [:description
@@ -267,7 +267,7 @@ Delete the symbolic-ref \"refs/remotes/<remote>/HEAD\"."
   (interactive
    (list (or (and (not current-prefix-arg)
                   (not (and magit-remote-direct-configure
-                            (eq current-transient-command 'magit-remote)))
+                            (eq transient-current-command 'magit-remote)))
                   (magit-get-current-remote))
              (magit--read-remote-scope))))
   (transient-setup 'magit-remote-configure nil nil :scope remote))
@@ -279,20 +279,20 @@ Delete the symbolic-ref \"refs/remotes/<remote>/HEAD\"."
                (format (oref obj variable) "<name>"))
      "Configure remote")))
 
-(define-infix-command magit-remote.<remote>.url ()
+(transient-define-infix magit-remote.<remote>.url ()
   :class 'magit--git-variable:urls
   :scope 'magit--read-remote-scope
   :variable "remote.%s.url"
   :multi-value t
   :history-key 'magit-remote.<remote>.*url)
 
-(define-infix-command magit-remote.<remote>.fetch ()
+(transient-define-infix magit-remote.<remote>.fetch ()
   :class 'magit--git-variable
   :scope 'magit--read-remote-scope
   :variable "remote.%s.fetch"
   :multi-value t)
 
-(define-infix-command magit-remote.<remote>.pushurl ()
+(transient-define-infix magit-remote.<remote>.pushurl ()
   :class 'magit--git-variable:urls
   :scope 'magit--read-remote-scope
   :variable "remote.%s.pushurl"
@@ -300,12 +300,12 @@ Delete the symbolic-ref \"refs/remotes/<remote>/HEAD\"."
   :history-key 'magit-remote.<remote>.*url
   :seturl-arg "--push")
 
-(define-infix-command magit-remote.<remote>.push ()
+(transient-define-infix magit-remote.<remote>.push ()
   :class 'magit--git-variable
   :scope 'magit--read-remote-scope
   :variable "remote.%s.push")
 
-(define-infix-command magit-remote.<remote>.tagopt ()
+(transient-define-infix magit-remote.<remote>.tagopt ()
   :class 'magit--git-variable:choices
   :scope 'magit--read-remote-scope
   :variable "remote.%s.tagOpt"

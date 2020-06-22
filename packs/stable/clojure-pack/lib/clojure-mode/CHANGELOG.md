@@ -2,14 +2,27 @@
 
 ## master (unreleased)
 
+### New features
+
+* [#556](https://github.com/clojure-emacs/clojure-mode/issues/556): `clojure-rename-ns-alias` picks up existing aliases for minibuffer completion.
+
 ### Bugs fixed
 
+* [#565](https://github.com/clojure-emacs/clojure-mode/issues/565): Fix extra spaces being inserted after quote in paredit-mode.
+* [#544](https://github.com/clojure-emacs/clojure-mode/issues/544): Fix docstring detection when string contains backslash.
+* [#547](https://github.com/clojure-emacs/clojure-mode/issues/547): Fix font-lock regex for character literals for uppercase chars and other symbols.
+* [#556](https://github.com/clojure-emacs/clojure-mode/issues/556): Fix renaming of ns aliases containing regex characters.
+* [#555](https://github.com/clojure-emacs/clojure-mode/issues/555): Fix ns detection for ns forms with complex metadata.
+* [#550](https://github.com/clojure-emacs/clojure-mode/issues/550): Fix `outline-regexp` so `outline-insert-heading` behaves correctly.
+* [#551](https://github.com/clojure-emacs/clojure-mode/issues/551): Indent `clojure-align` region before aligning.
 * [#520](https://github.com/clojure-emacs/clojure-mode/issues/508): Fix allow `clojure-align-cond-forms` to recognize qualified forms.
-* Enhance add arity refactoring to support a defn inside a reader conditional.
+* [#404](https://github.com/clojure-emacs/clojure-mode/issues/404)/[#528]((https://github.com/clojure-emacs/clojure-mode/issues/528)): Fix syntax highlighting for multiple consecutive comment reader macros (`#_#_`).
 
 ### Changes
 
-* Enhance add arity refactoring to support new forms: letfn, fn, defmacro, defmethod, defprotocol, reify and proxy.
+* Inline definition of `clojure-mode-syntax-table` and support `'` quotes in symbols.
+* Enhance add arity refactoring to support a `defn` inside a reader conditional.
+* Enhance add arity refactoring to support new forms: `letfn`, `fn`, `defmacro`, `defmethod`, `defprotocol`, `reify` and `proxy`.
 
 ## 5.11.0 (2019-07-16)
 

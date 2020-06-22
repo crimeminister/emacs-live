@@ -1,6 +1,6 @@
 ;;; cider-connection.el --- Connection and session life-cycle management for CIDER -*- lexical-binding: t -*-
 ;;
-;; Copyright © 2019 Artur Malabarba, Bozhidar Batsov, Vitalie Spinu and CIDER contributors
+;; Copyright © 2019-2020 Artur Malabarba, Bozhidar Batsov, Vitalie Spinu and CIDER contributors
 ;;
 ;; Author: Artur Malabarba <bruce.connor.am@gmail.com>
 ;;         Bozhidar Batsov <bozhidar@batsov.com>
@@ -295,7 +295,11 @@ buffer."
        (cider--check-required-nrepl-version)
        (cider--check-clojure-version-supported)
        (cider--check-middleware-compatibility)
-       (when cider-redirect-server-output-to-repl
+       ;; Redirect the nREPL's terminal output to a REPL buffer.
+       ;; If we don't do this the server's output will end up
+       ;; in the *nrepl-server* buffer.
+       (when (and cider-redirect-server-output-to-repl
+                  (cider-nrepl-op-supported-p "out-subscribe"))
          (cider--subscribe-repl-to-server-out))
        (when cider-auto-mode
          (cider-enable-on-existing-clojure-buffers))
@@ -552,7 +556,7 @@ The following formats can be used in TEMPLATE string:
   %j - short project name, or directory name if no project
   %J - long project name including parent dir name
   %r - REPL type (clj or cljs)
-  %S - type of the ClojureScript runtime (Nashorn, Node, Figwheel etc.)
+  %S - type of the ClojureScript runtime (Browser, Node, Figwheel etc.)
   %s - session name as defined by `cider-session-name-template'.
 
 In case some values are empty, extra separators (: and -) are automatically
@@ -616,7 +620,7 @@ Session name can be customized with `cider-session-name-template'."
 ;;; REPL Buffer Init
 
 (defvar-local cider-cljs-repl-type nil
-  "The type of the ClojureScript runtime (Nashorn, Node etc.)")
+  "The type of the ClojureScript runtime (Browser, Node, Figwheel, etc.)")
 
 (defvar-local cider-repl-type nil
   "The type of this REPL buffer, usually either clj or cljs.")
@@ -699,6 +703,7 @@ PARAMS is a plist as received by `cider-repl-create'."
 (declare-function cider-repl-reset-markers "cider-repl")
 (defvar-local cider-session-name nil)
 (defvar-local cider-repl-init-function nil)
+(defvar-local cider-launch-params nil)
 (defun cider-repl-create (params)
   "Create new repl buffer.
 PARAMS is a plist which contains :repl-type, :host, :port, :project-dir,
@@ -727,7 +732,8 @@ function with the repl buffer set as current."
             ;; REPLs start with clj and then "upgrade" to a different type
             cider-repl-type (plist-get params :repl-type)
             ;; ran at the end of cider--connected-handler
-            cider-repl-init-function (plist-get params :repl-init-function))
+            cider-repl-init-function (plist-get params :repl-init-function)
+            cider-launch-params params)
       (cider-repl-reset-markers)
       (add-hook 'nrepl-response-handler-functions #'cider-repl--state-handler nil 'local)
       (add-hook 'nrepl-connected-hook #'cider--connected-handler nil 'local)

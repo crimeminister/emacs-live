@@ -1,6 +1,6 @@
 ;;; magit.el --- A Git porcelain inside Emacs  -*- lexical-binding: t; coding: utf-8 -*-
 
-;; Copyright (C) 2008-2019  The Magit Project Contributors
+;; Copyright (C) 2008-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -78,7 +78,7 @@ own faces for the `header-line', or for parts of the
   :group 'magit-faces)
 
 (defface magit-header-line-key
-  '((t :inherit magit-popup-key))
+  '((t :inherit font-lock-builtin-face))
   "Face for keys in the `header-line'."
   :group 'magit-faces)
 
@@ -222,7 +222,7 @@ and/or `magit-branch-remote-head'."
 ;;; Dispatch Popup
 
 ;;;###autoload (autoload 'magit-dispatch "magit" nil t)
-(define-transient-command magit-dispatch ()
+(transient-define-prefix magit-dispatch ()
   "Invoke a Magit command from a list of available commands."
   ["Transient and dwim commands"
    [("A" "Apply"          magit-cherry-pick)
@@ -284,8 +284,10 @@ This affects `magit-git-command', `magit-git-command-topdir',
 (defvar magit-git-command-history nil)
 
 ;;;###autoload (autoload 'magit-run "magit" nil t)
-(define-transient-command magit-run ()
+(transient-define-prefix magit-run ()
   "Run git or another command, or launch a graphical utility."
+
+
   [["Run git subcommand"
     ("!" "in repository root"   magit-git-command-topdir)
     ("p" "in working directory" magit-git-command)]
@@ -350,13 +352,14 @@ is run in the top-level directory of the current working tree."
   (magit-process-buffer))
 
 (defun magit-read-shell-command (&optional toplevel initial-input)
-  (let ((dir (abbreviate-file-name
-              (if (or toplevel current-prefix-arg)
-                  (or (magit-toplevel)
-                      (magit--not-inside-repository-error))
-                default-directory))))
+  (let ((default-directory
+          (if (or toplevel current-prefix-arg)
+              (or (magit-toplevel)
+                  (magit--not-inside-repository-error))
+            default-directory)))
     (read-shell-command (if magit-shell-command-verbose-prompt
-                            (format "Async shell command in %s: " dir)
+                            (format "Async shell command in %s: "
+                                    (abbreviate-file-name default-directory))
                           "Async shell command: ")
                         initial-input 'magit-git-command-history)))
 
@@ -400,7 +403,7 @@ and Emacs to it."
     (unless (and toplib
                  (equal (file-name-nondirectory toplib) "magit.el"))
       (setq toplib (locate-library "magit.el")))
-    (setq toplib (and toplib (file-chase-links toplib)))
+    (setq toplib (and toplib (magit--straight-chase-links toplib)))
     (push toplib debug)
     (when toplib
       (let* ((topdir (file-name-directory toplib))
@@ -408,7 +411,7 @@ and Emacs to it."
                       ".git" (file-name-directory
                               (directory-file-name topdir))))
              (static (locate-library "magit-version.el" nil (list topdir)))
-             (static (and static (file-chase-links static))))
+             (static (and static (magit--straight-chase-links static))))
         (or (progn
               (push 'repo debug)
               (when (and (file-exists-p gitdir)
@@ -442,9 +445,20 @@ and Emacs to it."
               (push 'dirname debug)
               (let ((dirname (file-name-nondirectory
                               (directory-file-name topdir))))
-                (when (string-match "\\`magit-\\([0-9]\\{8\\}\\.[0-9]*\\)"
-                                    dirname)
-                  (setq magit-version (match-string 1 dirname))))))))
+                (when (string-match "\\`magit-\\([0-9].*\\)" dirname)
+                  (setq magit-version (match-string 1 dirname)))))
+            ;; If all else fails, just report the commit hash. It's
+            ;; better than nothing and we cannot do better in the case
+            ;; of e.g. a shallow clone.
+            (progn
+              (push 'hash debug)
+              ;; Same check as above to see if it's really the Magit repo.
+              (when (and (file-exists-p gitdir)
+                         (file-exists-p
+                          (expand-file-name "../lisp/magit.el" gitdir)))
+                (setq magit-version
+                      (let ((default-directory topdir))
+                        (magit-git-string "rev-parse" "HEAD"))))))))
     (if (stringp magit-version)
         (when print-dest
           (princ (format "Magit %s, Git %s, Emacs %s, %s"

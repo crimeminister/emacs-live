@@ -1,6 +1,6 @@
 ;;; magit-worktree.el --- worktree support  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -36,20 +36,21 @@
 This is called with one argument, the prompt, and can be used
 to e.g. use a base directory other than `default-directory'.
 Used by `magit-worktree-checkout' and `magit-worktree-branch'."
-  :package-version '(magit . "2.91.0")
+  :package-version '(magit . "3.0.0")
   :group 'magit-commands
   :type 'function)
 
 ;;; Commands
 
 ;;;###autoload (autoload 'magit-worktree "magit-worktree" nil t)
-(define-transient-command magit-worktree ()
+(transient-define-prefix magit-worktree ()
   "Act on a worktree."
   :man-page "git-worktree"
   [["Create new"
     ("b" "worktree"              magit-worktree-checkout)
     ("c" "branch and worktree"   magit-worktree-branch)]
    ["Commands"
+    ("m" "Move worktree"         magit-worktree-move)
     ("k" "Delete worktree"       magit-worktree-delete)
     ("g" "Visit worktree"        magit-worktree-status)]])
 
@@ -75,6 +76,31 @@ Used by `magit-worktree-checkout' and `magit-worktree-branch'."
   (magit-run-git "worktree" "add" (if force "-B" "-b")
                  branch (expand-file-name path) start-point)
   (magit-diff-visit-directory path))
+
+;;;###autoload
+(defun magit-worktree-move (worktree path)
+  "Move WORKTREE to PATH."
+  (interactive
+   (list (magit-completing-read "Move worktree"
+                                (cdr (magit-list-worktrees))
+                                nil t nil nil
+                                (magit-section-value-if 'worktree))
+         (funcall magit-worktree-read-directory-name-function
+                  "Move worktree to: ")))
+  (if (file-directory-p (expand-file-name ".git" worktree))
+      (user-error "You may not move the main working tree")
+    (let ((preexisting-directory (file-directory-p path)))
+      (when (and (zerop (magit-call-git "worktree" "move" worktree
+                                        (expand-file-name path)))
+                 (not (file-exists-p default-directory))
+                 (derived-mode-p 'magit-status-mode))
+        (kill-buffer)
+        (magit-diff-visit-directory
+         (if preexisting-directory
+             (concat (file-name-as-directory path)
+                     (file-name-nondirectory worktree))
+           path)))
+      (magit-refresh))))
 
 (defun magit-worktree-delete (worktree)
   "Delete a worktree, defaulting to the worktree at point.

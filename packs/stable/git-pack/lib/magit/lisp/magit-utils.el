@@ -1,6 +1,6 @@
 ;;; magit-utils.el --- various utilities  -*- lexical-binding: t; coding: utf-8 -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -434,8 +434,8 @@ acts similarly to `completing-read', except for the following:
 - If REQUIRE-MATCH is nil and the user exits without a choice,
   then nil is returned instead of an empty string.
 
-- If REQUIRE-MATCH is non-nil and the users exits without a
-  choice, an user-error is raised.
+- If REQUIRE-MATCH is non-nil and the user exits without a
+  choice, `user-error' is raised.
 
 - FALLBACK specifies a secondary default that is only used if
   the primary default DEF is nil.  The secondary default is not
@@ -932,16 +932,6 @@ one trailing newline is added."
                 (and (eq trim ?\n) "\n"))
       str)))
 
-(cl-defun magit--overlay-at (pos prop &optional (val nil sval) testfn)
-  (cl-find-if (lambda (o)
-                (let ((p (overlay-properties o)))
-                  (and (plist-member p prop)
-                       (or (not sval)
-                           (funcall (or testfn #'eql)
-                                    (plist-get p prop)
-                                    val)))))
-              (overlays-at pos t)))
-
 ;;; Kludges for Emacs Bugs
 
 (defun magit-file-accessible-directory-p (filename)
@@ -1113,6 +1103,23 @@ the %s(1) manpage.
 ;;;###autoload
 (advice-add 'org-man-export :around
             'org-man-export--magit-gitman)
+
+;;; Kludges for Package Managers
+
+(defun magit--straight-chase-links (filename)
+  "Chase links in FILENAME until a name that is not a link.
+
+This is the same as `file-chase-links', except that it also
+handles fake symlinks that are created by the package manager
+straight.el on Windows.
+
+See <https://github.com/raxod502/straight.el/issues/520>."
+  (when (and (bound-and-true-p straight-symlink-emulation-mode)
+             (fboundp 'straight-chase-emulated-symlink))
+    (when-let ((target (straight-chase-emulated-symlink filename)))
+      (unless (eq target 'broken)
+        (setq filename target))))
+  (file-chase-links filename))
 
 ;;; Bitmaps
 

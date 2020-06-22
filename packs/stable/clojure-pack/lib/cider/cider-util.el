@@ -1,7 +1,7 @@
 ;; cider-util.el --- Common utility functions that don't belong anywhere else -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2013 Tim King, Phil Hagelberg, Bozhidar Batsov
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Phil Hagelberg <technomancy@gmail.com>
@@ -42,6 +42,7 @@
 (require 'cider-compat)
 (require 'clojure-mode)
 (require 'nrepl-dict)
+(declare-function cider-sync-request:macroexpand "cider-macroexpansion")
 
 (defalias 'cider-pop-back 'pop-tag-mark)
 
@@ -128,12 +129,23 @@ instead."
 Ignores the REPL prompt.  If LOOK-BACK is non-nil, move backwards trying to
 find a symbol if there isn't one at point."
   (or (when-let* ((str (thing-at-point 'symbol)))
+        ;; resolve ns-aliased keywords
+        (when (string-match-p "^::.+" str)
+          (setq str (or (ignore-errors (cider-sync-request:macroexpand "macroexpand-1" str)) "")))
         (unless (text-property-any 0 (length str) 'field 'cider-repl-prompt str)
-          ;; Remove font-locking and trailing . from constructors like Record.
-          (string-trim-right (substring-no-properties str) "\\.")))
+          ;; Remove font-locking, prefix quotes, and trailing . from constructors like Record.
+          (thread-last (substring-no-properties str)
+            ;; constructors (Foo.)
+            (string-remove-suffix ".")
+            ;; quoted symbols ('sym)
+            (string-remove-prefix "'")
+            ;; var references (#'inc 2)
+            (string-remove-prefix "#'"))))
       (when look-back
         (save-excursion
           (ignore-errors
+            (when (looking-at "(")
+              (forward-char 1))
             (while (not (looking-at "\\sw\\|\\s_\\|\\`"))
               (forward-sexp -1)))
           (cider-symbol-at-point)))))
@@ -301,6 +313,9 @@ This buffer is not designed to display anything to the user.  For that, use
         (with-current-buffer (cider--make-buffer-for-mode mode)
           (erase-buffer)
           (insert string)
+          ;; don't try to font-lock unbalanced Clojure code
+          (when (eq mode 'clojure-mode)
+            (check-parens))
           (font-lock-fontify-region (point-min) (point-max))
           (buffer-string))
       string)))
@@ -317,7 +332,11 @@ Unless you specify a BUFFER it will default to the current one."
 
 (defun cider-font-lock-as-clojure (string)
   "Font-lock STRING as Clojure code."
-  (cider-font-lock-as 'clojure-mode string))
+  ;; If something goes wrong (e.g. the code is not balanced)
+  ;; we simply return the string.
+  (condition-case nil
+      (cider-font-lock-as 'clojure-mode string)
+    (error string)))
 
 ;; Button allowing use of `font-lock-face', ignoring any inherited `face'
 (define-button-type 'cider-plain-button
@@ -437,7 +456,7 @@ to."
                                    section-id))))
     (buffer-string)))
 
-(defconst cider-refcard-url "https://github.com/clojure-emacs/cider/raw/%s/doc/cider-refcard.pdf"
+(defconst cider-refcard-url "https://github.com/clojure-emacs/cider/raw/%s/refcard/cider-refcard.pdf"
   "The URL to CIDER's refcard.")
 
 (defun cider--github-version ()
@@ -508,7 +527,12 @@ restore it properly when going back."
         (if tail (setcdr tail nil))))
     (setq help-xref-stack-item item)))
 
-(defcustom cider-doc-xref-regexp "`\\(.*?\\)`"
+(defcustom cider-doc-xref-regexp
+  (eval-and-compile
+    (rx-to-string
+     `(or (: "`" (group-n 1 (+ (not space))) "`")  ; `var`
+          (: "[[" (group-n 1 (+ (not space))) "]]") ; [[var]]
+          (group-n 1 (regexp ,clojure--sym-regexp) "/" (regexp ,clojure--sym-regexp))))) ;; Fully qualified
   "The regexp used to search Clojure vars in doc buffers."
   :type 'regexp
   :safe #'stringp

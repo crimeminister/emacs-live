@@ -1,6 +1,6 @@
 ;;; magit-push.el --- update remote objects and refs  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2019  The Magit Project Contributors
+;; Copyright (C) 2008-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -35,7 +35,7 @@
 ;;; Commands
 
 ;;;###autoload (autoload 'magit-push "magit-push" nil t)
-(define-transient-command magit-push ()
+(transient-define-prefix magit-push ()
   "Push to another repository."
   :man-page "git-push"
   ["Arguments"
@@ -58,7 +58,8 @@
     ("r" "explicit refspecs" magit-push-refspecs)
     ("m" "matching branches" magit-push-matching)]
    [("T" "a tag"             magit-push-tag)
-    ("t" "all tags"          magit-push-tags)]]
+    ("t" "all tags"          magit-push-tags)
+    (6 "n" "a note ref"      magit-push-notes-ref)]]
   ["Configure"
    ("C" "Set variables..."  magit-branch-configure)])
 
@@ -77,7 +78,7 @@
                          (format "%s:%s%s" branch namespace target))))
 
 ;;;###autoload (autoload 'magit-push-current-to-pushremote "magit-push" nil t)
-(define-suffix-command magit-push-current-to-pushremote (args)
+(transient-define-suffix magit-push-current-to-pushremote (args)
   "Push the current branch to its push-remote.
 
 When the push-remote is not configured, then read the push-remote
@@ -110,7 +111,7 @@ argument the push-remote can be changed before pushed to it."
       (format "%s, setting that" v)))))
 
 ;;;###autoload (autoload 'magit-push-current-to-upstream "magit-push" nil t)
-(define-suffix-command magit-push-current-to-upstream (args)
+(transient-define-suffix magit-push-current-to-upstream (args)
   "Push the current branch to its upstream branch.
 
 With a prefix argument or when the upstream is either not
@@ -249,6 +250,17 @@ branch as default."
            (magit-push-arguments))))
   (run-hooks 'magit-credential-hook)
   (magit-run-git-async "push" remote tag args))
+
+;;;###autoload
+(defun magit-push-notes-ref (ref remote &optional args)
+  "Push a notes ref to another repository."
+  (interactive
+   (let ((note (magit-notes-read-ref "Push notes" nil nil)))
+     (list note
+           (magit-read-remote (format "Push %s to remote" note) nil t)
+           (magit-push-arguments))))
+  (run-hooks 'magit-credential-hook)
+  (magit-run-git-async "push" remote ref args))
 
 ;;;###autoload
 (defun magit-push-implicitly (args)

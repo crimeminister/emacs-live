@@ -1,6 +1,6 @@
 ;;; magit-reset.el --- reset fuctionality  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -30,13 +30,14 @@
 (require 'magit)
 
 ;;;###autoload (autoload 'magit-reset "magit" nil t)
-(define-transient-command magit-reset ()
+(transient-define-prefix magit-reset ()
   "Reset the `HEAD', index and/or worktree to a previous state."
   :man-page "git-reset"
   ["Reset"
    ("m" "mixed    (HEAD and index)"        magit-reset-mixed)
    ("s" "soft     (HEAD only)"             magit-reset-soft)
    ("h" "hard     (HEAD, index and files)" magit-reset-hard)
+   ("k" "keep     (HEAD and index, keeping uncommitted)" magit-reset-keep)
    ("i" "index    (only)"                  magit-reset-index)
    ("w" "worktree (only)"                  magit-reset-worktree)
    ""
@@ -64,6 +65,13 @@
                       (concat (magit--propertize-face "Hard" 'bold)
                               " reset %s to"))))
   (magit-reset-internal "--hard" commit))
+
+;;;###autoload
+(defun magit-reset-keep (commit)
+  "Reset the `HEAD' and index to COMMIT, while keeping uncommitted changes.
+\n(git reset --keep REVISION)"
+  (interactive (list (magit-reset-read-branch-or-commit "Reset %s to")))
+  (magit-reset-internal "--keep" commit))
 
 ;;;###autoload
 (defun magit-reset-index (commit)

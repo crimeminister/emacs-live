@@ -42,6 +42,7 @@ Contributors
 - Aaron Madlon-Kay <aaron@madlon-kay.com>
 - Abdo Roig-Maranges <abdo.roig@gmail.com>
 - Adam Benanti <0entropy@protonmail.com>
+- Adam Kruszewski <adam@kruszewski.name>
 - Adam Porter <adam@alphapapa.net>
 - Adam Spiers <emacs@adamspiers.org>
 - Adeodato Simó <dato@net.com.org.es>
@@ -70,6 +71,7 @@ Contributors
 - Andy Sawyer <git@pureabstract.org>
 - Aria Edmonds <aria@ar1as.space>
 - Arialdo Martini <arialdomartini@gmail.com>
+- Arnau Roig Ninerola <arnau.ninerola@outlook.com>
 - Barak A. Pearlmutter <barak+git@pearlmutter.net>
 - Bar Magal <bmagamb@gmail.com>
 - Bart Bakker <bart@thesoftwarecraft.com>
@@ -96,6 +98,7 @@ Contributors
 - Christian Kluge <ckfrakturfreak@web.de>
 - Christophe Junke <junke.christophe@gmail.com>
 - Christopher Monsanto <chris@monsan.to>
+- Clément Pit-Claudel <clement.pitclaudel@live.com>
 - Cornelius Mika <cornelius.mika@gmail.com>
 - Craig Andera <candera@wangdera.com>
 - Dale Hagglund <dale.hagglund@gmail.com>
@@ -161,11 +164,13 @@ Contributors
 - Jesse Alama <jesse.alama@gmail.com>
 - Jim Blandy <jimb@red-bean.com>
 - Joakim Jalap <JOJA@stoneridge.com>
+- Johannes Altmanninger <aclopte@gmail.com>
 - Johann Klähn <kljohann@gmail.com>
 - John Mastro <john.b.mastro@gmail.com>
 - John Morris <john@zultron.com>
 - John Wiegley <johnw@newartisans.com>
 - Jonas Bernoulli <jonas@bernoul.li>
+- Jonathan Arnett <jonathan@scriptdrop.co>
 - Jonathan Leech-Pepin <jonathan.leechpepin@gmail.com>
 - Jonathan Roes <jroes@jroes.net>
 - Jon Vanderwijk <jonathn@github.com>
@@ -182,6 +187,7 @@ Contributors
 - Kenny Ballou <kballou@devnulllabs.io>
 - Keshav Kini <keshav.kini@gmail.com>
 - Kevin Brubeck Unhammer <unhammer@fsfe.org>
+- Kevin J. Foley <kfoley15@gmail.com>
 - Kévin Le Gouguec <kevin.legouguec@gmail.com>
 - Kimberly Wolk <kimwolk@hotmail.com>
 - Knut Olav Bøhmer <bohmer@gmail.com>
@@ -199,6 +205,7 @@ Contributors
 - Louis Roché <louis@louisroche.net>
 - Luís Oliveira <luismbo@gmail.com>
 - Luke Amdor <luke.amdor@gmail.com>
+- Magnus Malm <magnusmalm@gmail.com>
 - Mak Kolybabi <mak@kolybabi.com>
 - Manuel Vázquez Acosta <mva.led@gmail.com>
 - Marcel Wolf <mwolf@ml1.net>
@@ -225,6 +232,7 @@ Contributors
 - Miloš Mošić <mosic.milos@gmail.com>
 - Mitchel Humpherys <mitch.special@gmail.com>
 - Moritz Bunkus <moritz@bunkus.org>
+- Naoya Yamashita <conao3@gmail.com>
 - Natalie Weizenbaum <nex342@gmail.com>
 - Nguyễn Tuấn Anh <ubolonton@gmail.com>
 - Nic Ferier <nic@ferrier.me.uk>
@@ -269,6 +277,7 @@ Contributors
 - Richard Kim <emacs18@gmail.com>
 - Robert Boone <robo4288@gmail.com>
 - Robin Green <greenrd@greenrd.org>
+- Roey Darwish Dror <roey.ghost@gmail.com>
 - Roger Crew <crew@cs.stanford.edu>
 - Romain Francoise <romain@orebokech.com>
 - Ron Parker <rparker@a123systems.com>
@@ -316,6 +325,7 @@ Contributors
 - Tom Feist <shabble@metavore.org>
 - Topi Miettinen <toiwoton@gmail.com>
 - Troy Hinckley <t.macman@gmail.com>
+- Tsuyoshi Kitamoto <tsuyoshi.kitamoto@gmail.com>
 - Tunc Uzlu <bb2020@users.noreply.github.com>
 - Vineet Naik <vineet@helpshift.com>
 - Vitaly Ostashov <hotosho@yandex-team.ru>

@@ -2,6 +2,63 @@
 
 ## master (unreleased)
 
+### Changes
+
+* [#2852](https://github.com/clojure-emacs/cider/issues/2852): Convert 1-based column numbers in response map to Emacs' 0-based system.
+
+## 0.25.0 (2020-06-04)
+
+### New features
+
+* [#2482](https://github.com/clojure-emacs/cider/pull/2842): Improvements to CIDER Inspector.
+  * New defcustom `cider-inspector-skip-uninteresting` to control whether to skip over nils, numbers and keywords when navigating between values in the inspector buffer.
+  * New defcustom `cider-auto-inspect-after-eval` to control whether a visible inspector buffer is updated with the last evaluated result.
+* [#2833](https://github.com/clojure-emacs/cider/pull/2833): Save command history for jack-in with universal arg.
+* [#2828](https://github.com/clojure-emacs/cider/pull/2828): Bind "L" to toggle display of locals during a debug session.
+* [#2800](https://github.com/clojure-emacs/cider/pull/2800): Add support for force-out debugger command.
+* Add support for nREPL 0.8 `completions` op. It's used if `cider-nrepl` is not available.
+* Add `browser` to the list of supported ClojureScript REPL types.
+* Add an interactive command to toggle Clojure font-locking in the REPL (`cider-repl-toggle-clojure-font-lock`).
+* Add a defcustom controlling nREPL's print buffer size (`cider-print-buffer-size`). It's set to 4K by default, nREPL own default is 1k.
+
+### Changes
+
+* [#2826](https://github.com/clojure-emacs/cider/pull/2826): Add support for symbols with quotes and resolving of ns-aliased keywords in `cider-symbol-at-point`.
+* [#2617](https://github.com/clojure-emacs/cider/pull/2617): Add menu bar entry for `Insert last sexp in REPL`.
+* Removed support for the Nashorn ClojureScript REPL. (it was removed upstream in ClojureScript)
+* [#2825](https://github.com/clojure-emacs/cider/issues/2825): Disable support for displaying images in the REPL. (set `cider-repl-use-content-types` to re-enable it)
+* [#2850](https://github.com/clojure-emacs/cider/issues/2850): Ensure you're in the middle of a window after commands like `cider-find-var`.
+
+### Bugs fixed
+
+* [#2839](https://github.com/clojure-emacs/cider/pull/2839): Fix symbol-at-point on var-quoted symbols.
+* [#2807](https://github.com/clojure-emacs/cider/pull/2807): Fix require-repl-utils for shadow-cljs repls.
+* [#1971](https://github.com/clojure-emacs/cider/issues/1971), [#2628](https://github.com/clojure-emacs/cider/issues/2628): Don't try to font-lock multi-chunk results in the REPL.
+* [#2816](https://github.com/clojure-emacs/cider/issues/2816): Update eldoc to work with Emacs 28.1.
+
+## 0.24.0 (2020-02-15)
+
+### New features
+
+* [#2744](https://github.com/clojure-emacs/cider/pull/2744): Add startup commands to repl banner.
+* [#2499](https://github.com/clojure-emacs/cider/issues/2499): Add `cider-jump-to-pop-to-buffer-actions`.
+* [#2738](https://github.com/clojure-emacs/cider/pull/2738): Add ability to lookup a function symbol when cursor is at the opening paren.
+* [#2735](https://github.com/clojure-emacs/cider/pull/2735): New debugger command `P` to inspect an arbitrary expression, it was previously bound to `p` which now inspects the current value.
+* [#2729](https://github.com/clojure-emacs/cider/pull/2729): New cider inspector command `cider-inspector-def-current-val` lets you define a var with the current inspector value.
+
+### Changes
+
+* [#2781](https://github.com/clojure-emacs/cider/pull/2781): Extend `cider-doc-xref-regexp` to recognize `[[var]]` syntax  and fully qualified symbols as xref links in cider-doc buffers.
+* [#2731](https://github.com/clojure-emacs/cider/pull/2731): Make the in-buffer debugging menu customizable via `cider-debug-prompt-commands`.
+
+### Bugs fixed
+
+* [#2787](https://github.com/clojure-emacs/cider/issues/2787): Fix nrepl process naming collision when using `nrepl-hide-special-buffers`.
+* [#2739](https://github.com/clojure-emacs/cider/pull/2739): Start built-in shadow-cljs build profiles correctly (node-repl, browser-repl).
+* [#2730](https://github.com/clojure-emacs/cider/pull/2730): Require repl utilities into current namespace not just `user` ns.
+* [#2614](https://github.com/clojure-emacs/cider/issues/2614): Fix error highlighting in source buffers for Clojure 1.10.
+* [#2733](https://github.com/clojure-emacs/cider/issues/2733): Restore compatibility with Emacs 25.3.
+
 ## 0.23.0 (2019-10-08)
 
 ### New features
@@ -46,9 +103,9 @@
 * `spec-list` and `spec-form` requests send the current namespace for alias resolution.
 * `C-c , C-g` and `C-c C-t C-g` cancel the key chord instead of rerunning the last test. The respective command has been moved to `C-c , C-a`, `C-c , a`, `C-c C-t C-a` and `C-c C-t a`.
 * [#2643](https://github.com/clojure-emacs/cider/issues/2643): **(Breaking)** Stop using the `cider.tasks/nrepl-server` custom task for `cider-jack-in` with Boot.
-* [#2647](https://github.com/clojure-emacs/cider/issues/2647) `cider-repl-require-repl-utils` now loads cljs specific repl utils in cljs buffers.
-* [#2689](https://github.com/clojure-emacs/cider/issues/2689) `cider-load-buffer` now takes an optional `callback` that will override the default `cider-load-file-handler`.
-* [#2689](https://github.com/clojure-emacs/cider/issues/2689) `cider-load-file-handler` now takes an optional `done-handler` lambda that is run once load is complete.
+* [#2647](https://github.com/clojure-emacs/cider/issues/2647): `cider-repl-require-repl-utils` now loads cljs specific repl utils in cljs buffers.
+* [#2689](https://github.com/clojure-emacs/cider/issues/2689): `cider-load-buffer` now takes an optional `callback` that will override the default `cider-load-file-handler`.
+* [#2689](https://github.com/clojure-emacs/cider/issues/2689): `cider-load-file-handler` now takes an optional `done-handler` lambda that is run once load is complete.
 
 ### Bug fixes
 

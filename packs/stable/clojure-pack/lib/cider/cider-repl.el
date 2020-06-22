@@ -1,7 +1,7 @@
 ;;; cider-repl.el --- CIDER REPL mode interactions -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2013 Tim King, Phil Hagelberg, Bozhidar Batsov
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Phil Hagelberg <technomancy@gmail.com>
@@ -117,7 +117,7 @@ change the setting's value."
 
 (make-obsolete-variable 'cider-repl-pretty-print-width 'cider-print-options "0.21")
 
-(defcustom cider-repl-use-content-types t
+(defcustom cider-repl-use-content-types nil
   "Control whether REPL results are presented using content-type information.
 The `cider-repl-toggle-content-types' command can be used to interactively
 change the setting's value."
@@ -170,7 +170,7 @@ you'd like to use the default Emacs behavior use
 
 (defvar cider-repl-require-repl-utils-code
   '((clj . "(clojure.core/apply clojure.core/require clojure.main/repl-requires)")
-    (cljs . "(use '[cljs.repl :only [apropos dir doc find-doc print-doc pst source]])")))
+    (cljs . "(require '[cljs.repl :refer [apropos dir doc find-doc print-doc pst source]])")))
 
 (defcustom cider-repl-init-code (list (cdr (assoc 'clj cider-repl-require-repl-utils-code)))
   "Clojure code to evaluate when starting a REPL.
@@ -262,7 +262,7 @@ This cache is stored in the connection buffer.")
          (require-code (cdr (assoc (cider-repl-type current-repl) cider-repl-require-repl-utils-code))))
     (nrepl-send-sync-request
      (lax-plist-put
-      (nrepl--eval-request require-code)
+      (nrepl--eval-request require-code (cider-current-ns))
       "inhibit-cider-middleware" "true")
      current-repl)))
 
@@ -319,6 +319,7 @@ fully initialized."
     ((pred identity) (pop-to-buffer buffer)))
   (with-current-buffer buffer
     (cider-repl--insert-banner)
+    (cider-repl--insert-startup-commands)
     (when-let* ((window (get-buffer-window buffer t)))
       (with-selected-window window
         (recenter (- -1 scroll-margin))))
@@ -332,6 +333,32 @@ fully initialized."
   (when cider-repl-display-help-banner
     (insert-before-markers
      (propertize (cider-repl--help-banner) 'font-lock-face 'font-lock-comment-face))))
+
+(defun cider-repl--insert-startup-commands ()
+  "Insert the values from params specified in PARAM-TUPLES.
+PARAM-TUPLES are tuples of (param-key description) or (param-key
+description transform) where transform is called with the param-value if
+present."
+  (cl-labels
+      ((emit-comment
+        (contents)
+        (insert-before-markers
+         (propertize
+          (if (string-blank-p contents) ";;\n" (concat ";; " contents "\n"))
+          'font-lock-face 'font-lock-comment-face))))
+    (let ((jack-in-command (plist-get cider-launch-params :jack-in-cmd))
+          (cljs-repl-type (plist-get cider-launch-params :cljs-repl-type))
+          (cljs-init-form (plist-get cider-launch-params :repl-init-form)))
+      (when jack-in-command
+        ;; spaces to align with the banner
+        (emit-comment (concat " Startup: " jack-in-command)))
+      (when (or cljs-repl-type cljs-init-form)
+        (emit-comment "")
+        (when cljs-repl-type
+          (emit-comment (concat "ClojureScript REPL type: " (symbol-name cljs-repl-type))))
+        (when cljs-init-form
+          (emit-comment (concat "ClojureScript REPL init form: " cljs-init-form)))
+        (emit-comment "")))))
 
 (defun cider-repl--banner ()
   "Generate the welcome REPL buffer banner."
@@ -985,6 +1012,13 @@ text property `cider-old-input'."
   (message "Content-type support in REPL %s."
            (if cider-repl-use-content-types "enabled" "disabled")))
 
+(defun cider-repl-toggle-clojure-font-lock ()
+  "Toggle pretty-printing in the REPL."
+  (interactive)
+  (setq cider-repl-use-clojure-font-lock (not cider-repl-use-clojure-font-lock))
+  (message "Clojure font-locking in REPL %s."
+           (if cider-repl-use-clojure-font-lock "enabled" "disabled")))
+
 (defun cider-repl-switch-to-other ()
   "Switch between the Clojure and ClojureScript REPLs for the current project."
   (interactive)
@@ -1459,7 +1493,9 @@ constructs."
 (cider-repl-add-shortcut "clear-banners" #'cider-repl-clear-banners)
 (cider-repl-add-shortcut "clear-help-banner" #'cider-repl-clear-help-banner)
 (cider-repl-add-shortcut "ns" #'cider-repl-set-ns)
-(cider-repl-add-shortcut "toggle-pretty" #'cider-repl-toggle-pretty-printing)
+(cider-repl-add-shortcut "toggle-pprint" #'cider-repl-toggle-pretty-printing)
+(cider-repl-add-shortcut "toggle-font-lock" #'cider-repl-toggle-clojure-font-lock)
+(cider-repl-add-shortcut "toggle-content-types" #'cider-repl-toggle-content-types)
 (cider-repl-add-shortcut "browse-ns" (lambda () (interactive) (cider-browse-ns (cider-current-ns))))
 (cider-repl-add-shortcut "classpath" #'cider-classpath)
 (cider-repl-add-shortcut "history" #'cider-repl-history)
@@ -1629,6 +1665,8 @@ constructs."
         "--"
         ["Set REPL ns" cider-repl-set-ns]
         ["Toggle pretty printing" cider-repl-toggle-pretty-printing]
+        ["Toggle Clojure font-lock" cider-repl-toggle-clojure-font-lock]
+        ["Toggle rich content types" cider-repl-toggle-content-types]
         ["Require REPL utils" cider-repl-require-repl-utils]
         "--"
         ["Browse classpath" cider-classpath]

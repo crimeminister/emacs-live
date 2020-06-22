@@ -1,6 +1,6 @@
 ;;; cider-browse-ns.el --- CIDER namespace browser
 
-;; Copyright © 2014-2019 John Andrews, Bozhidar Batsov and CIDER contributors
+;; Copyright © 2014-2020 John Andrews, Bozhidar Batsov and CIDER contributors
 
 ;; Author: John Andrews <john.m.andrews@gmail.com>
 
@@ -187,6 +187,8 @@ Return a list of the type ('ns or 'var) and the value."
                      (or (get-text-property (point) 'cider-browse-ns-current-ns)
                          cider-browse-ns-current-ns)
                      line)))))
+
+(declare-function cider-doc-lookup "cider-doc")
 
 (defun cider-browse-ns-doc-at-point ()
   "Show the documentation for the thing at current point."

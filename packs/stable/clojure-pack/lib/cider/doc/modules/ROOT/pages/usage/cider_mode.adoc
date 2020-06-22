@@ -39,7 +39,7 @@ Those few essential commands can get you really far in your day to day work. Kee
 
 == Key Reference
 
-Here's a list of `cider-mode`'s keybindings:
+Here's a list of the key bindings of `cider-mode`:
 
 |===
 | Command | Keyboard shortcut | Description
@@ -60,6 +60,10 @@ kbd:[C-c C-e]
 | `cider-insert-last-sexp-in-repl`
 | kbd:[C-c M-p]
 | Load the form preceding point in the REPL buffer.
+
+| `cider-insert-last-sexp-in-repl`
+| kbd:[C-u C-c M-p]
+| Load the form preceding point in the REPL buffer and eval.
 
 | `cider-pprint-eval-last-sexp`
 | kbd:[C-c C-v C-f e]

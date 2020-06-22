@@ -1,6 +1,6 @@
 ;;; magit-reflog.el --- inspect ref history  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -39,8 +39,8 @@
   "Maximal number of entries initially shown in reflog buffers.
 The limit in the current buffer can be changed using \"+\"
 and \"-\"."
-  :package-version '(magit . "2.91.0")
-  :group 'magit-git-arguments
+  :package-version '(magit . "3.0.0")
+  :group 'magit-commands
   :type 'number)
 
 (defcustom magit-reflog-margin
@@ -53,10 +53,12 @@ and \"-\"."
 The value has the form (INIT STYLE WIDTH AUTHOR AUTHOR-WIDTH).
 
 If INIT is non-nil, then the margin is shown initially.
-STYLE controls how to format the committer date.  It can be one
-  of `age' (to show the age of the commit), `age-abbreviated' (to
-  abbreviate the time unit to a character), or a string (suitable
-  for `format-time-string') to show the actual date.
+STYLE controls how to format the author or committer date.
+  It can be one of `age' (to show the age of the commit),
+  `age-abbreviated' (to abbreviate the time unit to a character),
+  or a string (suitable for `format-time-string') to show the
+  actual date.  Option `magit-log-margin-show-committer-date'
+  controls which date is being displayed.
 WIDTH controls the width of the margin.  This exists for forward
   compatibility and currently the value should not be changed.
 AUTHOR controls whether the name of the author is also shown by

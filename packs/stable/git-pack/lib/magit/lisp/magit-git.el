@@ -1,6 +1,6 @@
 ;;; magit-git.el --- Git functionality  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -133,7 +133,7 @@ successfully.")
 (defcustom magit-git-executable
   ;; Git might be installed in a different location on a remote, so
   ;; it is better not to use the full path to the executable, except
-  ;; on Window were we would otherwise end up using one one of the
+  ;; on Window where we would otherwise end up using one of the
   ;; wrappers "cmd/git.exe" or "cmd/git.cmd", which are much slower
   ;; than using "bin/git.exe" directly.
   (or (and (eq system-type 'windows-nt)
@@ -169,8 +169,11 @@ successfully.")
   :type 'string)
 
 (defcustom magit-git-global-arguments
-  `("--no-pager" "--literal-pathspecs" "-c" "core.preloadindex=true"
+  `("--no-pager" "--literal-pathspecs"
+    "-c" "core.preloadindex=true"
     "-c" "log.showSignature=false"
+    "-c" "color.ui=false"
+    "-c" "color.diff=false"
     ,@(and (eq system-type 'windows-nt)
            (list "-c" "i18n.logOutputEncoding=UTF-8")))
   "Global Git arguments.
@@ -187,7 +190,7 @@ know what you are doing.  And think very hard before adding
 something; it will be used every time Magit runs Git for any
 purpose."
   :package-version '(magit . "2.9.0")
-  :group 'magit-git-arguments
+  :group 'magit-commands
   :group 'magit-process
   :type '(repeat string))
 
@@ -743,7 +746,7 @@ returning the truename."
       (signal 'magit-outside-git-repo default-directory)
     (signal 'magit-git-executable-not-found magit-git-executable)))
 
-(defun magit-inside-gitdir-p (&optioal noerror)
+(defun magit-inside-gitdir-p (&optional noerror)
   "Return t if `default-directory' is below the repository directory.
 If it is below the working directory, then return nil.
 If it isn't below either, then signal an error unless NOERROR
@@ -1023,10 +1026,14 @@ are considered."
 (defun magit-module-no-worktree-p (module)
   (not (magit-module-worktree-p module)))
 
-(defun magit-ignore-submodules-p ()
-  (cl-find-if (lambda (arg)
-                (string-prefix-p "--ignore-submodules" arg))
-              magit-buffer-diff-args))
+(defun magit-ignore-submodules-p (&optional return-argument)
+  (or (cl-find-if (lambda (arg)
+                    (string-prefix-p "--ignore-submodules" arg))
+                  magit-buffer-diff-args)
+      (when-let ((value (magit-get "diff.ignoreSubmodules")))
+        (if return-argument
+            (concat "--ignore-submodules=" value)
+          (concat "diff.ignoreSubmodules=" value)))))
 
 ;;; Revisions and References
 
@@ -1175,7 +1182,7 @@ Git."
          (substring it 5))))
 
 (defun magit-ref-abbrev (refname)
-  "Return an unambigious abbreviation of REFNAME."
+  "Return an unambiguous abbreviation of REFNAME."
   (magit-rev-parse "--verify" "--abbrev-ref" refname))
 
 (defun magit-ref-fullname (refname)
@@ -1191,7 +1198,7 @@ If REFNAME is ambiguous, return nil."
 
 (defun magit-ref-maybe-qualify (refname &optional prefix)
   "If REFNAME is ambiguous, try to disambiguate it by prepend PREFIX to it.
-Return an unambigious refname, either REFNAME or that prefixed
+Return an unambiguous refname, either REFNAME or that prefixed
 with PREFIX, nil otherwise.  If REFNAME has an offset suffix
 such as \"~1\", then that is preserved.  If optional PREFIX is
 nil, then use \"heads/\".  "
@@ -1587,23 +1594,23 @@ SORTBY is a key or list of keys to pass to the `--sort' flag of
 (defun magit-list-remote-branches (&optional remote)
   (magit-list-refs (concat "refs/remotes/" remote)))
 
-(defun magit-list-related-branches (relation &optional commit arg)
+(defun magit-list-related-branches (relation &optional commit &rest args)
   (--remove (string-match-p "\\(\\`(HEAD\\|HEAD -> \\)" it)
             (--map (substring it 2)
-                   (magit-git-lines "branch" arg relation commit))))
+                   (magit-git-lines "branch" args relation commit))))
 
-(defun magit-list-containing-branches (&optional commit arg)
-  (magit-list-related-branches "--contains" commit arg))
+(defun magit-list-containing-branches (&optional commit &rest args)
+  (magit-list-related-branches "--contains" commit args))
 
 (defun magit-list-publishing-branches (&optional commit)
-  (--filter (magit-rev-ancestor-p commit it)
+  (--filter (magit-rev-ancestor-p (or commit "HEAD") it)
             magit-published-branches))
 
-(defun magit-list-merged-branches (&optional commit arg)
-  (magit-list-related-branches "--merged" commit arg))
+(defun magit-list-merged-branches (&optional commit &rest args)
+  (magit-list-related-branches "--merged" commit args))
 
-(defun magit-list-unmerged-branches (&optional commit arg)
-  (magit-list-related-branches "--no-merged" commit arg))
+(defun magit-list-unmerged-branches (&optional commit &rest args)
+  (magit-list-related-branches "--no-merged" commit args))
 
 (defun magit-list-unmerged-to-upstream-branches ()
   (--filter (when-let ((upstream (magit-get-upstream-branch it)))
@@ -1771,15 +1778,26 @@ Return a list of two integers: (A>B B>A)."
                         "\t")))
 
 (defun magit-abbrev-length ()
-  (--if-let (magit-get "core.abbrev")
-      (string-to-number it)
-    ;; Guess the length git will be using based on an example
-    ;; abbreviation.  Actually HEAD's abbreviation might be an
-    ;; outlier, so use the shorter of the abbreviations for two
-    ;; commits.  When a commit does not exist, then fall back
-    ;; to the default of 7.  See #3034.
-    (min (--if-let (magit-rev-parse "--short" "HEAD")  (length it) 7)
-         (--if-let (magit-rev-parse "--short" "HEAD~") (length it) 7))))
+  (let ((abbrev (magit-get "core.abbrev")))
+    (if (and abbrev (not (equal abbrev "auto")))
+        (string-to-number abbrev)
+      ;; Guess the length git will be using based on an example
+      ;; abbreviation.  Actually HEAD's abbreviation might be an
+      ;; outlier, so use the shorter of the abbreviations for two
+      ;; commits.  See #3034.
+      (if-let ((head (magit-rev-parse "--short" "HEAD"))
+               (head-len (length head)))
+          (min head-len
+               (--if-let (magit-rev-parse "--short" "HEAD~")
+                   (length it)
+                 head-len))
+        ;; We're on an unborn branch, but perhaps the repository has
+        ;; other commits.  See #4123.
+        (if-let ((commits (magit-git-lines "rev-list" "-n2" "--all"
+                                           "--abbrev-commit")))
+            (apply #'min (mapcar #'length commits))
+          ;; A commit does not exist.  Fall back to the default of 7.
+          7)))))
 
 (defun magit-abbrev-arg (&optional arg)
   (format "--%s=%d" (or arg "abbrev") (magit-abbrev-length)))
@@ -2047,9 +2065,10 @@ and this option only controls what face is used.")
   (--when-let
       (let ((c "\s\n\t~^:?*[\\"))
         (cl-letf (((get 'git-revision 'beginning-op)
-                   (if (re-search-backward (format "[%s]" c) nil t)
-                       (forward-char)
-                     (goto-char (point-min))))
+                   (lambda ()
+                     (if (re-search-backward (format "[%s]" c) nil t)
+                         (forward-char)
+                       (goto-char (point-min)))))
                   ((get 'git-revision 'end-op)
                    (lambda ()
                      (re-search-forward (format "\\=[^%s]*" c) nil t))))

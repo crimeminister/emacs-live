@@ -1,6 +1,6 @@
 ;;; magit-fetch.el --- download objects and refs  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2019  The Magit Project Contributors
+;; Copyright (C) 2008-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -41,7 +41,7 @@ Ignored for Git versions before v2.8.0."
 ;;; Commands
 
 ;;;###autoload (autoload 'magit-fetch "magit-fetch" nil t)
-(define-transient-command magit-fetch ()
+(transient-define-prefix magit-fetch ()
   "Fetch from another repository."
   :man-page "git-fetch"
   ["Arguments"
@@ -67,12 +67,12 @@ Ignored for Git versions before v2.8.0."
   (magit-run-git-async "fetch" remote args))
 
 ;;;###autoload (autoload 'magit-fetch-from-pushremote "magit-fetch" nil t)
-(define-suffix-command magit-fetch-from-pushremote (args)
+(transient-define-suffix magit-fetch-from-pushremote (args)
   "Fetch from the current push-remote.
 
-When the push-remote is not configured, then read the push-remote
-from the user, set it, and then fetch from it.  With a prefix
-argument the push-remote can be changed before fetching from it."
+With a prefix argument or when the push-remote is either not
+configured or unusable, then let the user first configure the
+push-remote."
   :description 'magit-fetch--pushremote-description
   (interactive (list (magit-fetch-arguments)))
   (let ((remote (magit-get-push-remote)))
@@ -96,7 +96,7 @@ argument the push-remote can be changed before fetching from it."
       (format "%s, setting that" v)))))
 
 ;;;###autoload (autoload 'magit-fetch-from-upstream "magit-fetch" nil t)
-(define-suffix-command magit-fetch-from-upstream (remote args)
+(transient-define-suffix magit-fetch-from-upstream (remote args)
   "Fetch from the \"current\" remote, usually the upstream.
 
 If the upstream is configured for the current branch and names

@@ -12,7 +12,7 @@ allow you to edit the entire command string in the minibuffer.
 
 CIDER doesn't have any special provisions for project-specific configuration, as this
 is something well supported in Emacs itself. Unfortunately the functionality in Emacs has the
-slight weird name "dir-local variables", which is probably not the thing people would
+slightly weird name "dir-local variables", which is probably not the thing people would
 start googling for. On the bright side - the Emacs functionality is much more generic
 than dealing with project-specific configuration.
 
@@ -110,7 +110,7 @@ to "real" code and its tests.
 You might be wondering when do changes to `.dir-locals.el` get reflected in the Emacs buffers
 affected by them. The answer is to this question is "when the buffers get created". If you change
 something in `.dir-locals.el` you'll normally have to re-create the related buffers.
-Or you can do in the hacker way and apply https://emacs.stackexchange.com/questions/13080/reloading-directory-local-variables[a bit of Elisp magic].
+Or you can do it in the hacker way and apply https://emacs.stackexchange.com/questions/13080/reloading-directory-local-variables[a bit of Elisp magic].
 
 TIP: There are more aspects to dir-locals, but they are beyond the scope of this article.
 If you're curious for all the gory details you should check out https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html[the official Emacs documentation on dir-locals].

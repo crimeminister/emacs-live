@@ -1,6 +1,6 @@
 ;;; cider-common.el --- Common use functions         -*- lexical-binding: t; -*-
 
-;; Copyright © 2015-2019  Artur Malabarba
+;; Copyright © 2015-2020  Artur Malabarba
 
 ;; Author: Artur Malabarba <bruce.connor.am@gmail.com>
 
@@ -127,6 +127,21 @@ On failure, read a symbol name using PROMPT and call CALLBACK with that."
 
 (declare-function cider-mode "cider-mode")
 
+(defcustom cider-jump-to-pop-to-buffer-actions
+  '((display-buffer-reuse-window display-buffer-same-window))
+  "Determines what window `cider-jump-to` uses.
+The value is passed as the `action` argument to `pop-to-buffer`.
+
+The default value means:
+
+- If the target file is already visible in a window, reuse it (switch to it).
+- Otherwise, open the target buffer in the current window.
+
+For further details, see https://docs.cider.mx/cider/repl/configuration.html#_control_what_window_to_use_when_jumping_to_a_definition"
+  :type 'sexp
+  :group 'cider
+  :package-version '(cider . "0.24.0"))
+
 (defun cider-jump-to (buffer &optional pos other-window)
   "Push current point onto marker ring, and jump to BUFFER and POS.
 POS can be either a number, a cons, or a symbol.
@@ -139,39 +154,43 @@ If OTHER-WINDOW is non-nil don't reuse current window."
     (ring-insert find-tag-marker-ring (point-marker)))
   (if other-window
       (pop-to-buffer buffer 'display-buffer-pop-up-window)
-    ;; like switch-to-buffer, but reuse existing window if BUFFER is visible
-    (pop-to-buffer buffer '((display-buffer-reuse-window display-buffer-same-window))))
+    (pop-to-buffer buffer cider-jump-to-pop-to-buffer-actions))
   (with-current-buffer buffer
     (widen)
     (goto-char (point-min))
     (cider-mode +1)
-    (cond
-     ;; Line-column specification.
-     ((consp pos)
-      (forward-line (1- (or (car pos) 1)))
-      (if (cdr pos)
-          (move-to-column (cdr pos))
-        (back-to-indentation)))
-     ;; Point specification.
-     ((numberp pos)
-      (goto-char pos))
-     ;; Symbol or string.
-     (pos
-      ;; Try to find (def full-name ...).
-      (if (or (save-excursion
-                (search-forward-regexp (format "(def.*\\s-\\(%s\\)" (regexp-quote pos))
-                                       nil 'noerror))
-              (let ((name (replace-regexp-in-string ".*/" "" pos)))
-                ;; Try to find (def name ...).
-                (or (save-excursion
-                      (search-forward-regexp (format "(def.*\\s-\\(%s\\)" (regexp-quote name))
-                                             nil 'noerror))
-                    ;; Last resort, just find the first occurrence of `name'.
-                    (save-excursion
-                      (search-forward name nil 'noerror)))))
-          (goto-char (match-beginning 0))
-        (message "Can't find %s in %s" pos (buffer-file-name))))
-     (t nil))))
+    (let ((status
+           (cond
+            ;; Line-column specification.
+            ((consp pos)
+             (forward-line (1- (or (car pos) 1)))
+             (if (cdr pos)
+                 (move-to-column (cdr pos))
+               (back-to-indentation)))
+            ;; Point specification.
+            ((numberp pos)
+             (goto-char pos))
+            ;; Symbol or string.
+            (pos
+             ;; Try to find (def full-name ...).
+             (if (or (save-excursion
+                       (search-forward-regexp (format "(def.*\\s-\\(%s\\)" (regexp-quote pos))
+                                              nil 'noerror))
+                     (let ((name (replace-regexp-in-string ".*/" "" pos)))
+                       ;; Try to find (def name ...).
+                       (or (save-excursion
+                             (search-forward-regexp (format "(def.*\\s-\\(%s\\)" (regexp-quote name))
+                                                    nil 'noerror))
+                           ;; Last resort, just find the first occurrence of `name'.
+                           (save-excursion
+                             (search-forward name nil 'noerror)))))
+                 (goto-char (match-beginning 0))
+               (message "Can't find %s in %s" pos (buffer-file-name))
+               'not-found))
+            (t 'not-found))))
+      (unless (eq status 'not-found)
+        ;; Make sure the location we jump to is centered within the target window
+        (recenter)))))
 
 (defun cider--find-buffer-for-file (file)
   "Return a buffer visiting FILE.

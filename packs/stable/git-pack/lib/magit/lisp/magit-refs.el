@@ -1,6 +1,6 @@
 ;;; magit-refs.el --- listing references  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -99,7 +99,7 @@ shown), so this isn't enabled yet.")
   "Whether to show the remote prefix in lists of remote branches.
 
 This is redundant because the name of the remote is already shown
-in the heading preceeding the list of its branches."
+in the heading preceding the list of its branches."
   :package-version '(magit . "2.12.0")
   :group 'magit-refs
   :type 'boolean)
@@ -114,10 +114,12 @@ in the heading preceeding the list of its branches."
 The value has the form (INIT STYLE WIDTH AUTHOR AUTHOR-WIDTH).
 
 If INIT is non-nil, then the margin is shown initially.
-STYLE controls how to format the committer date.  It can be one
-  of `age' (to show the age of the commit), `age-abbreviated' (to
-  abbreviate the time unit to a character), or a string (suitable
-  for `format-time-string') to show the actual date.
+STYLE controls how to format the author or committer date.
+  It can be one of `age' (to show the age of the commit),
+  `age-abbreviated' (to abbreviate the time unit to a character),
+  or a string (suitable for `format-time-string') to show the
+  actual date.  Option `magit-log-margin-show-committer-date'
+  controls which date is being displayed.
 WIDTH controls the width of the margin.  This exists for forward
   compatibility and currently the value should not be changed.
 AUTHOR controls whether the name of the author is also shown by
@@ -325,10 +327,11 @@ Type \\[magit-reset] to reset `HEAD' to the commit at point.
 ;;; Commands
 
 ;;;###autoload (autoload 'magit-show-refs "magit-refs" nil t)
-(define-transient-command magit-show-refs (&optional transient)
+(transient-define-prefix magit-show-refs (&optional transient)
   "List and compare references in a dedicated buffer."
   :man-page "git-branch"
-  :value 'magit-show-refs-arguments
+  :value (lambda ()
+           (magit-show-refs-arguments magit-prefix-use-buffer-arguments))
   ["Arguments"
    (magit-for-each-ref:--contains)
    ("=m" "Merged"               "--merged=" magit-transient-read-revision)
@@ -348,33 +351,33 @@ Type \\[magit-reset] to reset `HEAD' to the commit at point.
       (transient-setup 'magit-show-refs)
     (magit-refs-setup-buffer "HEAD" (magit-show-refs-arguments))))
 
-(defun magit-show-refs-arguments ()
+(defun magit-show-refs-arguments (&optional use-buffer-args)
+  (unless use-buffer-args
+    (setq use-buffer-args magit-direct-use-buffer-arguments))
   (let (args)
     (cond
-     ((eq current-transient-command 'magit-show-refs)
+     ((eq transient-current-command 'magit-show-refs)
       (setq args (transient-args 'magit-show-refs)))
-     ((eq major-mode 'magit-show-refs-mode)
+     ((eq major-mode 'magit-refs-mode)
       (setq args magit-buffer-arguments))
-     ((and (memq magit-prefix-use-buffer-arguments '(always selected))
+     ((and (memq use-buffer-args '(always selected))
            (when-let ((buffer (magit-get-mode-buffer
                                'magit-refs-mode nil
-                               (or (eq magit-prefix-use-buffer-arguments
-                                       'selected)
-                                   'all))))
+                               (eq use-buffer-args 'selected))))
              (setq args (buffer-local-value 'magit-buffer-arguments buffer))
              t)))
      (t
       (setq args (alist-get 'magit-show-refs transient-values))))
     args))
 
-(define-infix-argument magit-for-each-ref:--contains ()
+(transient-define-argument magit-for-each-ref:--contains ()
   :description "Contains"
   :class 'transient-option
   :key "-c"
   :argument "--contains="
   :reader 'magit-transient-read-revision)
 
-(define-infix-argument magit-for-each-ref:--sort ()
+(transient-define-argument magit-for-each-ref:--sort ()
   :description "Sort"
   :class 'transient-option
   :key "-s"

@@ -1,7 +1,7 @@
 ;;; cider-mode.el --- Minor mode for REPL interactions -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2013 Tim King, Phil Hagelberg, Bozhidar Batsov
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Phil Hagelberg <technomancy@gmail.com>
@@ -58,10 +58,10 @@ Info contains the connection type, project name and host:port endpoint."
          (when cider-mode-line-show-connection
            (format ":%s@%s:%s"
                    (or (cider--project-name nrepl-project-dir) "<no project>")
-                   (pcase (car nrepl-endpoint)
+                   (pcase (plist-get nrepl-endpoint :host)
                      ("localhost" "")
                      (x x))
-                   (cadr nrepl-endpoint)))))
+                   (plist-get nrepl-endpoint :port)))))
     "not connected"))
 
 ;;;###autoload
@@ -167,7 +167,7 @@ the related commands `cider-repl-clear-buffer' and
      (cider-nrepl-send-request
       `("op" "undef"
         "ns" ,(cider-current-ns)
-        "symbol" ,sym)
+        "sym" ,sym)
       (cider-interactive-eval-handler (current-buffer))))))
 
 ;;; cider-run
@@ -360,6 +360,8 @@ If invoked with a prefix ARG eval the expression after inserting it."
     ["Interrupt evaluation" cider-interrupt]
     "--"
     ["Insert last sexp in REPL" cider-insert-last-sexp-in-repl]
+    ["Insert last sexp in REPL and eval" (cider-insert-last-sexp-in-repl t)
+     :keys "\\[universal-argument] \\[cider-insert-last-sexp-in-repl]"]
     ["Insert top-level sexp in REPL" cider-insert-defun-in-repl]
     ["Insert region in REPL" cider-insert-region-in-repl]
     ["Insert ns form in REPL" cider-insert-ns-form-in-repl]

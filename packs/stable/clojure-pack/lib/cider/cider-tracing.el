@@ -1,6 +1,6 @@
 ;;; cider-tracing.el --- Executing tracing functionality -*- lexical-binding: t -*-
 
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Bozhidar Batsov <bozhidar@batsov.com>
 ;;         Artur Malabarba <bruce.connor.am@gmail.com>
@@ -32,11 +32,11 @@
 (require 'cider-connection) ; for `cider-map-repls'
 (require 'nrepl-dict)
 
-(defun cider-sync-request:toggle-trace-var (symbol)
-  "Toggle var tracing for SYMBOL."
+(defun cider-sync-request:toggle-trace-var (sym)
+  "Toggle var tracing for SYM."
   (thread-first `("op" "toggle-trace-var"
                   "ns" ,(cider-current-ns)
-                  "sym" ,symbol)
+                  "sym" ,sym)
     (cider-nrepl-send-sync-request)))
 
 (defun cider--toggle-trace-var (sym)

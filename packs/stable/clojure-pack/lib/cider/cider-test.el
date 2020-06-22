@@ -1,6 +1,6 @@
 ;;; cider-test.el --- Test result viewer -*- lexical-binding: t -*-
 
-;; Copyright © 2014-2019 Jeff Valk, Bozhidar Batsov and CIDER contributors
+;; Copyright © 2014-2020 Jeff Valk, Bozhidar Batsov and CIDER contributors
 
 ;; Author: Jeff Valk <jv@jeffvalk.com>
 
@@ -412,7 +412,7 @@ With the actual value, the outermost '(not ...)' s-expression is removed."
         (cider-propertize-region (cider-intern-keys (cdr test))
           (let ((beg (point))
                 (type-face (cider-test-type-simple-face type))
-                (bg `(:background ,cider-test-items-background-color)))
+                (bg `(:background ,cider-test-items-background-color :extend t)))
             (cider-insert (capitalize type) type-face nil " in ")
             (cider-insert var 'font-lock-function-name-face t)
             (when context  (cider-insert context 'font-lock-doc-face t))

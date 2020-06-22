@@ -1,7 +1,7 @@
 ;;; nrepl-client.el --- Client for Clojure nREPL -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2013 Tim King, Phil Hagelberg, Bozhidar Batsov
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Phil Hagelberg <technomancy@gmail.com>
@@ -203,14 +203,14 @@ PARAMS and DUP-OK are as in `nrepl-make-buffer-name'."
 (defun nrepl-server-buffer-name (params)
   "Return the name of the server buffer.
 PARAMS is as in `nrepl-make-buffer-name'."
-  (nrepl--make-hidden-name
-   (nrepl-make-buffer-name nrepl-server-buffer-name-template params)))
+  (nrepl-make-buffer-name (nrepl--make-hidden-name nrepl-server-buffer-name-template)
+                          params))
 
 (defun nrepl-tunnel-buffer-name (params)
   "Return the name of the tunnel buffer.
 PARAMS is as in `nrepl-make-buffer-name'."
-  (nrepl--make-hidden-name
-   (nrepl-make-buffer-name nrepl-tunnel-buffer-name-template params)))
+  (nrepl-make-buffer-name (nrepl--make-hidden-name nrepl-tunnel-buffer-name-template)
+                          params))
 
 (defun nrepl-messages-buffer-name (params)
   "Return the name for the message buffer given connection PARAMS."

@@ -8,10 +8,6 @@ Generally, it's not a bad idea to configure Emacs to spit the backtrace on error
 (instead of just logging the error in the `+*Messages*+` buffer). You can toggle
 this behavior by using kbd:[M-x] `toggle-debug-on-error`.
 
-Another good idea is to check the exchange of requests and responses between
-CIDER and the nREPL server. You can find them in the `+*nrepl-messages*+` buffer,
-provided you've enabled nREPL message logging.
-
 == Debugging CIDER commands
 
 Emacs features a super powerful built-in
@@ -24,11 +20,11 @@ TIP: Here's a https://www.youtube.com/watch?v=odkYXXYOxpo[great crash
 To debug some command you need to do the following:
 
 * Figure out the name of the command you want to debug (e.g. by using kbd:[C-h k]
-to see which command is associated with some keybinding)
+to see which command is associated with some keybinding).
 * Find the source of the command (e.g. by using kbd:[M-x] `find-function`
-kbd:[RET] `function-name`)
+kbd:[RET] `function-name`).
 * Press kbd:[C-u C-M-x] while in the body of the function
-* Run the command again
+* Run the command again.
 
 At this point you'll be dropped in the debugger and you can step forward until
 you find the problem.
@@ -45,6 +41,47 @@ it is pretty simple:
 
 TIP: If you intend to share the profiling results with someone it's a good idea to
 save the report buffer to a file with kbd:[C-x C-w].
+
+== Debugging the communication with nREPL
+
+From time to time it might be a good idea to inspect the messages exchanged
+between CIDER and nREPL. CIDER has a simple message log that looks like this:
+
+  (-->
+    id         "16"
+    op         "eval"
+    session    "eb3ef563-86ec-4d9e-9fa8-a56ce0e0f0b0"
+    time-stamp "2020-03-15 16:01:42.963936000"
+    code       "(in-ns 'nrepl.completion)"
+  )
+  (<--
+    id         "16"
+    session    "eb3ef563-86ec-4d9e-9fa8-a56ce0e0f0b0"
+    time-stamp "2020-03-15 16:01:43.027347000"
+    ns         "nrepl.completion"
+    value      "#namespace[nrepl.completion]"
+  )
+  (<--
+    id         "16"
+    session    "eb3ef563-86ec-4d9e-9fa8-a56ce0e0f0b0"
+    time-stamp "2020-03-15 16:01:43.195358000"
+    status     ("done")
+  )
+
+That's CIDER's way of representing the request (marked with `-->`) and response maps (marked with `<--`).
+
+nREPL message logging is not enabled by default. Set `nrepl-log-messages` to `t`
+to activate it. Alternatively you can use kbd:[M-x]
+`nrepl-toggle-message-logging` to enable/disable logging temporary within your
+current Emacs session. Note that enabling message logging can impact
+performance.
+
+You can find the message log in the `+*nrepl-messages repl-info*+` buffer,
+provided you've enabled nREPL message logging. There's going to be one buffer
+per each active REPL.
+
+TIP: You can jump quickly to the relevant messages buffer by pressing
+kbd:[C-c M-s m].
 
 == Commonly encountered problems (and how to solve them)
 
@@ -82,6 +119,32 @@ This will cause CIDER to print extensive information to the REPL buffer when you
 try to debug an expression (e.g., with kbd:[C-u C-M-x]). https://github.com/clojure-emacs/cider-nrepl/issues/new[File an issue]
 and copy this information.
 
+=== The REPL blows up when some function returns an URL
+
+Most likely you've encountered some issue with the `content-type` middleware. Generally, that's
+easy to confirm by inspecting the stracktrace:
+
+[source,clojure]
+----
+user> (java.net.URI. "mailto:foo@bar.com")
+#object[java.net.URI 0x36966ca2 "mailto:foo@bar.com"]ERROR: Unhandled REPL handler exception processing message {:op slurp, :url mailto:foo@bar.com, :session 69c4d8e1-7bb4-45ad-8075-d21995fd50ab, :id 1579}
+java.net.UnknownServiceException: protocol doesn't support input
+	at java.base/java.net.URLConnection.getInputStream(URLConnection.java:840)
+	at cider.nrepl.middleware.slurp$slurp_url_to_content_PLUS_body.invokeStatic(slurp.clj:100)
+	at cider.nrepl.middleware.slurp$slurp_url_to_content_PLUS_body.invoke(slurp.clj:82)
+	at cider.nrepl.middleware.slurp$handle_slurp.invokeStatic(slurp.clj:117)
+	at cider.nrepl.middleware.slurp$handle_slurp.invoke(slurp.clj:109)
+----
+
+You can disable the middleware like this:
+
+[source,lisp]
+----
+(setq cider-repl-use-content-types t)
+----
+
+It's disabled by default starting with CIDER 0.25.
+
 === Debugging freezes & lock-ups
 
 Sometimes a CIDER command might hang for a while (e.g. due to a bug or a
@@ -112,7 +175,7 @@ users can add this to their `profiles.clj` to force the proper dependency:
 The procedure is pretty similar for Boot.
 
 IMPORTANT: Make sure you add the newer nREPL dependency to the `:dependencies` key instead
-of `:plugins` (where `cider-nrepl` Lein plugin resides). That's a pretty common
+of `:plugins` (where the `cider-nrepl` Lein plugin resides). That's a pretty common
 mistake.
 
 Generally you're advised to use the newest nREPL with CIDER, as bugs get fixed
@@ -198,3 +261,10 @@ snapshots or most recent stable releases)
 ----
 (setq cljr-inject-dependencies-at-jack-in nil)
 ----
+
+=== Off-by-one column numbers
+
+Emacs and Clojure differ in their indexing of column numbers -- Emacs starts
+counting from 0 while Clojure starts from 1. Accordingly, the `cider-nrepl`
+middleware uses 1-based indexing and all conversions to 0-based indexing should
+be handled client-side. See https://github.com/clojure-emacs/cider/issues/2852.

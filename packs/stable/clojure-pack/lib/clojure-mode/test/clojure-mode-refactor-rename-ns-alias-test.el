@@ -43,6 +43,23 @@
      (+ (foo/a 1) (b 2))"
 
     (clojure--rename-ns-alias-internal "lib" "foo"))
+  (when-refactoring-it "should handle multiple aliases with common prefixes"
+
+    "(ns foo
+  (:require [clojure.string :as string]
+            [clojure.spec.alpha :as s]
+            [clojure.java.shell :as shell]))
+
+(s/def ::abc string/blank?)
+"
+    "(ns foo
+  (:require [clojure.string :as string]
+            [clojure.spec.alpha :as spec]
+            [clojure.java.shell :as shell]))
+
+(spec/def ::abc string/blank?)
+"
+    (clojure--rename-ns-alias-internal "s" "spec"))
 
   (when-refactoring-it "should handle ns declarations with missing as"
     "(ns cljr.core
@@ -95,8 +112,34 @@
      ;; TODO refactor using new-lib/foo
      (+ (new-lib/a 1) (b 2))"
 
-    (clojure--rename-ns-alias-internal "lib" "new-lib")))
+    (clojure--rename-ns-alias-internal "lib" "new-lib"))
 
-  (provide 'clojure-mode-refactor-rename-ns-alias-test)
+  (when-refactoring-it "should escape regex characters"
+    "(ns test.ns
+  (:require [my.math.subtraction :as math.-]
+            [my.math.multiplication :as math.*]))
+
+(math.*/operator 1 (math.-/subtract 2 3))"
+    "(ns test.ns
+  (:require [my.math.subtraction :as math.-]
+            [my.math.multiplication :as m*]))
+
+(m*/operator 1 (math.-/subtract 2 3))"
+    (clojure--rename-ns-alias-internal "math.*" "m*"))
+
+  (it "should offer completions"
+    (expect
+     (clojure-collect-ns-aliases
+      "(ns test.ns
+  (:require [my.math.subtraction :as math.-]
+            [my.math.multiplication :as math.*]
+            [clojure.spec.alpha :as s]
+            ;; [clojure.spec.alpha2 :as s2]
+            [symbols :as abc123.-$#.%*+!@]))
+
+(math.*/operator 1 (math.-/subtract 2 3))")
+     :to-equal '("abc123.-$#.%*+!@" "s" "math.*" "math.-"))))
+
+(provide 'clojure-mode-refactor-rename-ns-alias-test)
 
 ;;; clojure-mode-refactor-rename-ns-alias-test.el ends here

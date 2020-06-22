@@ -1,6 +1,6 @@
 ;;; cider-tests.el
 
-;; Copyright © 2012-2019 Tim King, Bozhidar Batsov
+;; Copyright © 2012-2020 Tim King, Bozhidar Batsov
 
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Bozhidar Batsov <bozhidar@batsov.com>
@@ -79,7 +79,7 @@
       (expect (cider-project-type) :to-equal 'lein)))
 
   (describe "when there are multiple possible project types"
-    (before-all
+    (before-each
       (spy-on 'cider--identify-buildtools-present
               :and-return-value '(build-tool1 build-tool2))
       ;; user choice build-tool2
@@ -321,6 +321,24 @@
      "[oops]"
      (expect (cider--shadow-get-builds)
              :to-have-same-items-as '(browser-repl node-repl)))))
+
+(describe "cider-shadow-cljs-init-form"
+  (it "watches and selects user-defined builds"
+    (spy-on 'completing-read :and-return-value ":client-build")
+    (expect (cider-shadow-cljs-init-form)
+            :to-equal
+            "(do (require '[shadow.cljs.devtools.api :as shadow]) (shadow/watch :client-build) (shadow/nrepl-select :client-build))"))
+  (describe "starts the built-in build profiles correctly"
+    (it "starts a node-repl"
+      (spy-on 'completing-read :and-return-value ":node-repl")
+      (expect (cider-shadow-cljs-init-form)
+              :to-equal
+              "(do (require '[shadow.cljs.devtools.api :as shadow]) (shadow/node-repl))"))
+    (it "starts a browser-repl"
+      (spy-on 'completing-read :and-return-value ":browser-repl")
+      (expect (cider-shadow-cljs-init-form)
+              :to-equal
+              "(do (require '[shadow.cljs.devtools.api :as shadow]) (shadow/browser-repl))"))))
 
 (provide 'cider-tests)
 

@@ -1,7 +1,7 @@
 ;;; cider-eval.el --- Interactive evaluation (compilation) functionality -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2013 Tim King, Phil Hagelberg, Bozhidar Batsov
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Phil Hagelberg <technomancy@gmail.com>
@@ -100,6 +100,13 @@ ns forms manually themselves."
   :type 'boolean
   :group 'cider
   :package-version '(cider . "0.15.0"))
+
+(defcustom cider-auto-inspect-after-eval t
+  "Controls whether to auto-update the inspector buffer after eval.
+Only applies when the *cider-inspect* buffer is currently visible."
+  :type 'boolean
+  :group 'cider
+  :package-version '(cider . "0.25.0"))
 
 (defcustom cider-save-file-on-load 'prompt
   "Controls whether to prompt to save the file when loading a buffer.
@@ -302,8 +309,48 @@ It delegates the actual error content to the eval or op handler."
       (cider-default-err-op-handler)
     (cider-default-err-eval-handler)))
 
+;; The format of the error messages emitted by Clojure's compiler changed in
+;; Clojure 1.10.  That's why we're trying to match error messages to both the
+;; old and the new format, by utilizing a combination of two different regular
+;; expressions.
+(defconst cider-clojure-1.10-error `(sequence
+                                     "Syntax error "
+                                     (minimal-match (zero-or-more anything))
+                                     "compiling "
+                                     (minimal-match (zero-or-more anything))
+                                     "at ("
+                                     (group-n 2 (minimal-match (zero-or-more anything)))
+                                     ":"
+                                     (group-n 3 (one-or-more digit))
+                                     (optional ":" (group-n 4 (one-or-more digit)))
+                                     ")."))
+
+(defconst cider-clojure-1.9-error `(sequence
+                                    (zero-or-more anything)
+                                    ", compiling:("
+                                    (group-n 2 (minimal-match (zero-or-more anything)))
+                                    ":"
+                                    (group-n 3 (one-or-more digit))
+                                    (optional ":" (group-n 4 (one-or-more digit)))
+                                    ")"))
+
+(defconst cider-clojure-warning `(sequence
+                                  (minimal-match (zero-or-more anything))
+                                  (group-n 1 "warning")
+                                  ", "
+                                  (group-n 2 (minimal-match (zero-or-more anything)))
+                                  ":"
+                                  (group-n 3 (one-or-more digit))
+                                  (optional ":" (group-n 4 (one-or-more digit)))
+                                  " - "))
+
+(defconst cider-clojure-compilation-regexp (rx bol (or (eval cider-clojure-1.9-error)
+                                                       (eval cider-clojure-warning)
+                                                       (eval cider-clojure-1.10-error))))
+
+
 (defvar cider-compilation-regexp
-  '("\\(?:.*\\(warning, \\)\\|.*?\\(, compiling\\):(\\)\\(.*?\\):\\([[:digit:]]+\\)\\(?::\\([[:digit:]]+\\)\\)?\\(\\(?: - \\(.*\\)\\)\\|)\\)" 3 4 5 (1))
+  (list cider-clojure-compilation-regexp  2 3 4 '(1))
   "Specifications for matching errors and warnings in Clojure stacktraces.
 See `compilation-error-regexp-alist' for help on their format.")
 
@@ -331,7 +378,7 @@ See `compilation-error-regexp-alist' for help on their format.")
        (when line (string-to-number (match-string-no-properties line message)))
        (when col
          (let ((val (match-string-no-properties col message)))
-           (when val (string-to-number val))))
+           (when (and val (not (string-blank-p val))) (string-to-number val))))
        (aref [cider-warning-highlight-face
               cider-warning-highlight-face
               cider-error-highlight-face]
@@ -469,7 +516,10 @@ REPL buffer.  This is controlled via
   "Make an interactive eval handler for BUFFER.
 PLACE is used to display the evaluation result.
 If non-nil, it can be the position where the evaluated sexp ends,
-or it can be a list with (START END) of the evaluated region."
+or it can be a list with (START END) of the evaluated region.
+Update the cider-inspector buffer with the evaluation result
+when `cider-auto-inspect-after-eval' is non-nil."
+
   (let* ((eval-buffer (current-buffer))
          (beg (car-safe place))
          (end (or (car-safe (cdr-safe place)) place))
@@ -489,7 +539,12 @@ or it can be a list with (START END) of the evaluated region."
                                  (lambda (_buffer err)
                                    (cider-emit-interactive-eval-err-output err)
                                    (cider-handle-compilation-errors err eval-buffer))
-                                 '())))
+                                 (when (and cider-auto-inspect-after-eval
+                                            (boundp 'cider-inspector-buffer)
+                                            (windowp (get-buffer-window cider-inspector-buffer 'visible)))
+                                   (lambda (buffer)
+                                     (cider-inspect-last-result)
+                                     (select-window (get-buffer-window buffer)))))))
 
 (defun cider-load-file-handler (&optional buffer done-handler)
   "Make a load file handler for BUFFER.

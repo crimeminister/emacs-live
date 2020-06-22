@@ -1,7 +1,7 @@
 ;;; clojure-mode-font-lock-test.el --- Clojure Mode: Font lock test suite
 ;; -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2014-2019 Bozhidar Batsov <bozhidar@batsov.com>
+;; Copyright (C) 2014-2020 Bozhidar Batsov <bozhidar@batsov.com>
 
 ;; This file is not part of GNU Emacs.
 
@@ -77,6 +77,7 @@ TESTS are lists of the form (content (start end expected-face)*).  For each test
 check that each `expected-face` is found in `content` between `start` and `end`.
 
 DESCRIPTION is the description of the spec."
+  (declare (indent 1))
   `(it ,description
      (dolist (test (quote ,tests))
        (apply #'expect-faces-at test))))
@@ -133,11 +134,35 @@ DESCRIPTION is the description of the spec."
     ("#_"
      (1 2 nil))
 
+    ("#_#_"
+     (1 2 nil))
+
+    ("#_#_"
+     (3 2 font-lock-comment-face))
+
+    ("#_ #_"
+     (1 3 nil))
+
+    ("#_ #_"
+     (4 2 font-lock-comment-face))
+
     ("#_ \n;; some crap\n (lala 0101\n lao\n\n 0 0i)"
      (1 2 nil))
 
     ("#_ \n;; some crap\n (lala 0101\n lao\n\n 0 0i)"
-     (5 41 font-lock-comment-face)))
+     (5 41 font-lock-comment-face))
+
+    ("#_#_ \n;; some crap\n (lala 0101\n lao\n\n 0 0i)\n;; more crap\n (foobar tnseriao)"
+     (1 4 nil))
+
+    ("#_ #_ \n;; some crap\n (lala 0101\n lao\n\n 0 0i)\n;; more crap\n (foobar tnseriao)"
+     (1 5 nil))
+
+    ("#_#_ \n;; some crap\n (lala 0101\n lao\n\n 0 0i)\n;; more crap\n (foobar tnseriao)"
+     (7 75 font-lock-comment-face))
+
+    ("#_ #_ \n;; some crap\n (lala 0101\n lao\n\n 0 0i)\n;; more crap\n (foobar tnseriao)"
+     (8 75 font-lock-comment-face)))
 
   (when-fontifying-it "should handle namespace declarations"
     ("(ns .validns)"
@@ -392,6 +417,16 @@ DESCRIPTION is the description of the spec."
      (2 8 font-lock-type-face)
      (9 10 nil)
      (12 29 nil)))
+
+  (when-fontifying-it "should handle quotes in tail of symbols and keywords"
+    ("'quot'ed'/sy'm'bol''"
+     (2 9 font-lock-type-face)
+     (10 20 nil))
+
+    (":qu'ote'd''/key'word'"
+     (2 11 font-lock-type-face)
+     (12 12 default)
+     (13 21 clojure-keyword-face)))
 
   (when-fontifying-it "should handle very complex stuff"
     ("  ve/yCom|pLex.stu-ff"
@@ -763,15 +798,20 @@ DESCRIPTION is the description of the spec."
     ("(def foo \"usage\" \"hello\"   )"
      (18 24 font-lock-string-face))
 
-     ("(def foo \"usage\" \n  \"hello\")"
-      (21 27 font-lock-string-face))
+    ("(def foo \"usage\" \n  \"hello\")"
+     (21 27 font-lock-string-face))
 
     ("(def foo \n  \"usage\" \"hello\")"
      (13 19 font-lock-doc-face))
 
     ("(def foo \n  \"usage\" \n  \"hello\")"
      (13 19 font-lock-doc-face)
-     (24 30 font-lock-string-face)))
+     (24 30 font-lock-string-face))
+
+    ("(def test-string\n  \"this\\n\n  is\n  my\n  string\")"
+     (20 24 font-lock-string-face)
+     (25 26 (bold font-lock-string-face))
+     (27 46 font-lock-string-face)))
 
   (when-fontifying-it "should handle deftype"
     ("(deftype Foo)"
@@ -830,8 +870,8 @@ DESCRIPTION is the description of the spec."
 
   (when-fontifying-it "should handle keyword-meta"
     ("^:meta-data"
-      (1 1 nil)
-      (2 11 clojure-keyword-face)))
+     (1 1 nil)
+     (2 11 clojure-keyword-face)))
 
   (when-fontifying-it "should handle a keyword with allowed characters"
     (":aaa#bbb"
@@ -860,14 +900,29 @@ DESCRIPTION is the description of the spec."
     ("\\a"
      (1 2 clojure-character-face))
 
+    ("\\A"
+     (1 2 clojure-character-face))
+
     ("\\newline"
      (1 8 clojure-character-face))
+
+    ("\\abc"
+     (1 4 nil))
+
+    ("\\newlin"
+     (1 7 nil))
+
+    ("\\newlinex"
+     (1 9 nil))
 
     ("\\1"
      (1 2 clojure-character-face))
 
     ("\\u0032"
      (1 6 clojure-character-face))
+
+    ("\\o127"
+     (1 4 clojure-character-face))
 
     ("\\+"
      (1 2 clojure-character-face))
@@ -879,6 +934,12 @@ DESCRIPTION is the description of the spec."
      (1 2 clojure-character-face))
 
     ("\\;"
+     (1 2 clojure-character-face))
+
+    ("\\Ω"
+     (1 2 clojure-character-face))
+
+    ("\\ク"
      (1 2 clojure-character-face)))
 
   (when-fontifying-it "should handle referred vars"

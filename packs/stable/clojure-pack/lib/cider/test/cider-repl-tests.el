@@ -1,6 +1,6 @@
 ;;; cider-repl-tests.el
 
-;; Copyright © 2012-2019 Tim King, Bozhidar Batsov
+;; Copyright © 2012-2020 Tim King, Bozhidar Batsov
 
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Bozhidar Batsov <bozhidar@batsov.com>
@@ -30,9 +30,41 @@
 (require 'buttercup)
 (require 'cider-repl)
 
+(describe "cider-repl--insert-param-values"
+  (it "doesn't output anything when the params aren't present"
+    (let ((output "")
+          (cider-launch-params '()))
+      (spy-on 'insert-before-markers
+              :and-call-fake (lambda (arg)
+                               (setq output (format "%s%s" output (substring-no-properties arg)))))
+      (cider-repl--insert-startup-commands)
+      (expect output :to-be "")))
+  (it "puts jack-in-command in same style as banner"
+    (let ((output "")
+          (cider-launch-params '(:jack-in-cmd "lein command")))
+      (spy-on 'insert-before-markers
+              :and-call-fake (lambda (arg)
+                               (setq output (format "%s%s" output (substring-no-properties arg)))))
+      (cider-repl--insert-startup-commands)
+      (expect output :to-equal
+              ";;  Startup: lein command\n")))
+  (it "formats output if present"
+    (let ((output "")
+          (cider-launch-params '(:cljs-repl-type shadow :repl-init-form "(do)")))
+      (spy-on 'insert-before-markers
+              :and-call-fake (lambda (arg)
+                               (setq output (format "%s%s" output (substring-no-properties arg)))))
+      (cider-repl--insert-startup-commands)
+      (expect output :to-equal
+              ";;
+;; ClojureScript REPL type: shadow
+;; ClojureScript REPL init form: (do)
+;;
+"))))
+
 (describe "cider-repl--banner"
   :var (cider-version cider-codename)
-  (before-all
+  (before-each
     (spy-on 'cider--java-version :and-return-value "1.8.0_31")
     (spy-on 'cider--clojure-version :and-return-value "1.8.0")
     (spy-on 'cider--nrepl-version :and-return-value "0.5.3")
@@ -211,8 +243,10 @@ PROPERTY should be a symbol of either 'text, 'ansi-context or
   (it "requires clj utils in a clj buffer"
     (spy-on 'cider-repl-type :and-return-value 'clj)
     (cider-repl-require-repl-utils)
-    (expect 'nrepl--eval-request :to-have-been-called-with (cdr (assoc 'clj cider-repl-require-repl-utils-code))))
+    (expect 'nrepl--eval-request :to-have-been-called-with
+            (cdr (assoc 'clj cider-repl-require-repl-utils-code)) "user"))
   (it "requires cljs utils in a cljs buffer"
     (spy-on 'cider-repl-type :and-return-value 'cljs)
     (cider-repl-require-repl-utils)
-    (expect 'nrepl--eval-request :to-have-been-called-with (cdr (assoc 'cljs cider-repl-require-repl-utils-code)))))
+    (expect 'nrepl--eval-request :to-have-been-called-with
+            (cdr (assoc 'cljs cider-repl-require-repl-utils-code)) "user")))

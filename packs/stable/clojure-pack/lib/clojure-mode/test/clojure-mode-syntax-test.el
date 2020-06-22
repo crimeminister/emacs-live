@@ -1,6 +1,6 @@
 ;;; clojure-mode-syntax-test.el --- Clojure Mode: syntax related tests  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2015-2019 Bozhidar Batsov <bozhidar@batsov.com>
+;; Copyright (C) 2015-2020 Bozhidar Batsov <bozhidar@batsov.com>
 
 ;; This file is not part of GNU Emacs.
 
@@ -74,15 +74,6 @@
         (backward-word)
         (backward-prefix-chars)
         (expect (bobp))))))
-
-(describe "clojure-no-space-after-tag"
-  (it "should allow allow collection tags"
-    (dolist (tag '("#::ns" "#:ns" "#ns" "#:f.q/ns" "#f.q/ns" "#::"))
-      (with-clojure-buffer tag
-        (expect (clojure-no-space-after-tag nil ?{) :to-be nil)))
-    (dolist (tag '("#$:" "#/f" "#:/f" "#::f.q/ns" "::ns" "::" "#f:ns"))
-      (with-clojure-buffer tag
-        (expect (clojure-no-space-after-tag nil ?{))))))
 
 (describe "fill-paragraph"
 

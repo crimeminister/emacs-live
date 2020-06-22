@@ -215,6 +215,19 @@ For instructions on how to write these specifications, see
 [this document](https://docs.cider.mx/cider/indent_spec.html).
 The only difference is that you're allowed to use lists instead of vectors.
 
+### Indentation of Comments
+
+`clojure-mode` differentiates between comments like `;`, `;;`, etc.
+By default `clojure-mode` treats `;` as inline comments and *always* indents those.
+You can change this behaviour like this:
+
+```emacs-lisp
+(add-hook 'clojure-mode-hook (lambda () (setq-local comment-column 0)))
+```
+
+You might also want to change `comment-add` to 0 in that way, so that Emacs comment
+functions (e.g. `comment-region`) would use `;` by default instead of `;;`.
+
 ### Vertical alignment
 
 You can vertically align sexps with `C-c SPC`. For instance, typing
@@ -444,7 +457,7 @@ An extensive changelog is available [here](CHANGELOG.md).
 
 ## License
 
-Copyright © 2007-2019 Jeffrey Chu, Lennart Staflin, Phil Hagelberg, Bozhidar
+Copyright © 2007-2020 Jeffrey Chu, Lennart Staflin, Phil Hagelberg, Bozhidar
 Batsov, Artur Malabarba and [contributors][].
 
 Distributed under the GNU General Public License; type <kbd>C-h C-c</kbd> to view it.

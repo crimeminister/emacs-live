@@ -1,7 +1,7 @@
 ;;; cider-eldoc.el --- eldoc support for Clojure -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2013 Tim King, Phil Hagelberg, Bozhidar Batsov
-;; Copyright © 2013-2019 Bozhidar Batsov, Artur Malabarba and CIDER contributors
+;; Copyright © 2013-2020 Bozhidar Batsov, Artur Malabarba and CIDER contributors
 ;;
 ;; Author: Tim King <kingtim@gmail.com>
 ;;         Phil Hagelberg <technomancy@gmail.com>
@@ -473,7 +473,11 @@ Only useful for interop forms.  Clojure forms would be returned unchanged."
 (defun cider-eldoc-setup ()
   "Setup eldoc in the current buffer.
 eldoc mode has to be enabled for this to have any effect."
-  (setq-local eldoc-documentation-function #'cider-eldoc)
+  ;; Emacs 28.1 changes the way eldoc is setup.
+  ;; There you can have multiple eldoc functions.
+  (if (boundp 'eldoc-documentation-functions)
+      (add-hook 'eldoc-documentation-functions #'cider-eldoc nil t)
+    (setq-local eldoc-documentation-function #'cider-eldoc))
   (apply #'eldoc-add-command cider-extra-eldoc-commands))
 
 (provide 'cider-eldoc)

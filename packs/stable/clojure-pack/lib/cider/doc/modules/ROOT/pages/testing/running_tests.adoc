@@ -30,7 +30,7 @@ you're expecting.
 You can run all _loaded_ tests with kbd:[C-c C-t l] or
 kbd:[C-c C-t C-l].
 
-If you invoke either of these commands with a prefix CIDER, will
+If you invoke either of these commands with a prefix, CIDER will
 prompt for test selector filters and only run those tests that match
 the selector inclusions/exclusions.
 
@@ -54,17 +54,21 @@ by a source file or by the REPL, using kbd:[C-c C-t n] or
 kbd:[C-c C-t C-n]. Note that it's idiomatic for Clojure projects
 to locate tests in a separate namespace than the code that is being
 tested. CIDER uses a simple algorithm to figure out where the tests
-are located. The algorithm works as follows.  If you're in an
-implementation namespace (e.g. `some.ns`), CIDER will try to find a
+are located. The algorithm works as follows:
+
+* If you're in an implementation namespace (e.g. `some.ns`), CIDER will try to find a
 matching test namespace (by default `some.ns-test`) and run the tests
-there. But if you're in something that already looks like a test
+there.
+* If you're in something that already looks like a test
 namespace (e.g. `some.ns-test`), CIDER will simply run the tests in
-that namespace. If you have put some of your tests into your
-implementation namespace, using `clojure.test/with-test`, for
-instance, you might want to suppress the namespace inference logic and
-force CIDER to run tests in the current namespace unconditionally.
-You can do this by adding a prefix to the namespace commands: kbd:[C-u C-c C-t C-n]. This will simply run whatever tests are present in
-the currently visited or active namespace.
+that namespace.
+
+TIP: If you have put some of your tests into your implementation namespace, using
+`clojure.test/with-test`, for instance, you might want to suppress the namespace
+inference logic and force CIDER to run tests in the current namespace
+unconditionally.  You can do this by adding a prefix to the namespace commands:
+kbd:[C-u C-c C-t C-n]. This will simply run whatever tests are present in the
+currently visited or active namespace.
 
 You can also run a subset of the tests defined in the namespace,
 filtered by test selectors, using kbd:[C-c C-t C-s]. CIDER will
@@ -79,19 +83,41 @@ kbd:[C-c C-t t] or kbd:[C-c C-t C-t].
 
 You can configure CIDER's test execution behavior in multiple ways.
 
+=== Test Namespace Naming Convention
+
 If your tests are not following the `some.ns-test` naming convention
 you can set the variable `cider-test-infer-test-ns` to a function that
 takes the current namespace and returns the matching test namespace
 (which may be the same as the current namespace). This provides
 complete flexibility to structure your test suite using whatever
-conventions you might want.
+conventions you might want. Here's how you can configure the test running
+to look for `some.test-ns` instead of `some.ns-test`:
+
+[source,lisp]
+----
+(defun cider-custom-test-ns-fn (ns)
+  "For a NS, return the test namespace, which may be the argument itself.
+This uses the convention of prepending 'test-' to the namespace name."
+  (when ns
+    (let ((prefix "test-"))
+      (if (string-prefix-p prefix ns)
+          ns
+        (concat prefix ns)))))
+
+(setq cider-test-infer-test-ns #'cider-custom-test-ns-fn)
+----
+
+=== Macros Used to Define Tests
 
 If your individual tests are not defined by `deftest` or `defspec`, CIDER will
 not recognize them when searching for a test at point in `cider-test-run-test`.
 You can customize the variable `cider-test-defining-forms` to add additional
 forms for CIDER to recognize as individual test definitions.
 
-If you want to view the test report regardless of whether the tests have
+=== Display Test Report on Success
+
+By default the test report is displayed only when there are test failures or
+errors. If you want to view the test report regardless of whether the tests have
 passed or failed:
 
 [source,lisp]

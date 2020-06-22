@@ -1,6 +1,6 @@
 ;;; magit-margin.el --- margins in Magit buffers  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -62,7 +62,7 @@ does not carry to other options."
 
 ;;; Commands
 
-(define-transient-command magit-margin-settings ()
+(transient-define-prefix magit-margin-settings ()
   "Change what information is displayed in the margin."
   :info-manual "(magit) Log Margin"
   ["Margin"

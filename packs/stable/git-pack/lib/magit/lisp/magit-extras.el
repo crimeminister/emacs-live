@@ -1,6 +1,6 @@
 ;;; magit-extras.el --- additional functionality for Magit  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2019  The Magit Project Contributors
+;; Copyright (C) 2008-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -260,7 +260,11 @@ a position in a file-visiting buffer."
                      (prompt-for-change-log-name)))
   (pcase-let ((`(,buf ,pos) (magit-diff-visit-file--noselect)))
     (magit--with-temp-position buf pos
-      (add-change-log-entry whoami file-name other-window))))
+      (let ((add-log-buffer-file-name-function
+             (lambda ()
+               (or magit-buffer-file-name
+                   (buffer-file-name)))))
+        (add-change-log-entry whoami file-name other-window)))))
 
 ;;;###autoload
 (defun magit-add-change-log-entry-other-window (&optional whoami file-name)
@@ -344,6 +348,13 @@ use `magit-rebase-edit-command' instead of this command."
 
 ;;; Reshelve
 
+(defcustom magit-reshelve-since-committer-only nil
+  "Whether `magit-reshelve-since' changes only the committer dates.
+Otherwise the author dates are also changed."
+  :package-version '(magit . "3.0.0")
+  :group 'magit-commands
+  :type 'boolean)
+
 ;;;###autoload
 (defun magit-reshelve-since (rev)
   "Change the author and committer dates of the commits since REV.
@@ -357,51 +368,57 @@ on.
 This command is only intended for interactive use and should only
 be used on highly rearranged and unpublished history."
   (interactive (list nil))
-  (cond
-   ((not rev)
-    (let ((backup (concat "refs/original/refs/heads/"
-                          (magit-get-current-branch))))
+  (let* ((current (or (magit-get-current-branch)
+                      (user-error "Refusing to reshelve detached head")))
+         (backup (concat "refs/original/refs/heads/" current)))
+    (cond
+     ((not rev)
       (when (and (magit-ref-p backup)
                  (not (magit-y-or-n-p
-                       "Backup ref %s already exists.  Override? " backup)))
-        (user-error "Abort")))
-    (magit-log-select 'magit-reshelve-since
-      "Type %p on a commit to reshelve it and the commits above it,"))
-   (t
-    (cl-flet ((adjust (time offset)
-                      (format-time-string
-                       "%F %T %z"
-                       (+ (floor time)
-                          (* offset 60)
-                          (- (car (decode-time time)))))))
-      (let* ((start (concat rev "^"))
-             (range (concat start ".." (magit-get-current-branch)))
-             (time-rev (adjust (float-time (string-to-number
-                                            (magit-rev-format "%at" start)))
-                               1))
-             (time-now (adjust (float-time)
-                               (- (string-to-number
-                                   (magit-git-string "rev-list" "--count"
-                                                     range))))))
-        (push time-rev magit--reshelve-history)
-        (let ((date (floor
-                     (float-time
-                      (date-to-time
-                       (read-string "Date for first commit: "
-                                    time-now 'magit--reshelve-history))))))
-          (magit-with-toplevel
-            (magit-run-git-async
-             "filter-branch" "--force" "--env-filter"
-             (format "case $GIT_COMMIT in %s\nesac"
-                     (mapconcat (lambda (rev)
-                                  (prog1 (format "%s) \
-export GIT_AUTHOR_DATE=\"%s\"; \
-export GIT_COMMITTER_DATE=\"%s\";;" rev date date)
-                                    (cl-incf date 60)))
-                                (magit-git-lines "rev-list" "--reverse"
-                                                 range)
-                                " "))
-             range "--")
+                       (format "Backup ref %s already exists.  Override? " backup))))
+        (user-error "Abort"))
+      (magit-log-select 'magit-reshelve-since
+        "Type %p on a commit to reshelve it and the commits above it,"))
+     (t
+      (cl-flet ((adjust (time offset)
+                        (format-time-string
+                         "%F %T %z"
+                         (+ (floor time)
+                            (* offset 60)
+                            (- (car (decode-time time)))))))
+        (let* ((start (concat rev "^"))
+               (range (concat start ".." current))
+               (time-rev (adjust (float-time (string-to-number
+                                              (magit-rev-format "%at" start)))
+                                 1))
+               (time-now (adjust (float-time)
+                                 (- (string-to-number
+                                     (magit-git-string "rev-list" "--count"
+                                                       range))))))
+          (push time-rev magit--reshelve-history)
+          (let ((date (floor
+                       (float-time
+                        (date-to-time
+                         (read-string "Date for first commit: "
+                                      time-now 'magit--reshelve-history)))))
+                (process-environment process-environment))
+            (push "FILTER_BRANCH_SQUELCH_WARNING=1" process-environment)
+            (magit-with-toplevel
+              (magit-run-git-async
+               "filter-branch" "--force" "--env-filter"
+               (format
+                "case $GIT_COMMIT in %s\nesac"
+                (mapconcat
+                 (lambda (rev)
+                   (prog1 (concat
+                           (format "%s) " rev)
+                           (and (not magit-reshelve-since-committer-only)
+                                (format "export GIT_AUTHOR_DATE=\"%s\"; " date))
+                           (format "export GIT_COMMITTER_DATE=\"%s\";;" date))
+                     (cl-incf date 60)))
+                 (magit-git-lines "rev-list" "--reverse" range)
+                        " "))
+               range "--"))
             (set-process-sentinel
              magit-this-process
              (lambda (process event)
@@ -410,9 +427,7 @@ export GIT_COMMITTER_DATE=\"%s\";;" rev date date)
                      (magit-process-sentinel process event)
                    (process-put process 'inhibit-refresh t)
                    (magit-process-sentinel process event)
-                   (magit-run-git "update-ref" "-d"
-                                  (concat "refs/original/refs/heads/"
-                                          (magit-get-current-branch))))))))))))))
+                   (magit-run-git "update-ref" "-d" backup))))))))))))
 
 ;;; Revision Stack
 
@@ -462,6 +477,12 @@ that)."
                        (const :tag "Don't insert at eob" nil))
                (choice (regexp :tag "Find index regexp")
                        (const :tag "Don't number entries" nil))))
+
+(defcustom magit-copy-revision-abbreviated nil
+  "Whether to save abbreviated revision to `kill-ring' and `magit-revision-stack'."
+  :package-version '(magit . "3.0.0")
+  :group 'magit-miscellaneous
+  :type 'boolean)
 
 ;;;###autoload
 (defun magit-pop-revision-stack (rev toplevel)
@@ -552,6 +573,10 @@ the current section is a commit, branch, or tag section, push
 the (referenced) revision to the `magit-revision-stack' for use
 with `magit-pop-revision-stack'.
 
+When `magit-copy-revision-abbreviated' is non-nil, save the
+abbreviated revision to the `kill-ring' and the
+`magit-revision-stack'.
+
 When the current section is a branch or a tag, and a prefix
 argument is used, then save the revision at its tip to the
 `kill-ring' instead of the reference name.
@@ -565,13 +590,13 @@ hunk, strip the outer diff marker column."
    ((and current-prefix-arg
          (magit-section-internal-region-p)
          (magit-section-match 'hunk))
-    (deactivate-mark)
     (kill-new (replace-regexp-in-string
                "^[ \\+\\-]" ""
                (buffer-substring-no-properties
-                (region-beginning) (region-end)))))
+                (region-beginning) (region-end))))
+    (deactivate-mark))
    ((use-region-p)
-    (copy-region-as-kill nil nil 'region))
+    (call-interactively #'copy-region-as-kill))
    (t
     (when-let ((section (magit-current-section))
                (value (oref section value)))
@@ -586,7 +611,9 @@ hunk, strip the outer diff marker column."
                     (file-name-as-directory
                      (expand-file-name (magit-section-parent-value section)
                                        (magit-toplevel))))))
-           (setq value (magit-rev-parse value))
+           (setq value (magit-rev-parse
+                        (and magit-copy-revision-abbreviated "--short")
+                        value))
            (push (list value default-directory) magit-revision-stack)
            (kill-new (message "%s" (or (and current-prefix-arg ref)
                                        value)))))
@@ -613,10 +640,14 @@ the current section instead, using `magit-copy-section-value'.
 
 When the region is active, then save that to the `kill-ring',
 like `kill-ring-save' would, instead of behaving as described
-above."
+above.
+
+When `magit-copy-revision-abbreviated' is non-nil, save the
+abbreviated revision to the `kill-ring' and the
+`magit-revision-stack'."
   (interactive)
   (if (use-region-p)
-      (copy-region-as-kill nil nil 'region)
+      (call-interactively #'copy-region-as-kill)
     (when-let ((rev (or magit-buffer-revision
                         (cl-case major-mode
                           (magit-diff-mode
@@ -626,7 +657,9 @@ above."
                              magit-buffer-range))
                           (magit-status-mode "HEAD")))))
       (when (magit-commit-p rev)
-        (setq rev (magit-rev-parse rev))
+        (setq rev (magit-rev-parse
+                   (and magit-copy-revision-abbreviated "--short")
+                   rev))
         (push (list rev default-directory) magit-revision-stack)
         (kill-new (message "%s" rev))))))
 

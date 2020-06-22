@@ -1,6 +1,6 @@
 ;;; magit-files.el --- finding files  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2019  The Magit Project Contributors
+;; Copyright (C) 2010-2020  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -290,7 +290,7 @@ directory, while reading the FILENAME."
   "Keymap for `magit-file-mode'.")
 
 ;;;###autoload (autoload 'magit-file-dispatch "magit" nil t)
-(define-transient-command magit-file-dispatch ()
+(transient-define-prefix magit-file-dispatch ()
   "Invoke a Magit command that acts on the visited file."
   :info-manual "(magit) Minor Mode for Buffers Visiting Files"
   ["Actions"
@@ -355,18 +355,11 @@ Currently this only adds the following key bindings.
 
 (defvar magit-blob-mode-map
   (let ((map (make-sparse-keymap)))
-    (cond ((featurep 'jkl)
-           (define-key map "i" 'magit-blob-previous)
-           (define-key map "k" 'magit-blob-next)
-           (define-key map "j" 'magit-blame-addition)
-           (define-key map "l" 'magit-blame-removal)
-           (define-key map "f" 'magit-blame-reverse))
-          (t
-           (define-key map "p" 'magit-blob-previous)
-           (define-key map "n" 'magit-blob-next)
-           (define-key map "b" 'magit-blame-addition)
-           (define-key map "r" 'magit-blame-removal)
-           (define-key map "f" 'magit-blame-reverse)))
+    (define-key map "p" 'magit-blob-previous)
+    (define-key map "n" 'magit-blob-next)
+    (define-key map "b" 'magit-blame-addition)
+    (define-key map "r" 'magit-blame-removal)
+    (define-key map "f" 'magit-blame-reverse)
     (define-key map "q" 'magit-kill-this-buffer)
     map)
   "Keymap for `magit-blob-mode'.")
