@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: ns-meta
+# key: nsm
+# --
+{:author "${1:name}" :email "${2:email}"}
