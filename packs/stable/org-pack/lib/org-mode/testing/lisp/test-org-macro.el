@@ -103,18 +103,7 @@
         "#+MACRO: macro expansion\n* COMMENT H1\n** H2\n<point>{{{macro}}}"
       (org-macro-initialize-templates)
       (org-macro-replace-all org-macro-templates)
-      (org-with-wide-buffer (buffer-string)))))
-  ;; User-defined macros take precedence over built-in macros.
-  (should
-   (equal
-    "foo"
-    (org-test-with-temp-text
-        "#+MACRO: title foo\n#+TITLE: bar\n<point>{{{title}}}"
-      (org-macro-initialize-templates)
-      (org-macro-replace-all org-macro-templates)
-      (goto-char (point-max))
-      (buffer-substring-no-properties (line-beginning-position)
-				      (line-end-position))))))
+      (org-with-wide-buffer (buffer-string))))))
 
 (ert-deftest test-org-macro/property ()
   "Test {{{property}}} macro."
@@ -313,17 +302,73 @@
       (org-macro-initialize-templates)
       (org-macro-replace-all org-macro-templates)
       (buffer-substring-no-properties
-       (line-beginning-position) (point-max)))))
-  ;; Replace macro with keyword's value.
-  (should
-   (equal
-    "value value2"
-    (org-test-with-temp-text
-	"#+keyword: value\n#+keyword: value2\n<point>{{{keyword(KEYWORD)}}}"
-      (org-macro-initialize-templates)
-      (org-macro-replace-all org-macro-templates)
-      (buffer-substring-no-properties
        (line-beginning-position) (point-max))))))
+
+(ert-deftest test-org-macro/author ()
+  "Test {{{author}}} macro."
+  ;; Return AUTHOR keyword value.
+  (should
+   (equal "me"
+	  (org-test-with-temp-text "#+author: me\n<point>{{{author}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max)))))
+  ;; When AUTHOR keyword is missing, return the empty string.
+  (should
+   (equal ""
+	  (org-test-with-temp-text "{{{author}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max))))))
+
+(ert-deftest test-org-macro/email ()
+  "Test {{{email}}} macro."
+  ;; Return EMAIL keyword value.
+  (should
+   (equal "me@home"
+	  (org-test-with-temp-text "#+email: me@home\n<point>{{{email}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max)))))
+  ;; When EMAIL keyword is missing, return the empty string.
+  (should
+   (equal ""
+	  (org-test-with-temp-text "{{{email}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max))))))
+
+(ert-deftest test-org-macro/title ()
+  "Test {{{title}}} macro."
+  ;; Return TITLE keyword value.
+  (should
+   (equal "Foo!"
+	  (org-test-with-temp-text "#+title: Foo!\n<point>{{{title}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max)))))
+  ;; When TITLE keyword is missing, return the empty string.
+  (should
+   (equal ""
+	  (org-test-with-temp-text "{{{title}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max)))))
+  ;; When multiple TITLE keywords are used, concatenate them.
+  (should
+   (equal "Foo Bar!"
+	  (org-test-with-temp-text
+	      "#+title: Foo\n#+title: Bar!\n<point>{{{title}}}"
+	    (org-macro-initialize-templates)
+	    (org-macro-replace-all org-macro-templates)
+	    (buffer-substring-no-properties
+	     (line-beginning-position) (point-max))))))
 
 (ert-deftest test-org-macro/escape-arguments ()
   "Test `org-macro-escape-arguments' specifications."

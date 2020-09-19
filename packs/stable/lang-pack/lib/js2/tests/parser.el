@@ -1,4 +1,4 @@
-;;; tests/parser.el --- Some tests for js2-mode.
+;;; tests/parser.el --- Some tests for js2-mode.  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2009, 2011-2017  Free Software Foundation, Inc.
 
@@ -16,6 +16,10 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; run tests with M-x ert-run-tests-interactively
 
 ;;; Code:
 
@@ -162,20 +166,17 @@ the test."
   "A.foo = 3;")
 
 (js2-deftest-parse parse-property-access-when-keyword
-  "A.in = 3;"
-  :bind ((js2-allow-keywords-as-property-names t)))
+  "A.in = 3;")
 
 (js2-deftest-parse parse-property-access-when-keyword-no-xml
   "A.in = 3;"
-  :bind ((js2-allow-keywords-as-property-names t)
-         (js2-compiler-xml-available nil)))
+  :bind ((js2-compiler-xml-available nil)))
 
 (js2-deftest-parse parse-object-literal-when-not-keyword
   "a = {b: 1};")
 
 (js2-deftest-parse parse-object-literal-when-keyword
-  "a = {in: 1};"
-  :bind ((js2-allow-keywords-as-property-names t)))
+  "a = {in: 1};")
 
 ;;; 'of' contextual keyword
 
@@ -586,7 +587,8 @@ the test."
 
 (js2-deftest-parse decimal-starting-with-zero "081;" :reference "81;")
 
-(js2-deftest-parse huge-hex "0x0123456789abcdefABCDEF;" :reference "-1;")
+(js2-deftest-parse huge-hex "0x0123456789abcdefABCDEF;"
+  :reference (if (> emacs-major-version 26) "1375488932539311409843695;" "-1;"))
 
 (js2-deftest-parse octal-without-o "071;" :reference "57;")
 
@@ -982,6 +984,9 @@ the test."
 (js2-deftest-parse parse-class-public-field-computed
   "class C {\n  [a + b] = c\n}")
 
+(js2-deftest-parse parse-class-static-fields-no-semi
+  "class C {\n  static a\n  static b = 42\n}")
+
 ;;; Operators
 
 (js2-deftest-parse exponentiation
@@ -989,6 +994,23 @@ the test."
 
 (js2-deftest-parse exponentiation-prohibits-unary-op
   "var a = -b ** c" :syntax-error "-b")
+
+;; nullish coalescing, via https://github.com/tc39/proposal-nullish-coalescing
+(js2-deftest-parse nullish-coalescing-operator-null-variable
+  "var a = null;\na ?? 1;")
+
+(js2-deftest-parse nullish-coalescing-operator-inexisting-field
+  "var a = {};\na.nonexistant ?? 1;")
+
+(js2-deftest-parse nullish-coalescing-operator-null-value
+  "var b = 1;\nnull ?? b;")
+
+(js2-deftest-parse nullish-coalescing-operator-in-if
+  "if (null ?? true) {\n  a = 2;\n}")
+
+(js2-deftest-parse nullish-coalescing-operator-in-ternary
+  "var c = null ?? true ? 1 : 2;")
+
 
 (js2-deftest optional-chaining-operator-on-property-access
   "var a = {}; a?.b;"
@@ -1108,7 +1130,7 @@ the test."
 
 (defun js2-test-scope-of-nth-variable-satisifies-predicate (variable nth predicate)
   (goto-char (point-min))
-  (dotimes (n (1+ nth)) (search-forward variable))
+  (dotimes (_ (1+ nth)) (search-forward variable))
   (forward-char -1)
   (let ((scope (js2-node-get-enclosing-scope (js2-node-at-point))))
     (should (funcall predicate (js2-get-defining-scope scope variable)))))

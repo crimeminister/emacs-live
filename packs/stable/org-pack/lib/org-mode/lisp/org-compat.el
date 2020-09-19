@@ -1,6 +1,6 @@
 ;;; org-compat.el --- Compatibility Code for Older Emacsen -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2020 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -46,11 +46,13 @@
 (declare-function org-end-of-subtree "org" (&optional invisible-ok to-heading))
 (declare-function org-get-heading "org" (&optional no-tags no-todo no-priority no-comment))
 (declare-function org-get-tags "org" (&optional pos local))
-(declare-function org-link-display-format "org" (s))
-(declare-function org-link-set-parameters "org" (type &rest rest))
+(declare-function org-hide-block-toggle "org" (&optional force no-error element))
+(declare-function org-link-display-format "ol" (s))
+(declare-function org-link-set-parameters "ol" (type &rest rest))
 (declare-function org-log-into-drawer "org" ())
 (declare-function org-make-tag-string "org" (tags))
 (declare-function org-reduced-level "org" (l))
+(declare-function org-return "org" (&optional indent arg interactive))
 (declare-function org-show-context "org" (&optional key))
 (declare-function org-table-end "org-table" (&optional table-type))
 (declare-function outline-next-heading "outline" ())
@@ -70,9 +72,50 @@
 
 ;;; Emacs < 27.1 compatibility
 
+(unless (fboundp 'proper-list-p)
+  ;; `proper-list-p' was added in Emacs 27.1.  The function below is
+  ;; taken from Emacs subr.el 200195e824b^.
+  (defun proper-list-p (object)
+    "Return OBJECT's length if it is a proper list, nil otherwise.
+A proper list is neither circular nor dotted (i.e., its last cdr
+is nil)."
+    (and (listp object) (ignore-errors (length object)))))
+
+(if (fboundp 'xor)
+    ;; `xor' was added in Emacs 27.1.
+    (defalias 'org-xor #'xor)
+  (defsubst org-xor (a b)
+    "Exclusive `or'."
+    (if a (not b) b)))
+
 (unless (fboundp 'pcomplete-uniquify-list)
   ;; The misspelled variant was made obsolete in Emacs 27.1
   (defalias 'pcomplete-uniquify-list 'pcomplete-uniqify-list))
+
+(if (fboundp 'time-convert)
+    (progn
+      (defsubst org-time-convert-to-integer (time)
+	(time-convert time 'integer))
+      (defsubst org-time-convert-to-list (time)
+	(time-convert time 'list)))
+  (defun org-time-convert-to-integer (time)
+    (floor (float-time time)))
+  (defun org-time-convert-to-list (time)
+    (seconds-to-time (float-time time))))
+
+;; `newline-and-indent' did not take a numeric argument before 27.1.
+(if (version< emacs-version "27")
+    (defsubst org-newline-and-indent (&optional _arg)
+      (newline-and-indent))
+  (defalias 'org-newline-and-indent #'newline-and-indent))
+
+(defun org--set-faces-extend (faces extend-p)
+  "Set the :extend attribute of FACES to EXTEND-P.
+
+This is a no-op for Emacs versions lower than 27, since face
+extension beyond end of line was not controllable."
+  (when (fboundp 'set-face-extend)
+    (mapc (lambda (f) (set-face-extend f extend-p)) faces)))
 
 
 ;;; Emacs < 26.1 compatibility
@@ -84,6 +127,20 @@
 (if (fboundp 'buffer-hash)
     (defalias 'org-buffer-hash 'buffer-hash)
   (defun org-buffer-hash () (md5 (current-buffer))))
+
+(unless (fboundp 'file-attribute-modification-time)
+  (defsubst file-attribute-modification-time (attributes)
+    "The modification time in ATTRIBUTES returned by `file-attributes'.
+This is the time of the last change to the file's contents, and
+is a list of integers (HIGH LOW USEC PSEC) in the same style
+as (current-time)."
+    (nth 5 attributes)))
+
+(unless (fboundp 'file-attribute-size)
+  (defsubst file-attribute-size (attributes)
+    "The size (in bytes) in ATTRIBUTES returned by `file-attributes'.
+This is a floating point number if the size is too large for an integer."
+    (nth 7 attributes)))
 
 
 ;;; Emacs < 25.1 compatibility
@@ -119,6 +176,35 @@
     "Return non-nil if STRING1 is less than STRING2 in lexicographic order.
 Case is significant."
     (string< s1 s2)))
+
+;; The time- functions below translate nil to `current-time` and
+;; accept an integer as of Emacs 25.  `decode-time` and
+;; `format-time-string` accept nil on Emacs 24 but don't accept an
+;; integer until Emacs 25.
+(if (< emacs-major-version 25)
+    (let ((convert
+           (lambda (time)
+             (cond ((not time) (current-time))
+                   ((numberp time) (seconds-to-time time))
+                   (t time)))))
+      (defun org-decode-time (&optional time)
+        (decode-time (funcall convert time)))
+      (defun org-format-time-string (format-string &optional time universal)
+        (format-time-string format-string (funcall convert time) universal))
+      (defun org-time-add (a b)
+        (time-add (funcall convert a) (funcall convert b)))
+      (defun org-time-subtract (a b)
+        (time-subtract (funcall convert a) (funcall convert b)))
+      (defun org-time-since (time)
+        (time-since (funcall convert time)))
+      (defun org-time-less-p (t1 t2)
+        (time-less-p (funcall convert t1) (funcall convert t2))))
+  (defalias 'org-decode-time 'decode-time)
+  (defalias 'org-format-time-string 'format-time-string)
+  (defalias 'org-time-add 'time-add)
+  (defalias 'org-time-subtract 'time-subtract)
+  (defalias 'org-time-since 'time-since)
+  (defalias 'org-time-less-p 'time-less-p))
 
 
 ;;; Obsolete aliases (remove them after the next major release).
@@ -236,6 +322,17 @@ Counting starts at 1."
 (define-obsolete-variable-alias 'org-effort-durations 'org-duration-units
   "Org 9.2")
 
+(define-obsolete-function-alias 'org-toggle-latex-fragment 'org-latex-preview
+  "Org 9.3")
+
+(define-obsolete-function-alias 'org-remove-latex-fragment-image-overlays
+  'org-clear-latex-preview "Org 9.3")
+
+(define-obsolete-variable-alias 'org-attach-directory
+  'org-attach-id-dir "Org 9.3")
+(make-obsolete 'org-attach-store-link "No longer used" "Org 9.4")
+(make-obsolete 'org-attach-expand-link "No longer used" "Org 9.4")
+
 (defun org-in-fixed-width-region-p ()
   "Non-nil if point in a fixed-width region."
   (save-match-data
@@ -289,7 +386,7 @@ See `org-link-parameters' for documentation on the other parameters."
 ;;;; Functions unused in Org core.
 (defun org-table-recognize-table.el ()
   "If there is a table.el table nearby, recognize it and move into it."
-  (when (and org-table-tab-recognizes-table.el (org-at-table.el-p))
+  (when (org-at-table.el-p)
     (beginning-of-line)
     (unless (or (looking-at org-table-dataline-regexp)
                 (not (looking-at org-table1-hline-regexp)))
@@ -417,6 +514,92 @@ use of this function is for the stuck project list."
 (define-obsolete-variable-alias 'org-texinfo-def-table-markup
   'org-texinfo-table-default-markup "Org 9.1")
 
+(define-obsolete-variable-alias 'org-agenda-overriding-columns-format
+  'org-overriding-columns-format "Org 9.2.2")
+
+(define-obsolete-variable-alias 'org-doi-server-url
+  'org-link-doi-server-url "Org 9.3")
+
+(define-obsolete-variable-alias 'org-email-link-description-format
+  'org-link-email-description-format "Org 9.3")
+
+(define-obsolete-variable-alias 'org-make-link-description-function
+  'org-link-make-description-function "Org 9.3")
+
+(define-obsolete-variable-alias 'org-from-is-user-regexp
+  'org-link-from-user-regexp "Org 9.3")
+
+(define-obsolete-variable-alias 'org-descriptive-links
+  'org-link-descriptive "Org 9.3")
+
+(define-obsolete-variable-alias 'org-context-in-file-links
+  'org-link-context-for-files "Org 9.3")
+
+(define-obsolete-variable-alias 'org-keep-stored-link-after-insertion
+  'org-link-keep-stored-after-insertion "Org 9.3")
+
+(define-obsolete-variable-alias 'org-display-internal-link-with-indirect-buffer
+  'org-link-use-indirect-buffer-for-internals "Org 9.3")
+
+(define-obsolete-variable-alias 'org-confirm-shell-link-function
+  'org-link-shell-confirm-function "Org 9.3")
+
+(define-obsolete-variable-alias 'org-confirm-shell-link-not-regexp
+  'org-link-shell-skip-confirm-regexp "Org 9.3")
+
+(define-obsolete-variable-alias 'org-confirm-elisp-link-function
+  'org-link-elisp-confirm-function "Org 9.3")
+
+(define-obsolete-variable-alias 'org-confirm-elisp-link-not-regexp
+  'org-link-elisp-skip-confirm-regexp "Org 9.3")
+
+(define-obsolete-function-alias 'org-file-complete-link
+  'org-link-complete-file "Org 9.3")
+
+(define-obsolete-function-alias 'org-email-link-description
+  'org-link-email-description "Org 9.3")
+
+(define-obsolete-function-alias 'org-make-link-string
+  'org-link-make-string "Org 9.3")
+
+(define-obsolete-function-alias 'org-store-link-props
+  'org-link-store-props "Org 9.3")
+
+(define-obsolete-function-alias 'org-add-link-props
+  'org-link-add-props "Org 9.3")
+
+(define-obsolete-function-alias 'org-make-org-heading-search-string
+  'org-link-heading-search-string "Org 9.3")
+
+(define-obsolete-function-alias 'org-make-link-regexps
+  'org-link-make-regexps "Org 9.3")
+
+(define-obsolete-function-alias 'org-property-global-value
+  'org-property-global-or-keyword-value "Org 9.3")
+
+(make-obsolete-variable 'org-file-properties 'org-keyword-properties "Org 9.3")
+
+(define-obsolete-variable-alias 'org-angle-link-re
+  'org-link-angle-re "Org 9.3")
+
+(define-obsolete-variable-alias 'org-plain-link-re
+  'org-link-plain-re "Org 9.3")
+
+(define-obsolete-variable-alias 'org-bracket-link-regexp
+  'org-link-bracket-re "Org 9.3")
+
+(define-obsolete-variable-alias 'org-bracket-link-analytic-regexp
+  'org-link-bracket-re "Org 9.3")
+
+(define-obsolete-variable-alias 'org-any-link-re
+  'org-link-any-re "Org 9.3")
+
+(define-obsolete-function-alias 'org-open-link-from-string
+  'org-link-open-from-string "Org 9.3")
+
+(define-obsolete-function-alias 'org-add-angle-brackets
+  'org-link-add-angle-brackets "Org 9.3")
+
 ;; The function was made obsolete by commit 65399674d5 of 2013-02-22.
 ;; This make-obsolete call was added 2016-09-01.
 (make-obsolete 'org-capture-import-remember-templates
@@ -456,6 +639,72 @@ use of this function is for the stuck project list."
   (declare (obsolete "use `org-align-tags' instead." "Org 9.2"))
   (org-align-tags t))
 
+(define-obsolete-function-alias
+  'org-at-property-block-p 'org-at-property-drawer-p "Org 9.4")
+
+(defun org-flag-drawer (flag &optional element beg end)
+  "When FLAG is non-nil, hide the drawer we are at.
+Otherwise make it visible.
+
+When optional argument ELEMENT is a parsed drawer, as returned by
+`org-element-at-point', hide or show that drawer instead.
+
+When buffer positions BEG and END are provided, hide or show that
+region as a drawer without further ado."
+  (declare (obsolete "use `org-hide-drawer-toggle' instead." "Org 9.4"))
+  (if (and beg end) (org-flag-region beg end flag 'outline)
+    (let ((drawer
+	   (or element
+	       (and (save-excursion
+		      (beginning-of-line)
+		      (looking-at-p "^[ \t]*:\\(\\(?:\\w\\|[-_]\\)+\\):[ \t]*$"))
+		    (org-element-at-point)))))
+      (when (memq (org-element-type drawer) '(drawer property-drawer))
+	(let ((post (org-element-property :post-affiliated drawer)))
+	  (org-flag-region
+	   (save-excursion (goto-char post) (line-end-position))
+	   (save-excursion (goto-char (org-element-property :end drawer))
+			   (skip-chars-backward " \t\n")
+			   (line-end-position))
+	   flag 'outline)
+	  ;; When the drawer is hidden away, make sure point lies in
+	  ;; a visible part of the buffer.
+	  (when (invisible-p (max (1- (point)) (point-min)))
+	    (goto-char post)))))))
+
+(defun org-hide-block-toggle-maybe ()
+  "Toggle visibility of block at point.
+Unlike to `org-hide-block-toggle', this function does not throw
+an error.  Return a non-nil value when toggling is successful."
+  (declare (obsolete "use `org-hide-block-toggle' instead." "Org 9.4"))
+  (interactive)
+  (org-hide-block-toggle nil t))
+
+(defun org-hide-block-toggle-all ()
+  "Toggle the visibility of all blocks in the current buffer."
+  (declare (obsolete "please notify Org mailing list if you use this function."
+		     "Org 9.4"))
+  (let ((start (point-min))
+        (end (point-max)))
+    (save-excursion
+      (goto-char start)
+      (while (and (< (point) end)
+		  (re-search-forward "^[ \t]*#\\+begin_?\
+\\([^ \n]+\\)\\(\\([^\n]+\\)\\)?\n\\([^\000]+?\\)#\\+end_?\\1[ \t]*$" end t))
+	(save-excursion
+	  (save-match-data
+            (goto-char (match-beginning 0))
+            (org-hide-block-toggle)))))))
+
+(defun org-return-indent ()
+  "Goto next table row or insert a newline and indent.
+Calls `org-table-next-row' or `newline-and-indent', depending on
+context.  See the individual commands for more information."
+  (declare (obsolete "use `org-return' with INDENT set to t instead."
+		     "Org 9.4"))
+  (interactive)
+  (org-return t))
+
 (defmacro org-with-silent-modifications (&rest body)
   (declare (obsolete "use `with-silent-modifications' instead." "Org 9.2")
 	   (debug (body)))
@@ -464,9 +713,26 @@ use of this function is for the stuck project list."
 (define-obsolete-function-alias 'org-babel-strip-quotes
   'org-strip-quotes "Org 9.2")
 
+(define-obsolete-variable-alias 'org-sort-agenda-notime-is-late
+  'org-agenda-sort-notime-is-late "9.4")
+
+(define-obsolete-variable-alias 'org-sort-agenda-noeffort-is-high
+  'org-agenda-sort-noeffort-is-high "9.4")
+
+(defconst org-maybe-keyword-time-regexp
+  (concat "\\(\\<\\(\\(?:CLO\\(?:CK\\|SED\\)\\|DEADLINE\\|SCHEDULED\\):\\)\\)?"
+	  " *\\([[<][0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [^]\r\n>]*[]>]"
+	  "\\|"
+	  "<%%([^\r\n>]*>\\)")
+  "Matches a timestamp, possibly preceded by a keyword.")
+(make-obsolete-variable
+ 'org-maybe-keyword-time-regexp
+ "use `org-planning-line-re', followed by `org-ts-regexp-both' instead."
+ "Org 9.4")
+
 ;;;; Obsolete link types
 
-(eval-after-load 'org
+(eval-after-load 'ol
   '(progn
      (org-link-set-parameters "file+emacs") ;since Org 9.0
      (org-link-set-parameters "file+sys"))) ;since Org 9.0
@@ -883,7 +1149,8 @@ key."
     ((guard (not (lookup-key calendar-mode-map "c")))
      (local-set-key "c" #'org-calendar-goto-agenda))
     (_ nil))
-  (unless (eq org-agenda-diary-file 'diary-file)
+  (unless (and (boundp 'org-agenda-diary-file)
+	       (eq org-agenda-diary-file 'diary-file))
     (local-set-key org-calendar-insert-diary-entry-key
 		   #'org-agenda-diary-entry)))
 
@@ -938,5 +1205,9 @@ key."
   '(add-to-list 'session-globals-exclude 'org-mark-ring))
 
 (provide 'org-compat)
+
+;; Local variables:
+;; generated-autoload-file: "org-loaddefs.el"
+;; End:
 
 ;;; org-compat.el ends here

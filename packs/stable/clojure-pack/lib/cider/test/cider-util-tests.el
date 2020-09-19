@@ -97,6 +97,16 @@ buffer."
         (expect (cider-symbol-at-point) :not :to-be-truthy)
         (expect (cider-symbol-at-point 'look-back) :to-equal "some-symbol"))))
 
+  (describe "when the symbol at point is ."
+    (it "returns the symbol"
+      (with-clojure-buffer "."
+        (expect (cider-symbol-at-point) :to-equal "."))))
+
+  (describe "when the symbol at point is .."
+    (it "returns the symbol"
+      (with-clojure-buffer ".."
+        (expect (cider-symbol-at-point) :to-equal ".."))))
+
   (describe "when the symbol at point has a trailing ."
     (it "returns the symbol without the ."
       (with-clojure-buffer "SomeRecord."
@@ -148,6 +158,42 @@ buffer."
     ;; works for normal text in a repl buffer
     (spy-on 'thing-at-point :and-return-value "boogie>")
     (expect (cider-symbol-at-point) :to-equal "boogie>")))
+
+(describe "cider-list-at-point"
+  (describe "when the param 'bounds is not given"
+    (it "returns the list at point"
+      (with-clojure-buffer "(1 2 3|)"
+        (expect (cider-list-at-point) :to-equal "(1 2 3)")))
+
+    ;; doesn't work on Emacs 25
+    (xit "handles leading @ reader macro properly"
+      (with-clojure-buffer "@(1 2 3|)"
+        (expect (cider-list-at-point) :to-equal "@(1 2 3)")))
+
+    ;; doesn't work on Emacs 25
+    (xit "handles leading ' reader macro properly"
+      (with-clojure-buffer "'(1 2 3|)"
+        (expect (cider-list-at-point) :to-equal "'(1 2 3)")))
+
+    (it "handles vectors"
+      (with-clojure-buffer "[1 2 3|]"
+        (expect (cider-list-at-point) :to-equal "[1 2 3]")))
+
+    ;; making this work will require changes to clojure-mode
+    (xit "handles sets"
+      (with-clojure-buffer "#{1 2 3|}"
+        (expect (cider-list-at-point) :to-equal "{1 2 3}")))
+
+    (it "handles maps"
+      (with-clojure-buffer "{1 2 3 4|}"
+        (expect (cider-list-at-point) :to-equal "{1 2 3 4}"))))
+
+  (describe "when the param 'bounds is given"
+    (it "returns the bounds of starting and ending positions of the sexp"
+      (with-clojure-buffer "(1 2 3|)"
+        (delete-char -1)
+        (insert "'")
+        (expect (cider-list-at-point 'bounds) :to-equal '(1 8))))))
 
 (describe "cider-sexp-at-point"
   (describe "when the param 'bounds is not given"

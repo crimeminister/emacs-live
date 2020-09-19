@@ -1,6 +1,6 @@
 ;;; ob-exp.el --- Exportation of Babel Source Blocks -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2020 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	Dan Davison
@@ -32,8 +32,8 @@
 (declare-function org-element-type "org-element" (element))
 (declare-function org-escape-code-in-string "org-src" (s))
 (declare-function org-export-copy-buffer "ox" ())
-(declare-function org-fill-template "org" (template alist))
 (declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
+(declare-function org-in-archived-heading-p "org" (&optional no-inheritance))
 
 (defvar org-src-preserve-indentation)
 
@@ -158,7 +158,8 @@ this template."
 	      ;; encountered.
 	      (goto-char (point-min))
 	      (while (re-search-forward regexp nil t)
-		(unless (save-match-data (org-in-commented-heading-p))
+		(unless (save-match-data (or (org-in-commented-heading-p)
+					     (org-in-archived-heading-p)))
 		  (let* ((object? (match-end 1))
 			 (element (save-match-data
 				    (if object? (org-element-context)
@@ -281,7 +282,8 @@ this template."
 		    (set-marker begin nil)
 		    (set-marker end nil)))))
 	  (kill-buffer org-babel-exp-reference-buffer)
-	  (remove-text-properties (point-min) (point-max) '(org-reference)))))))
+          (remove-text-properties (point-min) (point-max)
+                                  '(org-reference nil)))))))
 
 (defun org-babel-exp-do-export (info type &optional hash)
   "Return a string with the exported content of a code block.
@@ -376,7 +378,7 @@ block will be evaluated.  Optional argument SILENT can be used to
 inhibit insertion of results into the buffer."
   (unless (and hash (equal hash (org-babel-current-result-hash)))
     (let ((lang (nth 0 info))
-	  (body (if (org-babel-noweb-p (nth 2 info) :export)
+	  (body (if (org-babel-noweb-p (nth 2 info) :eval)
 		    (org-babel-expand-noweb-references
 		     info org-babel-exp-reference-buffer)
 		  (nth 1 info)))
@@ -405,7 +407,6 @@ inhibit insertion of results into the buffer."
 	     (goto-char (nth 5 info))
 	     (let (org-confirm-babel-evaluate)
 	       (org-babel-execute-src-block nil info)))))))))
-
 
 (provide 'ob-exp)
 

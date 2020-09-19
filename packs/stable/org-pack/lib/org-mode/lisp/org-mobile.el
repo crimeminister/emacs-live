@@ -1,5 +1,5 @@
 ;;; org-mobile.el --- Code for Asymmetric Sync With a Mobile Device -*- lexical-binding: t; -*-
-;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2020 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -31,11 +31,10 @@
 ;; iPhone and Android - any external viewer/flagging/editing
 ;; application that uses the same conventions could be used.
 
+(require 'cl-lib)
 (require 'org)
 (require 'org-agenda)
-(require 'cl-lib)
-
-(defvar org-agenda-keep-restricted-file-list)
+(require 'ol)
 
 ;;; Code:
 
@@ -57,7 +56,7 @@ In addition to this, the list may also contain the following symbols:
 
 `org-agenda-text-search-extra-files'
      Include the files given in the variable
-     `org-agenda-text-search-extra-files'"
+     `org-agenda-text-search-extra-files'."
   :group 'org-mobile
   :type '(list :greedy t
 	       (option (const :tag "org-agenda-files" org-agenda-files))
@@ -258,6 +257,17 @@ the old and new values for the entry.")
 
 (defvar org-mobile-files-alist nil)
 (defvar org-mobile-checksum-files nil)
+
+;; Add org mobile commands to the main org menu
+(easy-menu-add-item
+ org-org-menu
+ nil
+ '("MobileOrg"
+   ["Push Files and Views" org-mobile-push t]
+   ["Get Captured and Flagged" org-mobile-pull t]
+   ["Find FLAGGED Tasks" (org-agenda nil "?") :active t :keys "\\[org-agenda] ?"]
+   "--"
+   ["Setup" (customize-group 'org-mobile) t]))
 
 (defun org-mobile-prepare-file-lists ()
   (setq org-mobile-files-alist (org-mobile-files-alist))
@@ -486,7 +496,7 @@ agenda view showing the flagged items."
 		     (concat (shell-quote-argument org-mobile-checksum-binary)
 			     " "
 			     (shell-quote-argument (expand-file-name file)))))
-	(when (string-match "[a-fA-F0-9]\\{30,40\\}" check)
+	(when (string-match "[[:xdigit:]]\\{30,40\\}" check)
 	  (push (cons link-name (match-string 0 check))
 		org-mobile-checksum-files))))
 
@@ -670,8 +680,7 @@ The table of checksums is written to the file mobile-checksums."
 	    (org-mobile-escape-olp (nth 4 (org-heading-components))))))
 
 (defun org-mobile-escape-olp (s)
-  (let  ((table '(?: ?/)))
-    (org-link-escape s table)))
+  (org-link-encode s '(?: ?/)))
 
 (defun org-mobile-create-sumo-agenda ()
   "Create a file that contains all custom agenda views."
@@ -775,7 +784,7 @@ If nothing new has been added, return nil."
 	 (buffer (find-file-noselect file)))
     (when buffer
       (with-current-buffer buffer
-	(when (re-search-forward (concat "\\([0-9a-fA-F]\\{30,\\}\\).*?"
+	(when (re-search-forward (concat "\\([[:xdigit:]]\\{30,\\}\\).*?"
 					 (regexp-quote org-mobile-capture-file)
 					 "[ \t]*$") nil t)
 	  (goto-char (match-beginning 1))
@@ -859,11 +868,11 @@ If BEG and END are given, only do this in that region."
 	    (cl-incf cnt-error)
 	    (throw 'next t))
 	  (move-marker bos-marker (point))
-	  (if (re-search-forward "^** Old value[ \t]*$" eos t)
+	  (if (re-search-forward "^\\** Old value[ \t]*$" eos t)
 	      (setq old (buffer-substring
 			 (1+ (match-end 0))
 			 (progn (outline-next-heading) (point)))))
-	  (if (re-search-forward "^** New value[ \t]*$" eos t)
+	  (if (re-search-forward "^\\** New value[ \t]*$" eos t)
 	      (setq new (buffer-substring
 			 (1+ (match-end 0))
 			 (progn (outline-next-heading)
@@ -965,7 +974,7 @@ is currently a noop.")
 	(if (not (string-match "\\`olp:\\(.*?\\)$" link))
 	    nil
 	  (let ((file (match-string 1 link)))
-	    (setq file (org-link-unescape file))
+	    (setq file (org-link-decode file))
 	    (setq file (expand-file-name file org-directory))
 	    (save-excursion
 	      (find-file file)
@@ -975,9 +984,9 @@ is currently a noop.")
 	      (point-marker))))
       (let ((file (match-string 1 link))
 	    (path (match-string 2 link)))
-	(setq file (org-link-unescape file))
+	(setq file (org-link-decode file))
 	(setq file (expand-file-name file org-directory))
-	(setq path (mapcar 'org-link-unescape
+	(setq path (mapcar #'org-link-decode
 			   (org-split-string path "/")))
 	(org-find-olp (cons file path))))))
 

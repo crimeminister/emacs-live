@@ -280,7 +280,12 @@ num:2 <:active")))
   (should-not
    (equal "Mine"
 	  (org-test-with-parsed-data "* COMMENT H1\n** H2\n#+EMAIL: Mine"
-				     (plist-get info :email)))))
+				     (plist-get info :email))))
+  ;; Keywords can be set to an empty value.
+  (should-not
+   (let ((user-full-name "Me"))
+     (org-test-with-parsed-data "#+AUTHOR:"
+				(plist-get info :author)))))
 
 (ert-deftest test-org-export/get-subtree-options ()
   "Test setting options from headline's properties."
@@ -847,6 +852,15 @@ Paragraph <2012-03-29 Thu>[2012-03-29 Thu]"
 			     (paragraph . (lambda (p c i) c))
 			     (section . (lambda (s c i) c))))
 	     nil nil nil '(:with-latex verbatim)))))
+  (should
+   (equal "$1$ \n"
+	  (org-test-with-temp-text "$1$ "
+	    (org-export-as
+	     (org-export-create-backend
+	      :transcoders '((latex-fragment . (lambda (l c i) "dummy"))
+			     (paragraph . (lambda (p c i) c))
+			     (section . (lambda (s c i) c))))
+	     nil nil nil '(:with-latex verbatim)))))
   ;; Sub/superscript.
   (should
    (equal "adummy\n"
@@ -1352,7 +1366,7 @@ Footnotes[fn:2], foot[fn:test] and [fn:inline:inline footnote]
 	       org-test-dir)
      (narrow-to-region (point) (point-max))
      (org-export-expand-include-keyword)
-     (eq 1 (org-current-level))))
+     (eq 2 (org-current-level))))
   ;; If :minlevel is present do not alter it.
   (should
    (org-test-with-temp-text
@@ -1363,7 +1377,7 @@ Footnotes[fn:2], foot[fn:test] and [fn:inline:inline footnote]
      (org-export-expand-include-keyword)
      (eq 3 (org-current-level)))))
 
-(ert-deftest test-org/expand-include/links ()
+(ert-deftest test-org-export/expand-include/links ()
   "Test links modifications when including files."
   ;; Preserve relative plain links.
   (should
@@ -1417,6 +1431,28 @@ Footnotes[fn:2], foot[fn:test] and [fn:inline:inline footnote]
 	   (includee (expand-file-name "includee.org" subdir))
 	   (includer (make-temp-file "org-includer-")))
       (write-region "[[file:foo.org]]" nil includee)
+      (write-region (format "#+INCLUDE: %S"
+			    (file-relative-name includee
+						temporary-file-directory))
+		    nil includer)
+      (let ((buffer (find-file-noselect includer t)))
+	(unwind-protect
+	    (with-current-buffer buffer
+	      (org-export-expand-include-keyword)
+	      (org-trim (buffer-string)))
+	  (when (buffer-live-p buffer)
+	    (with-current-buffer buffer (set-buffer-modified-p nil))
+	    (kill-buffer buffer))
+	  (when (file-exists-p subdir) (delete-directory subdir t))
+	  (when (file-exists-p includer) (delete-file includer)))))))
+  ;; Preserve blanks after the link.
+  (should
+   (string-suffix-p
+    "foo.org]] :tag:"
+    (let* ((subdir (make-temp-file "org-includee-" t))
+	   (includee (expand-file-name "includee.org" subdir))
+	   (includer (make-temp-file "org-includer-")))
+      (write-region "[[file:foo.org]] :tag:" nil includee)
       (write-region (format "#+INCLUDE: %S"
 			    (file-relative-name includee
 						temporary-file-directory))
@@ -2003,8 +2039,8 @@ In particular, structure of the document mustn't be altered after
 comments removal."
   (should
    (equal "Para1\n\nPara2\n"
-	  (org-test-with-temp-text "
-Para1
+	  (org-test-with-temp-text
+	      "Para1
 # Comment
 
 # Comment
@@ -2012,15 +2048,15 @@ Para2"
 	    (org-export-as (org-test-default-backend)))))
   (should
    (equal "Para1\n\nPara2\n"
-	  (org-test-with-temp-text "
-Para1
+	  (org-test-with-temp-text
+	      "Para1
 # Comment
 Para2"
 	    (org-export-as (org-test-default-backend)))))
   (should
    (equal "[fn:1] Para1\n\n\nPara2\n"
-	  (org-test-with-temp-text "
-\[fn:1] Para1
+	  (org-test-with-temp-text
+	      "[fn:1] Para1
 # Inside definition
 
 
@@ -2029,8 +2065,8 @@ Para2"
 	    (org-export-as (org-test-default-backend)))))
   (should
    (equal "[fn:1] Para1\n\nPara2\n"
-	  (org-test-with-temp-text "
-\[fn:1] Para1
+	  (org-test-with-temp-text
+	      "[fn:1] Para1
 
 # Inside definition
 
@@ -2040,24 +2076,24 @@ Para2"
 	    (org-export-as (org-test-default-backend)))))
   (should
    (equal "[fn:1] Para1\n\nPara2\n"
-	  (org-test-with-temp-text "
-\[fn:1] Para1
+	  (org-test-with-temp-text
+	      "[fn:1] Para1
 # Inside definition
 
 Para2"
 	    (org-export-as (org-test-default-backend)))))
   (should
    (equal "[fn:1] Para1\n\nPara2\n"
-	  (org-test-with-temp-text "
-\[fn:1] Para1
+	  (org-test-with-temp-text
+	      "[fn:1] Para1
 
 # Inside definition
 Para2"
 	    (org-export-as (org-test-default-backend)))))
   (should
    (equal "- item 1\n\n- item 2\n"
-	  (org-test-with-temp-text "
-- item 1
+	  (org-test-with-temp-text
+	      "- item 1
 
   # Comment
 
@@ -2940,7 +2976,7 @@ Para2"
    (string-match
     "success"
     (progn
-      (org-link-set-parameters "foo" :export (lambda (p d f) "success"))
+      (org-link-set-parameters "foo" :export (lambda (p d f i) "success"))
       (org-export-string-as
        "[[foo:path]]"
        (org-export-create-backend
@@ -2949,14 +2985,14 @@ Para2"
 	'((section . (lambda (s c i) c))
 	  (paragraph . (lambda (p c i) c))
 	  (link . (lambda (l c i)
-		    (or (org-export-custom-protocol-maybe l c 'test)
+		    (or (org-export-custom-protocol-maybe l c 'test i)
 			"failure")))))))))
   (should-not
    (string-match
     "success"
     (progn
       (org-link-set-parameters
-       "foo" :export (lambda (p d f) (and (eq f 'test) "success")))
+       "foo" :export (lambda (p d f i) (and (eq f 'test) "success")))
       (org-export-string-as
        "[[foo:path]]"
        (org-export-create-backend
@@ -2965,7 +3001,7 @@ Para2"
 	'((section . (lambda (s c i) c))
 	  (paragraph . (lambda (p c i) c))
 	  (link . (lambda (l c i)
-		    (or (org-export-custom-protocol-maybe l c 'no-test)
+		    (or (org-export-custom-protocol-maybe l c 'no-test i)
 			"failure")))))))))
   ;; Ignore anonymous back-ends.
   (should-not
@@ -2973,7 +3009,7 @@ Para2"
     "success"
     (progn
       (org-link-set-parameters
-       "foo" :export (lambda (p d f) (and (eq f 'test) "success")))
+       "foo" :export (lambda (p d f i) (and (eq f 'test) "success")))
       (org-export-string-as
        "[[foo:path]]"
        (org-export-create-backend
@@ -2981,7 +3017,7 @@ Para2"
 	'((section . (lambda (s c i) c))
 	  (paragraph . (lambda (p c i) c))
 	  (link . (lambda (l c i)
-		    (or (org-export-custom-protocol-maybe l c nil)
+		    (or (org-export-custom-protocol-maybe l c nil i)
 			"failure"))))))))))
 
 (ert-deftest test-org-export/get-coderef-format ()
@@ -3037,7 +3073,93 @@ Para2"
 	     (org-element-map
 		 (org-export-insert-image-links tree info '(("file" . "xxx")))
 		 'link
-	       (lambda (l) (org-element-property :type l)))))))
+	       (lambda (l) (org-element-property :type l))))))
+  ;; If an image link was included from another file, make sure to
+  ;; shift any relative path accordingly.
+  (should
+   (string-prefix-p
+    "file:org-includee-"
+    (let* ((subdir (make-temp-file "org-includee-" t))
+	   (includee (expand-file-name "includee.org" subdir))
+	   (includer (make-temp-file "org-includer-")))
+      (write-region "file:foo.png" nil includee)
+      (write-region (format "#+INCLUDE: %S"
+			    (file-relative-name includee
+						temporary-file-directory))
+		    nil includer)
+      (let ((buffer (find-file-noselect includer t)))
+	(unwind-protect
+	    (with-current-buffer buffer
+	      (org-export-as
+	       (org-export-create-backend
+		:transcoders
+		'((section . (lambda (_s c _i) c))
+		  (paragraph . (lambda (_p c _i) c))
+		  (link . (lambda (l c _i) (org-element-link-interpreter l c))))
+		:filters
+		'((:filter-parse-tree
+		   (lambda (d _b i) (org-export-insert-image-links d i)))))))
+	  (when (buffer-live-p buffer)
+	    (with-current-buffer buffer (set-buffer-modified-p nil))
+	    (kill-buffer buffer))
+	  (when (file-exists-p subdir) (delete-directory subdir t))
+	  (when (file-exists-p includer) (delete-file includer)))))))
+  (should
+   (string-match-p
+    "file:org-includee-.+?foo\\.png"
+    (let* ((subdir (make-temp-file "org-includee-" t))
+	   (includee (expand-file-name "includee.org" subdir))
+	   (includer (make-temp-file "org-includer-")))
+      (write-region "[[https://orgmode.org][file:foo.png]]" nil includee)
+      (write-region (format "#+INCLUDE: %S"
+			    (file-relative-name includee
+						temporary-file-directory))
+		    nil includer)
+      (let ((buffer (find-file-noselect includer t)))
+	(unwind-protect
+	    (with-current-buffer buffer
+	      (org-export-as
+	       (org-export-create-backend
+		:transcoders
+		'((section . (lambda (_s c _i) c))
+		  (paragraph . (lambda (_p c _i) c))
+		  (link . (lambda (l c _i) (org-element-link-interpreter l c))))
+		:filters
+		'((:filter-parse-tree
+		   (lambda (d _b i) (org-export-insert-image-links d i)))))))
+	  (when (buffer-live-p buffer)
+	    (with-current-buffer buffer (set-buffer-modified-p nil))
+	    (kill-buffer buffer))
+	  (when (file-exists-p subdir) (delete-directory subdir t))
+	  (when (file-exists-p includer) (delete-file includer)))))))
+  (should
+   (string-match-p
+    "file:org-includee.+?file:org-includee"
+    (let* ((subdir (make-temp-file "org-includee-" t))
+	   (includee (expand-file-name "includee.org" subdir))
+	   (includer (make-temp-file "org-includer-")))
+      (write-region "[[file:bar.png][file:foo.png]]" nil includee)
+      (write-region (format "#+INCLUDE: %S"
+			    (file-relative-name includee
+						temporary-file-directory))
+		    nil includer)
+      (let ((buffer (find-file-noselect includer t)))
+	(unwind-protect
+	    (with-current-buffer buffer
+	      (org-export-as
+	       (org-export-create-backend
+		:transcoders
+		'((section . (lambda (_s c _i) c))
+		  (paragraph . (lambda (_p c _i) c))
+		  (link . (lambda (l c _i) (org-element-link-interpreter l c))))
+		:filters
+		'((:filter-parse-tree
+		   (lambda (d _b i) (org-export-insert-image-links d i)))))))
+	  (when (buffer-live-p buffer)
+	    (with-current-buffer buffer (set-buffer-modified-p nil))
+	    (kill-buffer buffer))
+	  (when (file-exists-p subdir) (delete-directory subdir t))
+	  (when (file-exists-p includer) (delete-file includer))))))))
 
 (ert-deftest test-org-export/fuzzy-link ()
   "Test fuzzy links specifications."
@@ -3110,6 +3232,40 @@ Paragraph[fn:1][fn:2][fn:lbl3:C<<target>>][[test]][[target]]
      (org-element-map tree 'link
        (lambda (link) (org-export-resolve-fuzzy-link link info))
        info t))))
+
+(ert-deftest test-org-export/resolve-link ()
+  "Test `org-export-resolve-link' specifications."
+  (should
+   ;; Match ID links
+   (equal
+    "Headline1"
+    (org-test-with-parsed-data "* Headline1
+:PROPERTIES:
+:ID: aaaa
+:END:
+* Headline2"
+      (org-element-property
+       :raw-value (org-export-resolve-link "#aaaa" info)))))
+   ;; Match Custom ID links
+  (should
+   (equal
+    "Headline1"
+    (org-test-with-parsed-data
+	"* Headline1
+:PROPERTIES:
+:CUSTOM_ID: test
+:END:
+* Headline2"
+      (org-element-property
+       :raw-value (org-export-resolve-link "#test" info)))))
+  ;; Match fuzzy links
+  (should
+   (equal
+    "B"
+    (org-test-with-parsed-data
+	"* A\n* B\n* C"
+      (org-element-property
+       :raw-value (org-export-resolve-link "B" info))))))
 
 (defun test-org-gen-loc-list(text type)
   (org-test-with-parsed-data text
@@ -3424,9 +3580,9 @@ Another text. (ref:text)
 	 (org-element-type
 	  (org-export-resolve-fuzzy-link
 	   (org-element-map tree 'link 'identity info t) info)))))
-  ;; Handle url-encoded fuzzy links.
+  ;; Handle escaped fuzzy links.
   (should
-   (org-test-with-parsed-data "* A B\n[[A%20B]]"
+   (org-test-with-parsed-data "* [foo]\n[[\\[foo\\]]]"
      (org-export-resolve-fuzzy-link
       (org-element-map tree 'link #'identity info t) info))))
 
@@ -3973,6 +4129,16 @@ Another text. (ref:text)
      (org-export-table-has-header-p
       (org-element-map tree 'table 'identity info 'first-match)
       info)))
+  ;; With a multi-line header.
+  (should
+   (org-test-with-parsed-data "
+| a | b |
+| 0 | 1 |
+|---+---|
+| a | w |"
+     (org-export-table-has-header-p
+      (org-element-map tree 'table 'identity info 'first-match)
+      info)))
   ;; Without an header.
   (should-not
    (org-test-with-parsed-data "
@@ -4062,33 +4228,28 @@ Another text. (ref:text)
 
 (ert-deftest test-org-export/table-cell-width ()
   "Test `org-export-table-cell-width' specifications."
-  ;; 1. Width is primarily determined by width cookies.  If no cookie
-  ;;    is found, cell's width is nil.
-  (org-test-with-parsed-data "
+  ;; Width is primarily determined by width cookies.  If no cookie is
+  ;; found, cell's width is nil.
+  (should
+   (equal '(nil 6 7)
+	  (org-test-with-parsed-data "
 | / | <l> | <6> | <l7> |
 |   |  a  |  b  |  c   |"
-    (should
-     (equal
-      '(nil 6 7)
-      (mapcar (lambda (cell) (org-export-table-cell-width cell info))
-	      (org-element-map tree 'table-cell 'identity info)))))
-  ;; 2. The last width cookie has precedence.
-  (org-test-with-parsed-data "
-| <6> |
-| <7> |
-|  a  |"
-    (should
-     (equal
-      '(7)
-      (mapcar (lambda (cell) (org-export-table-cell-width cell info))
-	      (org-element-map tree 'table-cell 'identity info)))))
-  ;; 3. Valid width cookies must have a specific row.
-  (org-test-with-parsed-data "| <6> | cell |"
-    (should
-     (equal
-      '(nil nil)
-      (mapcar (lambda (cell) (org-export-table-cell-width cell info))
-	      (org-element-map tree 'table-cell 'identity))))))
+	    (mapcar (lambda (cell) (org-export-table-cell-width cell info))
+		    (org-element-map tree 'table-cell 'identity info)))))
+  ;; Valid width cookies must have a specific row.
+  (should
+   (equal '(nil nil)
+	  (org-test-with-parsed-data "| <6> | cell |"
+	    (mapcar (lambda (cell) (org-export-table-cell-width cell info))
+		    (org-element-map tree 'table-cell 'identity)))))
+  ;; Do not error on malformed tables.
+  (should
+   (org-test-with-parsed-data "
+| a |
+| b | c |"
+     (mapcar (lambda (cell) (org-export-table-cell-width cell info))
+	     (org-element-map tree 'table-cell 'identity info)))))
 
 (ert-deftest test-org-export/table-cell-alignment ()
   "Test `org-export-table-cell-alignment' specifications."
@@ -4529,6 +4690,56 @@ Another text. (ref:text)
 	    (let ((scope (org-element-map tree 'headline #'identity info t)))
 	      (mapcar (lambda (h) (org-element-property :raw-value h))
 		      (org-export-collect-headlines info nil scope))))))
+  ;; Collect headlines from a scope specified by a fuzzy match
+  (should
+   (equal '("H3" "H4")
+	  (org-test-with-parsed-data "* HA
+** H1
+** H2
+* Target
+  :PROPERTIES:
+  :CUSTOM_ID: TargetSection
+  :END:
+** H3
+** H4
+* HB
+** H5
+"
+	    (mapcar
+	     (lambda (h) (org-element-property :raw-value h))
+	     (org-export-collect-headlines
+	      info
+	      nil
+	      (org-export-resolve-fuzzy-link
+	       (with-temp-buffer
+		 (save-excursion (insert "[[Target]]"))
+		 (org-element-link-parser))
+	       info))))))
+  ;; Collect headlines from a scope specified by CUSTOM_ID
+  (should
+   (equal '("H3" "H4")
+	  (org-test-with-parsed-data "* Not this section
+** H1
+** H2
+* Target
+  :PROPERTIES:
+  :CUSTOM_ID: TargetSection
+  :END:
+** H3
+** H4
+* Another
+** H5
+"
+	    (mapcar
+	     (lambda (h) (org-element-property :raw-value h))
+	     (org-export-collect-headlines
+	      info
+	      nil
+	      (org-export-resolve-id-link
+	       (with-temp-buffer
+		 (save-excursion (insert "[[#TargetSection]]"))
+		 (org-element-link-parser))
+	       info))))))
   ;; When collecting locally, optional level is relative.
   (should
    (equal '("H2")

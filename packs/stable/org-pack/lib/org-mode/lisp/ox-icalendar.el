@@ -1,6 +1,6 @@
 ;;; ox-icalendar.el --- iCalendar Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2020 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;;      Nicolas Goaziou <n dot goaziou at gmail dot com>
@@ -33,7 +33,7 @@
 
 (require 'cl-lib)
 (require 'ox-ascii)
-(declare-function org-bbdb-anniv-export-ical "org-bbdb" nil)
+(declare-function org-bbdb-anniv-export-ical "ol-bbdb" nil)
 
 
 
@@ -87,37 +87,66 @@ keyword."
 
 This is a list with possibly several symbols in it.  Valid symbols are:
 
-`event-if-todo'       Deadlines in TODO entries become calendar events.
-`event-if-not-todo'   Deadlines in non-TODO entries become calendar events.
-`todo-due'            Use deadlines in TODO entries as due-dates."
+`event-if-todo'
+
+  Deadlines in TODO entries become calendar events.
+
+`event-if-todo-not-done'
+
+  Deadlines in TODO entries with not-DONE state become events.
+
+`event-if-not-todo'
+
+  Deadlines in non-TODO entries become calendar events.
+
+`todo-due'
+
+  Use deadlines in TODO entries as due-dates."
   :group 'org-export-icalendar
-  :type '(set :greedy t
-	      (const :tag "Deadlines in non-TODO entries become events"
-		     event-if-not-todo)
-	      (const :tag "Deadline in TODO entries become events"
-		     event-if-todo)
-	      (const :tag "Deadlines in TODO entries become due-dates"
-		     todo-due)))
+  :type
+  '(set :greedy t
+	(const :tag "DEADLINE in non-TODO entries become events"
+	       event-if-not-todo)
+	(const :tag "DEADLINE in TODO entries become events"
+	       event-if-todo)
+	(const :tag "DEADLINE in TODO entries with not-DONE state become events"
+	       event-if-todo-not-done)
+	(const :tag "DEADLINE in TODO entries become due-dates"
+	       todo-due)))
 
 (defcustom org-icalendar-use-scheduled '(todo-start)
   "Contexts where iCalendar export should use a scheduling time stamp.
 
 This is a list with possibly several symbols in it.  Valid symbols are:
 
-`event-if-todo'       Scheduling time stamps in TODO entries become an event.
-`event-if-not-todo'   Scheduling time stamps in non-TODO entries become an event.
-`todo-start'          Scheduling time stamps in TODO entries become start date.
-                      Some calendar applications show TODO entries only after
-                      that date."
+`event-if-todo'
+
+  Scheduling time stamps in TODO entries become an event.
+
+`event-if-todo-not-done'
+
+  Scheduling time stamps in TODO entries with not-DONE state
+  become events.
+
+`event-if-not-todo'
+
+  Scheduling time stamps in non-TODO entries become an event.
+
+`todo-start'
+
+  Scheduling time stamps in TODO entries become start date.  Some
+  calendar applications show TODO entries only after that date."
   :group 'org-export-icalendar
-  :type '(set :greedy t
-	      (const :tag
-		     "SCHEDULED timestamps in non-TODO entries become events"
-		     event-if-not-todo)
-	      (const :tag "SCHEDULED timestamps in TODO entries become events"
-		     event-if-todo)
-	      (const :tag "SCHEDULED in TODO entries become start date"
-		     todo-start)))
+  :type
+  '(set :greedy t
+	(const :tag "SCHEDULED timestamps in non-TODO entries become events"
+	       event-if-not-todo)
+	(const :tag "SCHEDULED timestamps in TODO entries become events"
+	       event-if-todo)
+	(const :tag "SCHEDULED in TODO entries with not-DONE state become events"
+	       event-if-todo-not-done)
+	(const :tag "SCHEDULED in TODO entries become start date"
+	       todo-start)))
 
 (defcustom org-icalendar-categories '(local-tags category)
   "Items that should be entered into the \"categories\" field.
@@ -317,7 +346,7 @@ A headline is blocked when either
     done first or is a child of a blocked grandparent entry."
   (or
    ;; Check if any child is not done.
-   (org-element-map headline 'headline
+   (org-element-map (org-element-contents headline) 'headline
      (lambda (hl) (eq (org-element-property :todo-type hl) 'todo))
      info 'first-match)
    ;; Check :ORDERED: node property.
@@ -338,7 +367,8 @@ A headline is blocked when either
 (defun org-icalendar-use-UTC-date-time-p ()
   "Non-nil when `org-icalendar-date-time-format' requires UTC time."
   (char-equal (elt org-icalendar-date-time-format
-		   (1- (length org-icalendar-date-time-format))) ?Z))
+		   (1- (length org-icalendar-date-time-format)))
+	      ?Z))
 
 (defvar org-agenda-default-appointment-duration) ; From org-agenda.el.
 (defun org-icalendar-convert-timestamp (timestamp keyword &optional end tz)
@@ -566,17 +596,25 @@ inlinetask within the section."
 	  ;; Events: Delegate to `org-icalendar--vevent' to generate
 	  ;; "VEVENT" component from scheduled, deadline, or any
 	  ;; timestamp in the entry.
-	  (let ((deadline (org-element-property :deadline entry)))
+	  (let ((deadline (org-element-property :deadline entry))
+		(use-deadline (plist-get info :icalendar-use-deadline)))
 	    (and deadline
-		 (memq (if todo-type 'event-if-todo 'event-if-not-todo)
-		       org-icalendar-use-deadline)
+		 (pcase todo-type
+		   (`todo (or (memq 'event-if-todo-not-done use-deadline)
+			      (memq 'event-if-todo use-deadline)))
+		   (`done (memq 'event-if-todo use-deadline))
+		   (_ (memq 'event-if-not-todo use-deadline)))
 		 (org-icalendar--vevent
 		  entry deadline (concat "DL-" uid)
 		  (concat "DL: " summary) loc desc cat tz class)))
-	  (let ((scheduled (org-element-property :scheduled entry)))
+	  (let ((scheduled (org-element-property :scheduled entry))
+		(use-scheduled (plist-get info :icalendar-use-scheduled)))
 	    (and scheduled
-		 (memq (if todo-type 'event-if-todo 'event-if-not-todo)
-		       org-icalendar-use-scheduled)
+		 (pcase todo-type
+		   (`todo (or (memq 'event-if-todo-not-done use-scheduled)
+			      (memq 'event-if-todo use-scheduled)))
+		   (`done (memq 'event-if-todo use-scheduled))
+		   (_ (memq 'event-if-not-todo use-scheduled)))
 		 (org-icalendar--vevent
 		  entry scheduled (concat "SC-" uid)
 		  (concat "S: " summary) loc desc cat tz class)))
@@ -726,10 +764,10 @@ Return VTODO component as a string."
 	     "SEQUENCE:1\n"
 	     (format "PRIORITY:%d\n"
 		     (let ((pri (or (org-element-property :priority entry)
-				    org-default-priority)))
-		       (floor (- 9 (* 8. (/ (float (- org-lowest-priority pri))
-					    (- org-lowest-priority
-					       org-highest-priority)))))))
+				    org-priority-default)))
+		       (floor (- 9 (* 8. (/ (float (- org-priority-lowest pri))
+					    (- org-priority-lowest
+					       org-priority-highest)))))))
 	     (format "STATUS:%s\n"
 		     (if (eq (org-element-property :todo-type entry) 'todo)
 			 "NEEDS-ACTION"
@@ -971,7 +1009,7 @@ FILES is a list of files to build the calendar from."
 		files "")
 	       ;; BBDB anniversaries.
 	       (when (and org-icalendar-include-bbdb-anniversaries
-			  (require 'org-bbdb nil t))
+			  (require 'ol-bbdb nil t))
 		 (with-output-to-string (org-bbdb-anniv-export-ical)))))))
 	  (run-hook-with-args 'org-icalendar-after-save-hook
 			      org-icalendar-combined-agenda-file))

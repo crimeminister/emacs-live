@@ -28,16 +28,32 @@
 ;;; Code
 
 (require 'ert)
-(require 'parseclj)
+(require 'parseedn)
 
-(load "test/parseclj-test-data.el")
+(load "test/parseedn-test-data.el")
 
 (ert-deftest parseedn-print-test ()
   (should (equal (parseedn-print-str nil) "nil"))
   (should (equal (parseedn-print-str 100) "100"))
   (should (equal (parseedn-print-str 1.2) "1.2"))
   (should (equal (parseedn-print-str [1 2 3]) "[1 2 3]"))
-  (should (equal (parseedn-print-str t) "true")))
+  (should (equal (parseedn-print-str t) "true"))
+  (should (equal (parseedn-print-str '((a . 1) (b . 2))) "{a 1, b 2}"))
+  (should (equal (parseedn-print-str '((a . 1) (b . ((c . 3))))) "{a 1, b {c 3}}"))
+  (should (equal (parseedn-print-str '(:a 1 :b 2)) "{:a 1, :b 2}"))
+  (should (equal (parseedn-print-str '(:a 1 :b (:c 3))) "{:a 1, :b {:c 3}}"))
+  (should (listp (member (parseedn-print-str
+                          (let ((ht (make-hash-table)))
+                            (puthash :a 1 ht)
+                            (puthash :b 2 ht)
+                            (puthash :c 3 ht)
+                            ht))
+                         '("{:a 1, :b 2, :c 3}"
+                           "{:a 1, :c 3, :b 2}"
+                           "{:b 2, :a 1, :c 3}"
+                           "{:b 2, :c 3, :a 1}"
+                           "{:c 3, :a 1, :b 2}"
+                           "{:c 3, :b 2, :a 1}")))))
 
 (ert-deftest parseedn-read-test ()
   (should (equal (parseedn-read-str "true") t)))
@@ -56,7 +72,7 @@
                        (insert ,(a-get data :source))
                        (goto-char 1)
                        (should (a-equal (parseedn-read) ',(a-get data :edn)))))))))
-        parseclj-test-data)))
+        parseedn-test-data)))
 
 (defmacro define-parseedn-roundtrip-tests ()
   `(progn
@@ -69,7 +85,7 @@
                   `(ert-deftest ,test-name ()
                      :tags '(parseedn-rountrip)
                      (should (equal (parseedn-print-str (car ',(a-get data :edn))) ,(a-get data :source))))))))
-        parseclj-test-data)))
+        parseedn-test-data)))
 
 (define-parseedn-read-tests)
 (define-parseedn-roundtrip-tests)

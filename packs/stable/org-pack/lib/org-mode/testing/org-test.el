@@ -87,6 +87,9 @@ org-test searches this directory up the directory tree.")
 (defconst org-test-no-heading-file
   (expand-file-name "no-heading.org" org-test-example-dir))
 
+(defconst org-test-attachments-file
+  (expand-file-name "attachments.org" org-test-example-dir))
+
 (defconst org-test-link-in-heading-file
   (expand-file-name "link-in-heading.org" org-test-dir))
 
@@ -146,7 +149,8 @@ currently executed.")
   (declare (indent 1))
   `(let* ((my-file (or ,file org-test-file))
 	  (visited-p (get-file-buffer my-file))
-	  to-be-removed)
+	  to-be-removed
+	  results)
      (save-window-excursion
        (save-match-data
 	 (find-file my-file)
@@ -160,9 +164,10 @@ currently executed.")
 	       (org-show-subtree)
 	       (org-show-all '(blocks)))
 	   (error nil))
-	 (save-restriction ,@body)))
+	 (setq results (save-restriction ,@body))))
      (unless visited-p
-       (kill-buffer to-be-removed))))
+       (kill-buffer to-be-removed))
+     results))
 (def-edebug-spec org-test-in-example-file (form body))
 
 (defmacro org-test-at-marker (file marker &rest body)
@@ -194,24 +199,35 @@ otherwise place the point at the beginning of the inserted text."
 	       (goto-char (1+ (match-beginning 0))))
 	   (insert inside-text)
 	   (goto-char (point-min))))
+       (font-lock-ensure (point-min) (point-max))
        ,@body)))
 (def-edebug-spec org-test-with-temp-text (form body))
 
 (defmacro org-test-with-temp-text-in-file (text &rest body)
-  "Run body in a temporary file buffer with Org mode as the active mode."
+  "Run body in a temporary file buffer with Org mode as the active mode.
+If the string \"<point>\" appears in TEXT then remove it and
+place the point there before running BODY, otherwise place the
+point at the beginning of the buffer."
   (declare (indent 1))
-  (let ((results (cl-gensym)))
-    `(let ((file (make-temp-file "org-test"))
-	   (kill-buffer-query-functions nil)
-	   (inside-text (if (stringp ,text) ,text (eval ,text)))
-	   ,results)
-       (with-temp-file file (insert inside-text))
-       (find-file file)
-       (org-mode)
-       (setq ,results (progn ,@body))
-       (save-buffer) (kill-buffer (current-buffer))
-       (delete-file file)
-       ,results)))
+  `(let ((file (make-temp-file "org-test"))
+	 (inside-text (if (stringp ,text) ,text (eval ,text)))
+	 buffer)
+     (with-temp-file file (insert inside-text))
+     (unwind-protect
+	 (progn
+	   (setq buffer (find-file file))
+	   (when (re-search-forward "<point>" nil t)
+	     (replace-match ""))
+	   (org-mode)
+	   (progn ,@body))
+       (let ((kill-buffer-query-functions nil))
+	 (when buffer
+	   (set-buffer buffer)
+	   ;; Ignore changes, we're deleting the file in the next step
+	   ;; anyways.
+	   (set-buffer-modified-p nil)
+	   (kill-buffer))
+	 (delete-file file)))))
 (def-edebug-spec org-test-with-temp-text-in-file (form body))
 
 (defun org-test-table-target-expect (target &optional expect laps
@@ -417,6 +433,58 @@ Load all test files first."
   (org-test-load)
   (ert "\\(org\\|ob\\)")
   (org-test-kill-all-examples))
+
+(defmacro org-test-at-time (time &rest body)
+  "Run body while pretending that the current time is TIME.
+TIME can be a non-nil Lisp time value, or a string specifying a date and time."
+  (declare (indent 1))
+  (let ((tm (cl-gensym))
+	(at (cl-gensym)))
+    `(let* ((,tm ,time)
+	    (,at (if (stringp ,tm)
+		     (apply #'encode-time (org-parse-time-string ,tm))
+		   ,tm)))
+       (cl-letf
+	   ;; Wrap builtins whose behavior can depend on the current time.
+	   (((symbol-function 'current-time)
+	     (lambda () ,at))
+	    ((symbol-function 'current-time-string)
+	     (lambda (&optional time &rest args)
+	       (apply ,(symbol-function 'current-time-string)
+		      (or time ,at) args)))
+	    ((symbol-function 'current-time-zone)
+	     (lambda (&optional time &rest args)
+	       (apply ,(symbol-function 'current-time-zone)
+		      (or time ,at) args)))
+	    ((symbol-function 'decode-time)
+	     (lambda (&optional time) (funcall ,(symbol-function 'decode-time)
+					       (or time ,at))))
+	    ((symbol-function 'encode-time)
+	     (lambda (time &rest args)
+	       (apply ,(symbol-function 'encode-time) (or time ,at) args)))
+	    ((symbol-function 'float-time)
+	     (lambda (&optional time)
+	       (funcall ,(symbol-function 'float-time) (or time ,at))))
+	    ((symbol-function 'format-time-string)
+	     (lambda (format &optional time &rest args)
+	       (apply ,(symbol-function 'format-time-string)
+		      format (or time ,at) args)))
+	    ((symbol-function 'set-file-times)
+	     (lambda (file &optional time)
+	       (funcall ,(symbol-function 'set-file-times) file (or time ,at))))
+	    ((symbol-function 'time-add)
+	     (lambda (a b) (funcall ,(symbol-function 'time-add)
+				    (or a ,at) (or b ,at))))
+	    ((symbol-function 'time-equal-p)
+	     (lambda (a b) (funcall ,(symbol-function 'time-equal-p)
+				    (or a ,at) (or b ,at))))
+	    ((symbol-function 'time-less-p)
+	     (lambda (a b) (funcall ,(symbol-function 'time-less-p)
+				    (or a ,at) (or b ,at))))
+	    ((symbol-function 'time-subtract)
+	     (lambda (a b) (funcall ,(symbol-function 'time-subtract)
+				    (or a ,at) (or b ,at)))))
+	 ,@body))))
 
 (provide 'org-test)
 

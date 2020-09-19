@@ -1,22 +1,24 @@
 ;;; org-num.el --- Dynamic Headlines Numbering  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018-2019  Free Software Foundation, Inc.
+;; Copyright (C) 2018-2020 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <mail@nicolasgoaziou.fr>
 ;; Keywords: outlines, hypermedia, calendar, wp
 
-;; This program is free software; you can redistribute it and/or modify
+;; This file is part of GNU Emacs.
+
+;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
 
-;; This program is distributed in the hope that it will be useful,
+;; GNU Emacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -65,9 +67,10 @@
 (defvar org-comment-string)
 (defvar org-complex-heading-regexp)
 (defvar org-cycle-level-faces)
+(defvar org-footnote-section)
+(defvar org-level-faces)
 (defvar org-n-level-faces)
 (defvar org-odd-levels-only)
-(defvar org-level-faces)
 
 (declare-function org-back-to-heading "org" (&optional invisible-ok))
 (declare-function org-entry-get "org" (pom property &optional inherit literal-nil))
@@ -82,6 +85,7 @@ When nil, use the same face as the headline.  This value is
 ignored if `org-num-format-function' specifies a face for its
 output."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type '(choice (const :tag "Like the headline" nil)
                  (face :tag "Use face"))
   :safe (lambda (val) (or (null val) (facep val))))
@@ -93,6 +97,7 @@ return a string, or nil.  When nil, no numbering is displayed.
 Any `face' text property on the returned string overrides
 `org-num-face'."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type 'function
   :safe nil)
 
@@ -100,6 +105,7 @@ Any `face' text property on the returned string overrides
   "Level below which headlines are not numbered.
 When set to nil, all headlines are numbered."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type '(choice (const :tag "Number everything" nil)
                  (integer :tag "Stop numbering at level"))
   :safe (lambda (val) (or (null val) (wholenump val))))
@@ -107,12 +113,14 @@ When set to nil, all headlines are numbered."
 (defcustom org-num-skip-commented nil
   "Non-nil means commented sub-trees are not numbered."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type 'boolean
   :safe #'booleanp)
 
 (defcustom org-num-skip-footnotes nil
   "Non-nil means footnotes sections are not numbered."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type 'boolean
   :safe #'booleanp)
 
@@ -126,12 +134,14 @@ Tag in this list prevent numbering the whole sub-tree,
 irrespective to `org-use-tags-inheritance', or other means to
 control tag inheritance."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type '(repeat (string :tag "Tag"))
   :safe (lambda (val) (and (listp val) (cl-every #'stringp val))))
 
 (defcustom org-num-skip-unnumbered nil
   "Non-nil means numbering obeys to UNNUMBERED property."
   :group 'org-appearance
+  :package-version '(Org . "9.3")
   :type 'boolean
   :safe #'booleanp)
 
@@ -183,6 +193,11 @@ for headline \"1.2.3\" is (3 2 1).")
 Update `org-num--invalid-flag' accordingly."
   (overlay-put o 'org-num 'invalid)
   (setq org-num--invalid-flag t))
+
+(defun org-num--clear ()
+  "Remove all numbering overlays in current buffer."
+  (mapc #'delete-overlay org-num--overlays)
+  (setq org-num--overlays nil))
 
 (defun org-num--make-overlay (numbering level skip)
   "Return overlay for numbering headline at point.
@@ -239,6 +254,7 @@ otherwise."
              org-footnote-section
              (equal title org-footnote-section))
         (and org-num-skip-commented
+	     title
              (let ((case-fold-search nil))
                (string-match org-num--comment-re title))
              t)
@@ -444,12 +460,17 @@ NUMBERING is a list of numbers."
       (user-error "Cannot activate headline numbering outside Org mode"))
     (setq org-num--numbering nil)
     (setq org-num--overlays (nreverse (org-num--number-region nil nil)))
-    (add-hook 'after-change-functions #'org-num--verify nil t))
+    (add-hook 'after-change-functions #'org-num--verify nil t)
+    (add-hook 'change-major-mode-hook #'org-num--clear nil t))
    (t
-    (mapc #'delete-overlay org-num--overlays)
-    (setq org-num--overlays nil)
-    (remove-hook 'after-change-functions #'org-num--verify t))))
-
+    (org-num--clear)
+    (remove-hook 'after-change-functions #'org-num--verify t)
+    (remove-hook 'change-major-mode-hook #'org-num--clear t))))
 
 (provide 'org-num)
+
+;; Local variables:
+;; generated-autoload-file: "org-loaddefs.el"
+;; End:
+
 ;;; org-num.el ends here

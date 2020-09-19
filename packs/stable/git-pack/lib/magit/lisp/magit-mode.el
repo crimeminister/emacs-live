@@ -401,8 +401,6 @@ recommended value."
     (define-key map (kbd "C-c C-e") 'magit-edit-thing)
     (define-key map (kbd "C-c C-o") 'magit-browse-thing)
     (define-key map (kbd "C-c C-w") 'magit-browse-thing)
-    (define-key map (kbd "C-x a")   'magit-add-change-log-entry)
-    (define-key map (kbd "C-x 4 a") 'magit-add-change-log-entry-other-window)
     (define-key map (kbd "C-w")     'magit-copy-section-value)
     (define-key map (kbd "M-w")     'magit-copy-buffer-revision)
     (define-key map [remap previous-line]      'magit-previous-line)
@@ -514,10 +512,9 @@ which visits the thing at point using `browse-url'."
 Magit is documented in info node `(magit)'."
   :group 'magit
   (hack-dir-local-variables-non-file-buffer)
+  (face-remap-add-relative 'header-line 'magit-header-line)
   (setq mode-line-process (magit-repository-local-get 'mode-line-process))
   (setq-local bookmark-make-record-function 'magit--make-bookmark))
-
-;;; Highlighting
 
 ;;; Local Variables
 
@@ -850,13 +847,13 @@ If a frame, then only consider buffers on that frame."
                  (w (window)
                     (b (window-buffer window)))
                  (f (frame)
-                    (-some #'w (window-list frame 'no-minibuf))))
+                    (seq-some #'w (window-list frame 'no-minibuf))))
         (pcase-exhaustive frame
-          (`nil                   (-some #'b (buffer-list)))
-          (`all                   (-some #'f (frame-list)))
-          (`visible               (-some #'f (visible-frame-list)))
-          ((or `selected `t)      (-some #'w (window-list (selected-frame))))
-          ((guard (framep frame)) (-some #'w (window-list frame)))))
+          (`nil                   (seq-some #'b (buffer-list)))
+          (`all                   (seq-some #'f (frame-list)))
+          (`visible               (seq-some #'f (visible-frame-list)))
+          ((or `selected `t)      (seq-some #'w (window-list (selected-frame))))
+          ((guard (framep frame)) (seq-some #'w (window-list frame)))))
     (magit--not-inside-repository-error)))
 
 (defun magit-mode-get-buffer (mode &optional create frame value)
@@ -1263,7 +1260,8 @@ Later, when the buffer is buried, it may be restored by
 
 (defun magit-insert-xref-buttons ()
   "Insert xref buttons."
-  (when (or help-xref-stack help-xref-forward-stack)
+  (when (and (not magit-buffer-locked-p)
+             (or help-xref-stack help-xref-forward-stack))
     (when help-xref-stack
       (magit-xref-insert-button help-back-label 'magit-xref-backward))
     (when help-xref-forward-stack

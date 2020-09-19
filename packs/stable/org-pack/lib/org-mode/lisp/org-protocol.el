@@ -1,6 +1,6 @@
 ;;; org-protocol.el --- Intercept Calls from Emacsclient to Trigger Custom Actions -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2008-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2020 Free Software Foundation, Inc.
 ;;
 ;; Authors: Bastien Guerry <bzg@gnu.org>
 ;;       Daniel M German <dmg AT uvic DOT org>
@@ -116,6 +116,7 @@
 ;;; Code:
 
 (require 'org)
+(require 'ol)
 
 (declare-function org-publish-get-project-from-filename "ox-publish"
 		  (filename &optional up))
@@ -190,7 +191,7 @@ Example:
           :working-suffix \".org\"
           :base-url \"https://orgmode.org/worg/\"
           :working-directory \"/home/user/org/Worg/\")
-         (\"http://localhost/org-notes/\"
+         (\"localhost org-notes/\"
           :online-suffix \".html\"
           :working-suffix \".org\"
           :base-url \"http://localhost/org/\"
@@ -201,12 +202,17 @@ Example:
           :working-directory \"~/site/content/post/\"
           :online-suffix \".html\"
           :working-suffix \".md\"
-          :rewrites ((\"\\(https://site.com/[0-9]+/[0-9]+/[0-9]+/\\)\" . \".md\")))))
+          :rewrites ((\"\\(https://site.com/[0-9]+/[0-9]+/[0-9]+/\\)\" . \".md\")))
+         (\"GNU emacs OpenGrok\"
+          :base-url \"https://opengrok.housegordon.com/source/xref/emacs/\"
+          :working-directory \"~/dev/gnu-emacs/\")))
 
-
-   The last line tells `org-protocol-open-source' to open
-   /home/user/org/index.php, if the URL cannot be mapped to an existing
-   file, and ends with either \"org\" or \"org/\".
+   The :rewrites line of \"localhost org-notes\" entry tells
+   `org-protocol-open-source' to open /home/user/org/index.php,
+   if the URL cannot be mapped to an existing file, and ends with
+   either \"org\" or \"org/\".  The \"GNU emacs OpenGrok\" entry
+   does not include any suffix properties, allowing local source
+   file to be opened as found by OpenGrok.
 
 Consider using the interactive functions `org-protocol-create' and
 `org-protocol-create-for-org' to help you filling this variable with valid contents."
@@ -277,7 +283,7 @@ This should be a single regexp string."
   :group 'org-protocol
   :version "24.4"
   :package-version '(Org . "8.0")
-  :type 'string)
+  :type 'regexp)
 
 ;;; Helper functions:
 
@@ -298,11 +304,9 @@ SEPARATOR is specified or SEPARATOR is nil, assume \"/+\".  The
 results of that splitting are returned as a list."
   (let* ((sep (or separator "/+\\|\\?"))
          (split-parts (split-string data sep)))
-    (if unhexify
-	(if (fboundp unhexify)
-	    (mapcar unhexify split-parts)
-	  (mapcar 'org-link-unescape split-parts))
-      split-parts)))
+    (cond ((not unhexify) split-parts)
+	  ((fboundp unhexify) (mapcar unhexify split-parts))
+	  (t (mapcar #'org-link-decode split-parts)))))
 
 (defun org-protocol-flatten-greedy (param-list &optional strip-path replacement)
   "Transform PARAM-LIST into a flat list for greedy handlers.
@@ -332,7 +336,7 @@ returned list."
 	 (len 0)
 	 dir
 	 ret)
-    (when (string-match "^\\(.*\\)\\(org-protocol:/+[a-zA-z0-9][-_a-zA-z0-9]*:/+\\)\\(.*\\)" trigger)
+    (when (string-match "^\\(.*\\)\\(org-protocol:/+[a-zA-Z0-9][-_a-zA-Z0-9]*:/+\\)\\(.*\\)" trigger)
       (setq dir (match-string 1 trigger))
       (setq len (length dir))
       (setcar l (concat dir (match-string 3 trigger))))
@@ -350,17 +354,20 @@ returned list."
 	  ret)
       l)))
 
-(defun org-protocol-flatten (list)
-  "Transform LIST into a flat list.
+(defalias 'org-protocol-flatten
+  (if (fboundp 'flatten-tree) 'flatten-tree
+    (lambda (list)
+      "Transform LIST into a flat list.
 
 Greedy handlers might receive a list like this from emacsclient:
 \((\"/dir/org-protocol:/greedy:/~/path1\" (23 . 12)) (\"/dir/param\"))
 where \"/dir/\" is the absolute path to emacsclients working directory.
 This function transforms it into a flat list."
-  (if (null list) ()
-    (if (listp list)
-	(append (org-protocol-flatten (car list)) (org-protocol-flatten (cdr list)))
-      (list list))))
+      (if list
+	  (if (consp list)
+	      (append (org-protocol-flatten (car list))
+		      (org-protocol-flatten (cdr list)))
+	    (list list))))))
 
 (defun org-protocol-parse-parameters (info &optional new-style default-order)
   "Return a property list of parameters from INFO.
@@ -379,11 +386,8 @@ If INFO is already a property list, return it unchanged."
 	      result)
 	  (while data
 	    (setq result
-		  (append
-		   result
-		   (list
-		    (pop data)
-		    (org-link-unescape (pop data))))))
+		  (append result
+			  (list (pop data) (org-link-decode (pop data))))))
 	  result)
       (let ((data (org-protocol-split-data info t org-protocol-data-separator)))
 	(if default-order
@@ -442,9 +446,9 @@ form URL/TITLE can also be used."
     (when (boundp 'org-stored-links)
       (push (list uri title) org-stored-links))
     (kill-new uri)
-    (message "`%s' to insert new org-link, `%s' to insert `%s'"
-             (substitute-command-keys "`\\[org-insert-link]'")
-             (substitute-command-keys "`\\[yank]'")
+    (message "`%s' to insert new Org link, `%s' to insert %S"
+             (substitute-command-keys "\\[org-insert-link]")
+             (substitute-command-keys "\\[yank]")
              uri))
   nil)
 
@@ -491,12 +495,12 @@ Now template ?b will be used."
 	 (region (or (plist-get parts :body) ""))
 	 (orglink
 	  (if (null url) title
-	    (org-make-link-string url (or (org-string-nw-p title) url))))
+	    (org-link-make-string url (or (org-string-nw-p title) url))))
 	 ;; Avoid call to `org-store-link'.
 	 (org-capture-link-is-already-stored t))
     ;; Only store link if there's a URL to insert later on.
     (when url (push (list url title) org-stored-links))
-    (org-store-link-props :type type
+    (org-link-store-props :type type
 			  :link url
 			  :description title
 			  :annotation orglink
@@ -546,11 +550,12 @@ The location for a browser's bookmark should look like this:
 		   ;; ending than strip-suffix here:
 		   (f1 (substring f 0 (string-match "\\([\\?#].*\\)?$" f)))
                    (start-pos (+ (string-match wsearch f1) (length base-url)))
-                   (end-pos (string-match
-			     (regexp-quote strip-suffix) f1))
+                   (end-pos (if strip-suffix
+			      (string-match (regexp-quote strip-suffix) f1)
+			      (length f1)))
 		   ;; We have to compare redirects without suffix below:
 		   (f2 (concat wdir (substring f1 start-pos end-pos)))
-                   (the-file (concat f2 add-suffix)))
+                   (the-file (if add-suffix (concat f2 add-suffix) f2)))
 
 	      ;; Note: the-file may still contain `%C3' et al here because browsers
 	      ;; tend to encode `&auml;' in URLs to `%25C3' - `%25' being `%'.
@@ -618,13 +623,13 @@ CLIENT is ignored."
             (let ((proto
 		   (concat the-protocol
 			   (regexp-quote (plist-get (cdr prolist) :protocol))
-			   "\\(:/+\\|\\?\\)")))
+			   "\\(:/+\\|/*\\?\\)")))
               (when (string-match proto fname)
                 (let* ((func (plist-get (cdr prolist) :function))
                        (greedy (plist-get (cdr prolist) :greedy))
                        (split (split-string fname proto))
                        (result (if greedy restoffiles (cadr split)))
-		       (new-style (string= (match-string 1 fname) "?")))
+		       (new-style (string-match "/*?" (match-string 1 fname))))
                   (when (plist-get (cdr prolist) :kill-client)
 		    (message "Greedy org-protocol handler.  Killing client.")
 		    (server-edit))

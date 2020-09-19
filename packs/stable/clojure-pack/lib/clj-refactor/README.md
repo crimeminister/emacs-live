@@ -5,7 +5,8 @@
 
 # clj-refactor.el
 
-`clj-refactor` provides refactoring support for Clojure projects.
+`clj-refactor` provides refactoring support for Clojure projects. It complements
+the refactoring functionality you'd find in `clojure-mode` and CIDER.
 
 Here's a small teaser, helping you add a missing libspec:
 
@@ -88,6 +89,7 @@ dir`, `change function signature`, `promote function`.
 clj-refactor | refactor-nrepl | CIDER       | Clojure | Java |
 -------------|----------------|-------------|---------|------|
 2.4.0        |  2.4.0         | 0.17, 0.18  | 1.7+    | 8+   |
+2.5.0        |  2.5.0         | 0.24        | 1.8+    | 8+   |
 
 ## Usage
 
@@ -137,7 +139,7 @@ Thanks to [everyone](https://github.com/clojure-emacs/clj-refactor.el/graphs/con
 ## License
 
 Copyright © 2012-2014 Magnar Sveen
-Copyright © 2014-2018 Magnar Sveen, Lars Andersen, Benedek Fazekas
+Copyright © 2014-2020 Magnar Sveen, Lars Andersen, Benedek Fazekas, Bozhidar Batsov
 
 Author: Magnar Sveen <magnars@gmail.com>
         Lars Andersen <expez@expez.com>

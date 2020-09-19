@@ -30,7 +30,8 @@ TIP: In Clojure(Script) buffers the command `cider-jack-in` is bound to kbd:[C-c
 
 The process of jacking-in is pretty simple:
 
-* CIDER shells out and runs a command like `lein repl :headless`.
+* CIDER determines the build system for your project (e.g. Leiningen) and picks the necessary command to start an nREPL server.
+* CIDER shells out and runs a command like `lein repl :headless` to start an nREPL server.
 * CIDER waits for the nREPL server to start.
 CIDER figures out this by parsing the output from the command and waiting for a line like
 `nREPL server started on port 53005 on host localhost - nrepl://localhost:53005` to appear there.
@@ -39,6 +40,17 @@ CIDER figures out this by parsing the output from the command and waiting for a 
 
 TIP: You can see the exact command that `cider-jack-in` invoked in your minibuffer, while
 waiting for nREPL to start. You can also find this command in Emacs's `+*Messages*+` buffer.
+
+In some cases one project might have multiple project markers in it - e.g. `project.clj` and `deps.edn`.
+When this happens CIDER will prompt you to select the build tool to use. You can override this behavior
+by setting the variable `cider-preferred-build-tool`. While you can set it globally in your Emacs config,
+most of the time you'd probably want to have a project-specific setting for it in your `.dir-locals.el`:
+
+[source,emacs-lisp]
+----
+((clojure-mode
+  (cider-preferred-build-tool . lein)))
+----
 
 === Auto-Injecting Dependencies
 
@@ -93,7 +105,7 @@ but was subsequently switched to `clj`, Clojure's basic startup command.
 TIP: You can set `cider-allow-jack-in-without-project` to `t` if you'd like to
 disable the warning displayed when jacking-in outside a project.
 
-=== Customizing the Jack-in Command Behaviour
+=== Customizing the Jack-in Command Behavior
 
 You can use kbd:[C-u M-x] `cider-jack-in` kbd:[RET] to
 specify the exact command that `cider-jack-in` would run.
@@ -107,7 +119,7 @@ in some other directory currently. This option is also useful if your project
 contains some combination of project.clj, build.boot and deps.edn and you want
 to launch a REPL for one or the other.
 
-NOTE: The examples use only `cider-jack-in`, but this behaviour is consistent
+NOTE: The examples use only `cider-jack-in`, but this behavior is consistent
 for all `cider-jack-in-*` commands.
 
 You can further customize the command line CIDER uses for `cider-jack-in` by
@@ -152,7 +164,7 @@ It is also possible for plain `clj`, although the command is somewhat longer:
 
 [source,sh]
 ----
-$ clj -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.21.1"}}}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"
+$ clj -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.25.2"}}}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"
 ----
 
 Alternatively, you can start nREPL either manually or using the facilities
@@ -208,3 +220,11 @@ cause problems with complex or nonstandard ssh configs.
 
 You can safely run `cider-jack-in-*` while working with remote files over TRAMP. CIDER
 will handle this use-case transparently for you.
+
+== What's Next?
+
+So, what to do next now that CIDER's ready for action? Here are a few ideas:
+
+* Get familiar with xref:usage/interactive_programming.adoc[interactive programming] and xref:usage/cider_mode.adoc[cider-mode]
+* xref:config/basic_config.adoc[Configure] CIDER to your liking
+* Explore the xref:additional_packages.adoc[additional packages] that can make you more productive

@@ -1,14 +1,16 @@
 ;;; clj-refactor.el --- A collection of commands for refactoring Clojure code -*- lexical-binding: t -*-
 
 ;; Copyright © 2012-2014 Magnar Sveen
-;; Copyright © 2014-2018 Magnar Sveen, Lars Andersen, Benedek Fazekas
+;; Copyright © 2014-2020 Magnar Sveen, Lars Andersen, Benedek Fazekas, Bozhidar Batsov
 
 ;; Author: Magnar Sveen <magnars@gmail.com>
 ;;         Lars Andersen <expez@expez.com>
 ;;         Benedek Fazekas <benedek.fazekas@gmail.com>
-;; Version: 2.5.0-snapshot
+;;         Bozhidar Batsov <bozhidar@batsov.com>
+;; Version: 2.5.0
 ;; Keywords: convenience, clojure, cider
-;; Package-Requires: ((emacs "25.1") (seq "2.19") (yasnippet "0.6.1") (paredit "24") (multiple-cursors "1.2.2") (clojure-mode "5.6.1") (cider "0.17.0") (edn "1.1.2") (inflections "2.3") (hydra "0.13.2"))
+
+;; Package-Requires: ((emacs "25.1") (seq "2.19") (yasnippet "0.6.1") (paredit "24") (multiple-cursors "1.2.2") (clojure-mode "5.9") (cider "0.24.0") (parseedn "0.1") (inflections "2.3") (hydra "0.13.2"))
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License
@@ -42,7 +44,7 @@
 (require 'multiple-cursors-core)
 (require 'clojure-mode)
 (require 'cider)
-(require 'edn)
+(require 'parseedn)
 (require 'sgml-mode)
 (require 'inflections)
 (require 'hydra)
@@ -162,18 +164,6 @@ will not work as expected in such REPLs."
   :group 'cljr
   :type 'boolean)
 
-(defcustom cljr-find-usages-ignore-analyzer-errors nil
-  "DEPRECATED: use `cljr-ignore-analyzer-errors' instead.
-  If t, `cljr-find-usages' ignores namespaces that cannot be analyzed.
-If any namespaces presents an analyzer error, it is skipped and
-the command carries on looking for the given symbol in those
-namespaces which can be analyzed.
-
-If nil, `cljr-find-usages' won't run if there is a broken
-namespace in the project."
-  :group 'cljr
-  :type 'boolean)
-
 (defcustom cljr-ignore-analyzer-errors nil
   "If t, `cljr-find-usages' `cljr-inline-symbol' `cljr-rename-symbol'
 ignores namespaces that cannot be analyzed.
@@ -185,6 +175,8 @@ If nil, `cljr-find-usages'  `cljr-inline-symbol' `cljr-rename-symbol'
 won't run if there is a broken namespace in the project."
   :group 'cljr
   :type 'boolean)
+
+(define-obsolete-variable-alias 'cljr-find-usages-ignore-analyzer-errors 'cljr-ignore-analyzer-errors "2.3.0")
 
 (defcustom cljr-auto-eval-ns-form t
   "When true refactorings which change the ns form also trigger
@@ -244,8 +236,8 @@ if it appears to be unused."
   :group 'cljr
   :type '(repeat string))
 
-(defvar cljr-minimum-clojure-version "1.7.0"
-  "The oldest clojure version our middleware can tolerate.")
+(defvar cljr-minimum-clojure-version "1.8.0"
+  "The oldest Clojure version supported by our middleware.")
 
 (defvar clj-refactor-map (make-sparse-keymap) "")
 
@@ -823,7 +815,7 @@ A new record is created to define this constructor."
 
 (defun cljr--project-dir ()
   (or
-   (thread-last  '("project.clj" "build.boot" "pom.xml" "deps.edn")
+   (thread-last  '("project.clj" "build.boot" "pom.xml" "deps.edn" "shadow-cljs.edn")
      (mapcar 'cljr--locate-project-file)
      (delete 'nil)
      car)
@@ -842,6 +834,8 @@ A new record is created to define this constructor."
         (let ((file (expand-file-name "pom.xml" project-dir)))
           (and (file-exists-p file) file))
         (let ((file (expand-file-name "deps.edn" project-dir)))
+          (and (file-exists-p file) file))
+        (let ((file (expand-file-name "shadow-cljs.edn" project-dir)))
           (and (file-exists-p file) file)))))
 
 (defun cljr--project-files ()
@@ -965,7 +959,7 @@ Please, install (or update) refactor-nrepl %s and restart the REPL."
 (defun cljr--goto-ns ()
   "Go to the first namespace defining form in the buffer."
   (goto-char (point-min))
-  (if (re-search-forward clojure-namespace-name-regex nil t)
+  (if (re-search-forward clojure-namespace-regexp nil t)
       (cljr--goto-toplevel)
     (error "No namespace declaration found")))
 
@@ -976,10 +970,10 @@ no namespace form above point, return the first one in the buffer."
   (save-restriction
     (widen)
     ;; The closest ns form above point.
-    (when (or (re-search-backward clojure-namespace-name-regex nil t)
+    (when (or (re-search-backward clojure-namespace-regexp nil t)
               ;; Or any form at all.
               (and (goto-char (point-min))
-                   (re-search-forward clojure-namespace-name-regex nil t)))
+                   (re-search-forward clojure-namespace-regexp nil t)))
       (cljr--goto-toplevel))))
 
 (defun cljr--goto-cljs-branch ()
@@ -1909,7 +1903,7 @@ FEATURE is either :clj or :cljs."
     cljr--ensure-op-supported
     cljr--create-msg
     (cljr--call-middleware-sync "namespace-aliases")
-    edn-read))
+    parseedn-read-str))
 
 (defun cljr--get-aliases-from-middleware ()
   (when-let (aliases (cljr--call-middleware-for-namespace-aliases))
@@ -2167,6 +2161,13 @@ If it's present KEY indicates the key to extract from the response."
 (defun cljr--update-artifact-cache ()
   (cljr--call-middleware-async (cljr--create-msg "artifact-list"
                                                  "force" "true")
+                               (lambda (_)
+                                 (when cljr--debug-mode
+                                   (message "Artifact cache updated")))))
+
+(defun cljr--init-artifact-cache ()
+  (cljr--call-middleware-async (cljr--create-msg "artifact-list"
+                                                 "force" "false")
                                (lambda (_)
                                  (when cljr--debug-mode
                                    (message "Artifact cache updated")))))
@@ -2496,7 +2497,8 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-promote-function
       (unless (cljr--empty-buffer-p)
         (goto-char (point-min))
         (while (not (cljr--end-of-buffer-p))
-          (push (edn-read) occurrences))))
+          (dolist (edn (parseedn-read))
+            (push edn occurrences)))))
     occurrences))
 
 (defun cljr--find-symbol (symbol ns callback)
@@ -2514,7 +2516,7 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-promote-function
                             "name" symbol
                             "ignore-paths" cljr-middleware-ignored-paths
                             "ignore-errors"
-                            (when (or cljr-find-usages-ignore-analyzer-errors cljr-ignore-analyzer-errors) "true"))))
+                            (when cljr-ignore-analyzer-errors "true"))))
     (with-current-buffer (with-no-warnings (cider-current-repl-buffer))
       (setq cjr--occurrence-count 0)
       (setq cljr--num-syms -1)
@@ -2525,8 +2527,7 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-promote-function
   (thread-first s (split-string "\\(\r\n\\|[\n\r]\\)") car string-trim))
 
 (defun cljr--project-relative-path (path)
-  "Denormalize PATH to make to make it relative to the project
-root."
+  "Denormalize PATH to make it relative to the project root."
   (string-remove-prefix (cljr--project-dir) path))
 
 (defun cljr--get-valid-filename (hash)
@@ -2551,7 +2552,7 @@ root."
         (when (= cjr--occurrence-count cljr--num-syms)
           (cljr--finalise-find-symbol-buffer cljr--num-syms)))
     (when-let (occurrence-data (nrepl-dict-get occurrence-resp "occurrence"))
-      (let* ((occurrence (edn-read occurrence-data))
+      (let* ((occurrence (parseedn-read-str occurrence-data))
              (occurrence-id (format "%s%s"
                                     (cljr--get-valid-filename occurrence)
                                     (gethash :line-beg occurrence))))
@@ -2690,7 +2691,7 @@ Also adds the alias prefix to all occurrences of public symbols in the namespace
                               "used-ns" ns
                               "file" filename))
            (occurrences (thread-last (cljr--call-middleware-sync request "used-publics")
-                          (edn-read))))
+                          (parseedn-read-str))))
       (cljr--replace-refer-all-with-alias ns occurrences alias))))
 
 (defun cljr--maybe-nses-in-bad-state (response)
@@ -2698,7 +2699,7 @@ Also adds the alias prefix to all occurrences of public symbols in the namespace
                             (lambda (it)
                               (not (stringp (car (last it)))))
                             (thread-first (nrepl-dict-get response "ast-statuses")
-                              edn-read
+                              parseedn-read-str
                               (seq-partition 2)))))
     (when (not (= 0 (length asts-in-bad-state)))
       (user-error (concat "Some namespaces are in a bad state: "
@@ -2711,7 +2712,8 @@ Also adds the alias prefix to all occurrences of public symbols in the namespace
 (defun cljr--warm-ast-cache ()
   (run-hooks 'cljr-before-warming-ast-cache-hook)
   (cljr--call-middleware-async
-   (cljr--create-msg "warm-ast-cache")
+   (cljr--create-msg "warm-ast-cache"
+                     "ignore-paths" cljr-middleware-ignored-paths)
    (lambda (res)
      (run-hook-with-args 'cljr-after-warming-ast-cache-hook res)
      (cljr--maybe-rethrow-error res)
@@ -2880,7 +2882,7 @@ Date. -> Date
                                                         (with-no-warnings (cider-current-session)))
                           (cljr--call-middleware-sync
                            "candidates")))
-    (edn-read candidates)))
+    (parseedn-read-str candidates)))
 
 (defun cljr--get-error-value (response)
   "Gets the error value from the middleware response.
@@ -3060,7 +3062,7 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-add-stubs"
                             (format "%s/%s" alias? (cljr--symbol-suffix interface))
                           interface)
                       (format "%s/%s" (cider-current-ns) interface)))
-         (functions (edn-read (cljr--call-middleware-sync
+         (functions (parseedn-read-str (cljr--call-middleware-sync
                                (cljr--create-msg "stubs-for-interface"
                                                  "interface" interface)
                                "functions"))))
@@ -3201,7 +3203,7 @@ See: https://github.com/clojure-emacs/clj-refactor.el/wiki/cljr-inline-symbol"
                                           "name" symbol-name
                                           "ignore-errors"
                                           (when cljr-ignore-analyzer-errors "true")))
-             (response (edn-read (cljr--call-middleware-sync
+             (response (parseedn-read-str (cljr--call-middleware-sync
                                   extract-definition-request "definition")))
              (definition (gethash :definition response))
              (occurrences (gethash :occurrences response)))
@@ -3277,7 +3279,7 @@ warning by customizing `cljr-suppress-no-project-warning'.)"))))
   (ignore-errors
     (when (cljr--middleware-version) ; check if middleware is running
       (when cljr-populate-artifact-cache-on-startup
-        (cljr--update-artifact-cache))
+        (cljr--init-artifact-cache))
       (when (and (not cljr-warn-on-eval)
                  cljr-eagerly-build-asts-on-startup)
         (cljr--warm-ast-cache)))))
@@ -4121,17 +4123,17 @@ If injecting the dependencies is not preferred set `cljr-inject-dependencies-at-
 (add-hook 'cider-connected-hook #'cljr--init-middleware)
 
 ;; moved to Clojure mode, made obsolete here
-(define-obsolete-variable-alias 'cljr-thread-all-but-last 'clojure-thread-all-but-last "2.3.0-SNAPSHOT")
-(define-obsolete-variable-alias 'cljr-use-metadata-for-privacy 'clojure-use-metadata-for-privacy "2.3.0-SNAPSHOT")
+(define-obsolete-variable-alias 'cljr-thread-all-but-last 'clojure-thread-all-but-last "2.3.0")
+(define-obsolete-variable-alias 'cljr-use-metadata-for-privacy 'clojure-use-metadata-for-privacy "2.3.0")
 
-(define-obsolete-function-alias 'cljr-thread 'clojure-thread "2.3.0-SNAPSHOT")
-(define-obsolete-function-alias 'cljr-thread-first-all 'clojure-thread-first-all "2.3.0-SNAPSHOT")
-(define-obsolete-function-alias 'cljr-thread-last-all 'clojure-thread-last-all "2.3.0-SNAPSHOT")
-(define-obsolete-function-alias 'cljr-unwind 'clojure-unwind "2.3.0-SNAPSHOT")
-(define-obsolete-function-alias 'cljr-unwind-all 'clojure-unwind-all "2.3.0-SNAPSHOT")
-(define-obsolete-function-alias 'cljr-cycle-privacy 'clojure-cycle-privacy "2.3.0-SNAPSHOT")
-(define-obsolete-function-alias 'cljr-cycle-if 'clojure-cycle-if "2.3.0-SNAPSHOT")
-(make-obsolete 'cljr-cycle-coll "reworked into convert collection to list, quoted list, map, vector, set in Clojure mode." "2.3.0-SNAPSHOT")
+(define-obsolete-function-alias 'cljr-thread 'clojure-thread "2.3.0")
+(define-obsolete-function-alias 'cljr-thread-first-all 'clojure-thread-first-all "2.3.0")
+(define-obsolete-function-alias 'cljr-thread-last-all 'clojure-thread-last-all "2.3.0")
+(define-obsolete-function-alias 'cljr-unwind 'clojure-unwind "2.3.0")
+(define-obsolete-function-alias 'cljr-unwind-all 'clojure-unwind-all "2.3.0")
+(define-obsolete-function-alias 'cljr-cycle-privacy 'clojure-cycle-privacy "2.3.0")
+(define-obsolete-function-alias 'cljr-cycle-if 'clojure-cycle-if "2.3.0")
+(make-obsolete 'cljr-cycle-coll "reworked into convert collection to list, quoted list, map, vector, set in Clojure mode." "2.3.0")
 
 ;; ------ minor mode -----------
 ;;;###autoload

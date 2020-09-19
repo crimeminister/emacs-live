@@ -1,6 +1,6 @@
 ;;; org-goto.el --- Fast navigation in an Org buffer  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2020 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -172,7 +172,6 @@ When nil, you can use these keybindings to navigate the buffer:
 (defun org-goto-local-auto-isearch ()
   "Start isearch."
   (interactive)
-  (goto-char (point-min))
   (let ((keys (this-command-keys)))
     (when (eq (lookup-key isearch-mode-map keys) 'isearch-printing-char)
       (isearch-mode t)
@@ -228,7 +227,6 @@ position or nil."
 	 (isearch-hide-immediately nil)
 	 (isearch-search-fun-function
 	  (lambda () #'org-goto--local-search-headings))
-	 (org-goto-selected-point org-goto-exit-command)
 	 (help (or help org-goto-help)))
      (save-excursion
        (save-window-excursion
@@ -236,19 +234,15 @@ position or nil."
 	 (and (get-buffer "*org-goto*") (kill-buffer "*org-goto*"))
 	 (pop-to-buffer-same-window
 	  (condition-case nil
-	      (make-indirect-buffer (current-buffer) "*org-goto*")
-	    (error (make-indirect-buffer (current-buffer) "*org-goto*"))))
-	 (with-output-to-temp-buffer "*Org Help*"
+	      (make-indirect-buffer (current-buffer) "*org-goto*" t)
+	    (error (make-indirect-buffer (current-buffer) "*org-goto*" t))))
+	 (let (temp-buffer-show-function temp-buffer-show-hook)
+	   (with-output-to-temp-buffer "*Org Help*"
 	   (princ (format help (if org-goto-auto-isearch
 				   "  Just type for auto-isearch."
-				 "  n/p/f/b/u to navigate, q to quit."))))
+				 "  n/p/f/b/u to navigate, q to quit.")))))
 	 (org-fit-window-to-buffer (get-buffer-window "*Org Help*"))
-	 (setq buffer-read-only nil)
-	 (let ((org-startup-truncated t)
-	       (org-startup-folded nil)
-	       (org-startup-align-all-tables nil))
-	   (org-mode)
-	   (org-overview))
+	 (org-overview)
 	 (setq buffer-read-only t)
 	 (if (and (boundp 'org-goto-start-pos)
 		  (integer-or-marker-p org-goto-start-pos))
@@ -309,5 +303,9 @@ With a prefix argument, use the alternative interface: e.g., if
       (message "Quit"))))
 
 (provide 'org-goto)
+
+;; Local variables:
+;; generated-autoload-file: "org-loaddefs.el"
+;; End:
 
 ;;; org-goto.el ends here

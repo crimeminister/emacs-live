@@ -9,11 +9,11 @@ environment and we've tried to create points of customization that can
 account for many different peoples' preferences. In this way, you
 should be able to make CIDER as comfortable as possible for *you*.
 
-You can see every single customizable configuration option with the command
-kbd:[M-x customize-group RET cider].
-
 This section doesn't describe every possible customization that CIDER
 offers, but here are some of the most popular.
+
+TIP: You can see every single customizable configuration option with the command
+kbd:[M-x customize-group RET cider].
 
 == Disable Automatic cider-mode in clojure-mode Buffers
 
@@ -43,12 +43,12 @@ CIDER releases).
 
 == Control what window to use when jumping to a definition
 
-By default kbd:[M-.] and other commands that jump to a definition have the following behaviour:
+By default kbd:[M-.] and other commands that jump to a definition have the following behavior:
 
 * If the definition buffer is visible simply switch to it.
 * Otherwise, use the current window to show the definition.
 
-Other behaviour is possible, and is controlled with
+Other behavior is possible, and is controlled with
 `cider-jump-to-pop-to-buffer-actions`; the value of this is passed as the
 `action` argument to `pop-to-buffer`.
 
@@ -73,7 +73,7 @@ For other possibilities, see the documentation for `display-buffer`.
 You jump to `map` in `core.clj` when `core.clj` *_is not_* being displayed in another
 window in the current frame.
 
-With both the default behaviour and the alternative behaviour defined above, the
+With both the default behavior and the alternative behavior defined above, the
 definition of `map` will be shown in the current window.
 
 === Example 2
@@ -81,13 +81,44 @@ definition of `map` will be shown in the current window.
 You jump to `map` in `core.clj` when `core.clj` *_is_* being displayed in another window
 in the current frame.
 
-With the default behaviour, the definition of `map` will be shown in the current
+With the default behavior, the definition of `map` will be shown in the current
 window; you will now have two windows showing `core.clj`, and the existing
 `core.clj` window will be unchanged.
 
-With the alternative behaviour defined above, the definition of `map` will be
+With the alternative behavior defined above, the definition of `map` will be
 shown in the existing `core.clj` window; all windows will show the same buffer as
 before the jump, and the current window will now be the one showing `core.clj`.
+
+== Minibuffer completion
+
+Out-of-the box, CIDER uses the standard `completing-read` Emacs mechanism. While
+it's not fancy it certainly gets the job done (just press kbd:[TAB]). There
+are, however, ways to improve upon the standard completion if you wish to.
+
+=== icomplete
+
+`icomplete` is bundled with Emacs and enhances the default minibuffer completion:
+
+[source,lisp]
+----
+(require 'icomplete)
+----
+
+You can learn more about `icomplete`
+https://www.gnu.org/software/emacs/manual/html_node/emacs/Icomplete.html[here].
+
+=== ido
+
+`ido` is also bundled with Emacs and offers more features than `icomplete`.
+If you are using `ido`, be sure to use both `ido-everywhere`
+and https://github.com/DarwinAwardWinner/ido-completing-read-plus[`ido-completing-read+`].
+You might also want to install https://github.com/lewang/flx[`ido-flex`].
+
+=== ivy (recommended)
+
+If you're fine with installing a third-party package for enhanced minibuffer
+completion you can't go wrong with the modern and versatile
+http://oremacs.com/2015/04/16/ivy-mode/[ivy].
 
 == Log nREPL Communications
 
@@ -153,38 +184,6 @@ if they exist, navigate there rather than report that the file does not
 exist. In the example above, the `.m2` directory is mounted at `/root/.m2`
 and the source at `/src`. These translations would map these locations
 back to the user's computer so that navigation to definition would work.
-
-== Auto-Save Clojure Buffers on Load
-
-Normally, CIDER prompts you to save a modified Clojure buffer when you
-type kbd:[C-c C-k] (`cider-load-buffer`).  You can change this
-behaviour by adjusting `cider-save-file-on-load`.
-
-Don't prompt and don't save:
-
-[source,lisp]
-----
-(setq cider-save-file-on-load nil)
-----
-
-Just save without prompting:
-
-[source,lisp]
-----
-(setq cider-save-file-on-load t)
-----
-
-== Change the Result Prefix for Interactive Evaluation
-
-Change the result prefix for interactive evaluation (not the REPL
-prefix). By default the prefix is `=> `.
-
-[source,lisp]
-----
-(setq cider-eval-result-prefix ";; => ")
-----
-
-To remove the prefix altogether, just set it to the empty string (`""`).
 
 == Use a Local Copy of the JDK API Documentation
 
@@ -274,10 +273,10 @@ or `+*cider-doc*+` are line truncated. You can set
 `cider-special-mode-truncate-lines` to `nil` to make those buffers use word
 wrapping instead of line truncating.
 
-*This variable should be set before loading CIDER* (which means before
-`require`-ing it or autoloading it).
-
 [source,lisp]
 ----
 (setq cider-special-mode-truncate-lines nil)
 ----
+
+IMPORTANT: This variable should be set *before* loading CIDER (which means before
+`require`-ing it or autoloading it).

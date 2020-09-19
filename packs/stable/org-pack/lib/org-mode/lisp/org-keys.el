@@ -1,21 +1,23 @@
 ;;; org-keys.el --- Key bindings for Org mode        -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018 Free Software Foundation, Inc.
+;; Copyright (C) 2018-2020 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <mail@nicolasgoaziou.fr>
 
-;; This program is free software; you can redistribute it and/or modify
+;; This file is part of GNU Emacs.
+
+;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
 
-;; This program is distributed in the hope that it will be useful,
+;; GNU Emacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -24,6 +26,8 @@
 ;; details.
 
 ;;; Code:
+
+(require 'cl-lib)
 
 (defvar org-outline-regexp)
 
@@ -52,7 +56,7 @@
 (declare-function org-clone-subtree-with-time-shift "org" (n &optional shift))
 (declare-function org-columns "org" (&optional global columns-fmt-string))
 (declare-function org-comment-dwim "org" (arg))
-(declare-function org-copy "org" ())
+(declare-function org-refile-copy "org" ())
 (declare-function org-copy-special "org" ())
 (declare-function org-copy-visible "org" (beg end))
 (declare-function org-ctrl-c-ctrl-c "org" (&optional arg))
@@ -144,7 +148,7 @@
 (declare-function org-remove-file "org" (&optional file))
 (declare-function org-resolve-clocks "org" (&optional only-dangling-p prompt-fn last-valid))
 (declare-function org-return "org" (&optional indent))
-(declare-function org-return-indent "org" ())
+(declare-function org-return-and-maybe-indent "org" ())
 (declare-function org-reveal "org" (&optional siblings))
 (declare-function org-schedule "org" (arg &optional time))
 (declare-function org-self-insert-command "org" (N))
@@ -192,10 +196,11 @@
 (declare-function org-todo "org" (&optional arg1))
 (declare-function org-toggle-archive-tag "org" (&optional find-done))
 (declare-function org-toggle-checkbox "org" (&optional toggle-presence))
+(declare-function org-toggle-radio-button "org" (&optional arg))
 (declare-function org-toggle-comment "org" ())
 (declare-function org-toggle-fixed-width "org" ())
 (declare-function org-toggle-inline-images "org" (&optional include-linked))
-(declare-function org-toggle-latex-fragment "org" (&optional arg))
+(declare-function org-latex-preview "org" (&optional arg))
 (declare-function org-toggle-narrow-to-subtree "org" ())
 (declare-function org-toggle-ordered-property "org" ())
 (declare-function org-toggle-pretty-entities "org" ())
@@ -214,7 +219,9 @@
 ;;; Variables
 
 (defvar org-mode-map (make-sparse-keymap)
-  "Keymap fo Org mode.")
+  "Keymap for Org mode.")
+
+(defvaralias 'org-CUA-compatible 'org-replace-disputed-keys)
 
 (defcustom org-replace-disputed-keys nil
   "Non-nil means use alternative key bindings for some keys.
@@ -241,8 +248,6 @@ loading Org."
   :group 'org-startup
   :type 'boolean
   :safe #'booleanp)
-
-(defvaralias 'org-CUA-compatible 'org-replace-disputed-keys)
 
 (defcustom org-disputed-keys
   '(([(shift up)]		. [(meta p)])
@@ -440,19 +445,29 @@ COMMANDS is a list of alternating OLDDEF NEWDEF command names."
 ;;;; TAB key with modifiers
 (org-defkey org-mode-map (kbd "C-i") #'org-cycle)
 (org-defkey org-mode-map (kbd "<tab>") #'org-cycle)
-(org-defkey org-mode-map (kbd "C-<tab>") #'org-force-cycle-archived)
-(org-defkey org-mode-map (kbd "M-<tab>") #'pcomplete)
-(org-defkey org-mode-map (kbd "ESC <tab>") #'pcomplete)
+(org-defkey org-mode-map (kbd "C-c C-<tab>") #'org-force-cycle-archived)
+;; Override text-mode binding to expose `complete-symbol' for
+;; pcomplete functionality.
+(org-defkey org-mode-map (kbd "M-<tab>") nil)
+(org-defkey org-mode-map (kbd "M-TAB") nil)
+(org-defkey org-mode-map (kbd "ESC <tab>") nil)
+(org-defkey org-mode-map (kbd "ESC TAB") nil)
 
 (org-defkey org-mode-map (kbd "<S-iso-leftab>") #'org-shifttab)
 (org-defkey org-mode-map (kbd "S-<tab>") #'org-shifttab)
+(org-defkey org-mode-map (kbd "S-TAB") #'org-shifttab)
 (define-key org-mode-map (kbd "<backtab>") #'org-shifttab)
 
-;;;; RET key with modifiers
+;;;; RET/<return> key with modifiers
 (org-defkey org-mode-map (kbd "S-<return>") #'org-table-copy-down)
+(org-defkey org-mode-map (kbd "S-RET") #'org-table-copy-down)
 (org-defkey org-mode-map (kbd "M-S-<return>") #'org-insert-todo-heading)
+(org-defkey org-mode-map (kbd "M-S-RET") #'org-insert-todo-heading)
 (org-defkey org-mode-map (kbd "ESC S-<return>") #'org-insert-todo-heading)
+(org-defkey org-mode-map (kbd "ESC S-RET") #'org-insert-todo-heading)
+(org-defkey org-mode-map (kbd "M-<return>") #'org-meta-return)
 (org-defkey org-mode-map (kbd "M-RET") #'org-meta-return)
+(org-defkey org-mode-map (kbd "ESC <return>") #'org-meta-return)
 (org-defkey org-mode-map (kbd "ESC RET") #'org-meta-return)
 
 ;;;; Cursor keys with modifiers
@@ -513,10 +528,10 @@ COMMANDS is a list of alternating OLDDEF NEWDEF command names."
   (org-defkey org-mode-map (kbd "C-c C-x <right>") #'org-shiftcontrolright)
   (org-defkey org-mode-map (kbd "C-c C-x <left>") #'org-shiftcontrolleft))
 
-;;;; Narrow map
-(org-defkey narrow-map "s" #'org-narrow-to-subtree)
-(org-defkey narrow-map "b" #'org-narrow-to-block)
-(org-defkey narrow-map "e" #'org-narrow-to-element)
+;;;; Narrowing bindings
+(org-defkey org-mode-map (kbd "C-x n s") #'org-narrow-to-subtree)
+(org-defkey org-mode-map (kbd "C-x n b") #'org-narrow-to-block)
+(org-defkey org-mode-map (kbd "C-x n e") #'org-narrow-to-element)
 
 ;;;; Remap usual Emacs bindings
 (org-remap org-mode-map
@@ -566,7 +581,7 @@ COMMANDS is a list of alternating OLDDEF NEWDEF command names."
 (org-defkey org-mode-map (kbd "C-c C-d") #'org-deadline)
 (org-defkey org-mode-map (kbd "C-c ;") #'org-toggle-comment)
 (org-defkey org-mode-map (kbd "C-c C-w") #'org-refile)
-(org-defkey org-mode-map (kbd "C-c M-w") #'org-copy)
+(org-defkey org-mode-map (kbd "C-c M-w") #'org-refile-copy)
 (org-defkey org-mode-map (kbd "C-c /") #'org-sparse-tree) ;minor-mode reserved
 (org-defkey org-mode-map (kbd "C-c \\") #'org-match-sparse-tree) ;minor-mode r.
 (org-defkey org-mode-map (kbd "C-c RET") #'org-ctrl-c-ret)
@@ -603,7 +618,7 @@ COMMANDS is a list of alternating OLDDEF NEWDEF command names."
 (org-defkey org-mode-map (kbd "C-c C-k") #'org-kill-note-or-show-branches)
 (org-defkey org-mode-map (kbd "C-c #") #'org-update-statistics-cookies)
 (org-defkey org-mode-map (kbd "RET") #'org-return)
-(org-defkey org-mode-map (kbd "C-j") #'org-return-indent)
+(org-defkey org-mode-map (kbd "C-j") #'org-return-and-maybe-indent)
 (org-defkey org-mode-map (kbd "C-c ?") #'org-table-field-info)
 (org-defkey org-mode-map (kbd "C-c SPC") #'org-table-blank-field)
 (org-defkey org-mode-map (kbd "C-c +") #'org-table-sum)
@@ -639,11 +654,12 @@ COMMANDS is a list of alternating OLDDEF NEWDEF command names."
 (org-defkey org-mode-map (kbd "C-c C-x C-d") #'org-clock-display)
 (org-defkey org-mode-map (kbd "C-c C-x x") #'org-dynamic-block-insert-dblock)
 (org-defkey org-mode-map (kbd "C-c C-x C-u") #'org-dblock-update)
-(org-defkey org-mode-map (kbd "C-c C-x C-l") #'org-toggle-latex-fragment)
+(org-defkey org-mode-map (kbd "C-c C-x C-l") #'org-latex-preview)
 (org-defkey org-mode-map (kbd "C-c C-x C-v") #'org-toggle-inline-images)
 (org-defkey org-mode-map (kbd "C-c C-x C-M-v") #'org-redisplay-inline-images)
 (org-defkey org-mode-map (kbd "C-c C-x \\") #'org-toggle-pretty-entities)
 (org-defkey org-mode-map (kbd "C-c C-x C-b") #'org-toggle-checkbox)
+(org-defkey org-mode-map (kbd "C-c C-x C-r") #'org-toggle-radio-button)
 (org-defkey org-mode-map (kbd "C-c C-x p") #'org-set-property)
 (org-defkey org-mode-map (kbd "C-c C-x P") #'org-set-property-and-value)
 (org-defkey org-mode-map (kbd "C-c C-x e") #'org-set-effort)
@@ -909,6 +925,10 @@ a-list placed behind the generic `org-babel-key-prefix'.")
   (interactive)
   (describe-bindings org-babel-key-prefix))
 
-
 (provide 'org-keys)
+
+;; Local variables:
+;; generated-autoload-file: "org-loaddefs.el"
+;; End:
+
 ;;; org-keys.el ends here

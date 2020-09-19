@@ -1,5 +1,6 @@
-[![Melpa Status](http://melpa.org/packages/exec-path-from-shell-badge.svg)](http://melpa.milkbox.net/#/exec-path-from-shell)
+[![Melpa Status](http://melpa.org/packages/exec-path-from-shell-badge.svg)](https://melpa.org/#/exec-path-from-shell)
 [![Melpa Stable Status](http://stable.melpa.org/packages/exec-path-from-shell-badge.svg)](http://stable.melpa.org/#/exec-path-from-shell)
+[![Build Status](https://github.com/purcell/exec-path-from-shell/workflows/CI/badge.svg)](https://github.com/purcell/exec-path-from-shell/actions)
 <a href="https://www.patreon.com/sanityinc"><img alt="Support me" src="https://img.shields.io/badge/Support%20Me-%F0%9F%92%97-ff69b4.svg"></a>
 
 # exec-path-from-shell
@@ -12,8 +13,9 @@ the same as in the user's shell.
 
 Ever find that a command works in your shell, but not in Emacs?
 
-This happens a lot on OS X, where an Emacs instance started from the GUI inherits a
-default set of environment variables.
+This happens a lot on OS X, where an Emacs instance launched as a GUI app inherits a
+default minimal set of environment variables that are probably not the ones you see
+in a terminal window.
 
 This library solves this problem by copying important environment
 variables from the user's shell: it works by asking your shell to print out the
@@ -55,8 +57,8 @@ Add the following to your `init.el` (after calling `package-initialize`):
   (exec-path-from-shell-initialize))
 ```
 
-This sets `$MANPATH`, `$PATH` and `exec-path` from your shell, but only on OS X
-and Linux.
+This sets `$MANPATH`, `$PATH` and `exec-path` from your shell, but only
+when executed in a GUI frame on OS X and Linux.
 
 You can copy values of other environment variables by customizing
 `exec-path-from-shell-variables` before invoking
@@ -96,6 +98,14 @@ set up properly, you can set `exec-path-from-shell-arguments`
 appropriately (often to `nil`) before calling
 `exec-path-from-shell-initialize` to avoid this overhead.
 
+To learn more about how popular shells load start-up files, read
+[this helpful article](https://blog.flowblok.id.au/2013-02/shell-startup-scripts.html).
+
+Making `exec-path-from-shell` faster
+------------------------------------
+
+* Invoking the shell has a non-trivial overhead. Don't call `exec-path-from-shell-copy-env` repeatedly, since each invocation starts a shell. Instead, set `exec-path-from-shell-variables` to the full list of vars you want, and call `exec-path-from-shell-initialize` once.
+* Non-interactive shells start up faster. Follow the steps in the section above so that you can run your shell without `-i` and still get the right environment variable settings. When `"-i"` is then removed from `exec-path-from-shell-arguments`, this package becomes more efficient.
 
 Further help
 ------------
@@ -105,3 +115,14 @@ Further help
 
 
 [download]: https://github.com/purcell/exec-path-from-shell/tags
+
+<hr>
+
+
+[💝 Support this project and my other Open Source work via Patreon](https://www.patreon.com/sanityinc)
+
+[💼 LinkedIn profile](https://uk.linkedin.com/in/stevepurcell)
+
+[✍ sanityinc.com](http://www.sanityinc.com/)
+
+[🐦 @sanityinc](https://twitter.com/sanityinc)

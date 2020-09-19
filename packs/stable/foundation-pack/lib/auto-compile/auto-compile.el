@@ -1,12 +1,12 @@
 ;;; auto-compile.el --- automatically compile Emacs Lisp libraries  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2018  Jonas Bernoulli
+;; Copyright (C) 2008-2019  Jonas Bernoulli
 
 ;; Author: Jonas Bernoulli <jonas@bernoul.li>
 ;; Homepage: https://github.com/emacscollective/auto-compile
 ;; Keywords: compile, convenience, lisp
 
-;; Package-Requires: ((emacs "24.3") (packed "2.0.0"))
+;; Package-Requires: ((emacs "25.1") (packed "3.0.0"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -68,7 +68,6 @@
 ;;
 ;;     ;;; init.el --- user init file
 ;;     (setq load-prefer-newer t)
-;;     (add-to-list 'load-path "/path/to/dash")
 ;;     (add-to-list 'load-path "/path/to/packed")
 ;;     (add-to-list 'load-path "/path/to/auto-compile")
 ;;     (require 'auto-compile)
@@ -81,6 +80,18 @@
 ;; from the protection offered by `load-prefer-newer' and the modes
 ;; that are defined here, otherwise `~/.emacs.d/init.el' is the only
 ;; exception.
+
+;; If you are using Emacs 27 or later, then these settings should be
+;; placed in `early-init.el', which should never be compiled:
+
+;;     ;;; early-init.el --- early bird  -*- no-byte-compile: t -*-
+;;     (setq load-prefer-newer t)
+;;     (add-to-list 'load-path "/path/to/packed")
+;;     (add-to-list 'load-path "/path/to/auto-compile")
+;;     (require 'auto-compile)
+;;     (auto-compile-on-load-mode)
+;;     (auto-compile-on-save-mode)
+;;     ;;; early-init.el ends here
 
 ;; Usage
 ;; -----
@@ -465,9 +476,9 @@ pretend the byte code file exists.")
 (defvar auto-compile-file-buffer nil)
 (defvar-local auto-compile-warnings 0)
 
-(defadvice byte-compile-log-warning
-  (before auto-compile-count-warnings activate)
-  ;; (STRING &optional FILL LEVEL)
+(define-advice byte-compile-log-warning
+    (:before (_string &optional _fill _level) auto-compile)
+  "Increment local value of `auto-compile-warnings'."
   (when auto-compile-file-buffer
     (with-current-buffer auto-compile-file-buffer
       (cl-incf auto-compile-warnings))))
@@ -583,25 +594,25 @@ pretend the byte code file exists.")
   (when auto-compile-ding
     (ding)))
 
-(defadvice save-buffers-kill-emacs
-  (around auto-compile-dont-mark-failed-modified disable)
-  "Set `auto-compile-mark-failed-modified' to nil when killing Emacs.
+(define-advice save-buffers-kill-emacs
+    (:around (fn &optional arg) auto-compile)
+  "Bind `auto-compile-mark-failed-modified' to nil when killing Emacs.
 If the regular value of this variable is non-nil the user might
 still be asked whether she wants to save modified buffers, which
 she actually did already safe.  This advice ensures she at least
 is only asked once about each such file."
   (let ((auto-compile-mark-failed-modified nil))
-    ad-do-it))
+    (funcall fn arg)))
 
-(defadvice save-buffers-kill-terminal
-  (around auto-compile-dont-mark-failed-modified disable)
-  "Set `auto-compile-mark-failed-modified' to nil when killing Emacs.
+(define-advice save-buffers-kill-terminal
+    (:around (fn &optional arg) auto-compile)
+  "Bind `auto-compile-mark-failed-modified' to nil when killing Emacs.
 If the regular value of this variable is non-nil the user might
 still be asked whether she wants to save modified buffers, which
 she actually did already safe.  This advice ensures she at least
 is only asked once about each such file."
   (let ((auto-compile-mark-failed-modified nil))
-    ad-do-it))
+    (funcall fn arg)))
 
 ;; REDEFINE autoload-save-buffers defined in autoload.el
 ;; - verify buffers are still live before killing them
@@ -730,35 +741,30 @@ byte code file would be loaded instead.
 Also see the related `auto-compile-on-save-mode'."
   :lighter auto-compile-on-load-mode-lighter
   :group 'auto-compile
-  :global t
-  (cond (auto-compile-on-load-mode
-         (ad-enable-advice  'load    'before 'auto-compile-on-load)
-         (ad-enable-advice  'require 'before 'auto-compile-on-load)
-         (ad-activate 'load)
-         (ad-activate 'require))
-        (t
-         (ad-disable-advice 'load    'before 'auto-compile-on-load)
-         (ad-disable-advice 'require 'before 'auto-compile-on-load))))
+  :global t)
 
 (defvar auto-compile-on-load-mode-lighter ""
   "Mode lighter for Auto-Compile-On-Load Mode.")
 
-(defadvice load (before auto-compile-on-load disable)
-  ;; (file &optional noerror nomessage nosuffix must-suffix)
+(define-advice load
+    (:before (file &optional _noerror _nomessage nosuffix _must-suffix)
+             auto-compile)
   "Before loading the library recompile it if it needs recompilation.
-It needs recompilation if it is newer than the byte-compile
-destination.  Without this advice the outdated byte-compiled
-file would get loaded."
-  (auto-compile-on-load file nosuffix))
+If `auto-compile-on-load-mode' isn't enabled, then do nothing.
+It needs recompilation if it is newer than the byte-code file.
+Without this advice the outdated source file would get loaded."
+  (when auto-compile-on-load-mode
+    (auto-compile-on-load file nosuffix)))
 
-(defadvice require (before auto-compile-on-load disable)
-  ;; (feature &optional FILENAME NOERROR)
+(define-advice require
+    (:before (feature &optional filename _noerror) auto-compile)
   "Before loading the library recompile it if it needs recompilation.
-It needs recompilation if it is newer than the byte-compile
-destination.  Without this advice the outdated byte-compiled
-file would get loaded."
-  (unless (featurep feature)
-    (auto-compile-on-load (or filename (symbol-name feature)))))
+If `auto-compile-on-load-mode' isn't enabled, then do nothing.
+It needs recompilation if it is newer than the byte-code file.
+Without this advice the outdated source file would get loaded."
+  (when auto-compile-on-load-mode
+    (unless (featurep feature)
+      (auto-compile-on-load (or filename (symbol-name feature))))))
 
 (defvar auto-compile--loading nil)
 

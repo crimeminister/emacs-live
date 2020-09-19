@@ -205,6 +205,32 @@ Paragraph 2"
 
 (ert-deftest test-org-lint/obsolete-properties-drawer ()
   "Test `org-lint-obsolete-properties-drawer' checker."
+  (should-not
+   (org-test-with-temp-text "
+* H
+:PROPERTIES:
+:SOMETHING: foo
+:END:"
+     (org-lint '(obsolete-properties-drawer))))
+  (should-not
+   (org-test-with-temp-text "
+* H
+SCHEDULED: <2012-03-29>
+:PROPERTIES:
+:SOMETHING: foo
+:END:"
+     (org-lint '(obsolete-properties-drawer))))
+  (should-not
+   (org-test-with-temp-text ":PROPERTIES:
+:SOMETHING: foo
+:END:"
+     (org-lint '(obsolete-properties-drawer))))
+  (should-not
+   (org-test-with-temp-text "# Comment
+:PROPERTIES:
+:SOMETHING: foo
+:END:"
+     (org-lint '(obsolete-properties-drawer))))
   (should
    (org-test-with-temp-text "
 * H
@@ -218,6 +244,12 @@ Paragraph
 * H
 :PROPERTIES:
 This is not a node property
+:END:"
+     (org-lint '(obsolete-properties-drawer))))
+  (should
+   (org-test-with-temp-text "Paragraph
+:PROPERTIES:
+:FOO: bar
 :END:"
      (org-lint '(obsolete-properties-drawer)))))
 
@@ -240,6 +272,9 @@ This is not a node property
   "Test `org-lint-non-existent-setupfile-parameter' checker."
   (should
    (org-test-with-temp-text "#+setupfile: Idonotexist.org"
+     (org-lint '(non-existent-setupfile-parameter))))
+  (should-not
+   (org-test-with-temp-text "#+setupfile: https://I.do/not.exist.org"
      (org-lint '(non-existent-setupfile-parameter)))))
 
 (ert-deftest test-org-lint/wrong-include-link-parameter ()
@@ -358,6 +393,9 @@ SCHEDULED: <2012-03-29 thu.>"
   (should
    (org-test-with-temp-text ":DRAWER:"
      (org-lint '(incomplete-drawer))))
+  (should
+   (org-test-with-temp-text ":DRAWER:\n:ODD:\n:END:"
+     (org-lint '(incomplete-drawer))))
   (should-not
    (org-test-with-temp-text ":DRAWER:\n:END:"
      (org-lint '(incomplete-drawer)))))
@@ -414,6 +452,33 @@ SCHEDULED: <2012-03-29 thu.>"
   (should
    (org-test-with-temp-text "[[file+emacs:foo.org]]"
      (org-lint '(file-application)))))
+
+(ert-deftest test-org-lint/percenc-encoding-link-escape ()
+  "Test `org-lint-percent-encoding-link-escape' checker."
+  (should
+   (org-test-with-temp-text "[[A%20B]]"
+     (org-lint '(percent-encoding-link-escape))))
+  (should
+   (org-test-with-temp-text "[[%5Bfoo%5D]]"
+     (org-lint '(percent-encoding-link-escape))))
+  (should
+   (org-test-with-temp-text "[[A%2520B]]"
+     (org-lint '(percent-encoding-link-escape))))
+  (should-not
+   (org-test-with-temp-text "[[A B]]"
+     (org-lint '(percent-encoding-link-escape))))
+  (should-not
+   (org-test-with-temp-text "[[A%30B]]"
+     (org-lint '(percent-encoding-link-escape))))
+  (should-not
+   (org-test-with-temp-text "[[A%20%30B]]"
+     (org-lint '(percent-encoding-link-escape))))
+  (should-not
+   (org-test-with-temp-text "<file:A%20B>"
+     (org-lint '(percent-encoding-link-escape))))
+  (should-not
+   (org-test-with-temp-text "[[A B%]]"
+     (org-lint '(percent-encoding-link-escape)))))
 
 (ert-deftest test-org-lint/wrong-header-argument ()
   "Test `org-lint-wrong-header-argument' checker."

@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2009-2013 Takeshi Banse <takebi@laafc.net>
 ;; Author: Takeshi Banse <takebi@laafc.net>
-;; Version: 0.5.0
+;; Version: 0.6.0
 ;; Keywords: lisp, highlight, convenience
 ;; Package-Requires: ((cl-lib "0"))
 
@@ -82,6 +82,10 @@
 
 ;;; History:
 
+;; v0.6.0
+;; Fix (bounds-of-thing-at-point 'sexp) usage.
+;; Nicer face, Sly and Geiser modes support, thank you very much, teymuri.
+
 ;; v0.5.0
 ;; Remove dependency on highlight.el
 ;; Thank you very much, yuhan0.
@@ -124,7 +128,7 @@
 
 ;;; Flashing the sexps during the evaluation for just an eye candy.
 (defface eval-sexp-fu-flash
-  '((((class color)) (:background "blue" :foreground "white" :bold t))
+  '((((class color)) (:background "slate blue"))
     (t (:inverse-video t)))
   "Face for highlighting sexps during evaluation."
   :group 'eval-sexp-fu)
@@ -422,7 +426,9 @@ such that ignores any prefix arguments."
   (define-eval-sexp-fu-flash-command eval-last-sexp
     (eval-sexp-fu-flash (when (ignore-errors (elisp--preceding-sexp))
                           (with-esf-end-of-sexp
-                            (bounds-of-thing-at-point 'sexp)))))
+                            (save-excursion
+                              (backward-sexp)
+                              (bounds-of-thing-at-point 'sexp))))))
   (define-eval-sexp-fu-flash-command eval-defun
     (eval-sexp-fu-flash (when (ignore-errors (elisp--preceding-sexp))
                           (save-excursion
@@ -439,12 +445,16 @@ such that ignores any prefix arguments."
 (defun esf-initialize-slime ()
   (define-eval-sexp-fu-flash-command slime-eval-last-expression
     (eval-sexp-fu-flash (with-esf-end-of-sexp
-                          (when (slime-sexp-at-point)
-                            (bounds-of-thing-at-point 'sexp)))))
+                          (save-excursion
+                            (when (slime-sexp-at-point)
+                              (backward-sexp)
+                              (bounds-of-thing-at-point 'sexp))))))
   (define-eval-sexp-fu-flash-command slime-pprint-eval-last-expression
     (eval-sexp-fu-flash (with-esf-end-of-sexp
-                          (when (slime-sexp-at-point)
-                            (bounds-of-thing-at-point 'sexp)))))
+                          (save-excursion
+                            (when (slime-sexp-at-point)
+                              (backward-sexp)
+                              (bounds-of-thing-at-point 'sexp))))))
   (define-eval-sexp-fu-flash-command slime-eval-defun
     (eval-sexp-fu-flash (save-excursion
                           (slime-end-of-defun)
@@ -461,10 +471,76 @@ such that ignores any prefix arguments."
     (define-eval-sexp-fu-eval-sexp eval-sexp-fu-slime-pprint-eval-expression
         slime-pprint-eval-last-expression)))
 
+;;; ateym added support for the Sly mode
+(defun esf-initialize-sly ()
+  "Enriching Sly."
+  ;; Same Slime functions for Sly
+  (define-eval-sexp-fu-flash-command sly-eval-last-expression
+    (eval-sexp-fu-flash (with-esf-end-of-sexp
+                          (when (sly-sexp-at-point)
+                            (bounds-of-thing-at-point 'sexp)))))
+  (define-eval-sexp-fu-flash-command sly-pprint-eval-last-expression
+    (eval-sexp-fu-flash (with-esf-end-of-sexp
+                          (when (sly-sexp-at-point)
+                            (bounds-of-thing-at-point 'sexp)))))
+  (define-eval-sexp-fu-flash-command sly-eval-defun
+    (eval-sexp-fu-flash (save-excursion
+                          (end-of-defun)
+                          (beginning-of-defun)
+                          (when (sly-sexp-at-point)
+                            (bounds-of-thing-at-point 'sexp)))))
+  (progn
+    ;; Defines:
+    ;; `eval-sexp-fu-sly-eval-expression-inner-list',
+    ;; `eval-sexp-fu-sly-eval-expression-inner-sexp'
+    ;; and the pprint variants respectively.
+    (define-eval-sexp-fu-eval-sexp eval-sexp-fu-sly-eval-defun
+        sly-eval-defun)
+    (define-eval-sexp-fu-eval-sexp eval-sexp-fu-sly-eval-expression
+        sly-eval-last-expression)
+    (define-eval-sexp-fu-eval-sexp eval-sexp-fu-sly-pprint-eval-expression
+        sly-pprint-eval-last-expression)))
+
+;;; Geiser Scheme Mode
+(defun geiser-bounds-of-define ()
+  (cons (save-excursion
+          (beginning-of-defun)
+          (point))
+	(save-excursion
+          (end-of-defun)
+          (point))))
+
+(defun geiser-bounds-of-last-sexp ()
+  (cons (save-excursion
+          (backward-sexp)
+          (point))
+        (point)))
+
+(defun esf-initialize-geiser ()
+  ;; last sexp
+  (define-eval-sexp-fu-flash-command geiser-eval-last-sexp
+    (eval-sexp-fu-flash (geiser-bounds-of-last-sexp)))
+  (define-eval-sexp-fu-eval-sexp eval-sexp-fu-geiser-eval-sexp
+    geiser-eval-last-sexp)
+  ;; ;; region
+  ;; (define-eval-sexp-fu-flash-command geiser-eval-region
+  ;;   (eval-sexp-fu-flash (scmesf--bounds-of-region)))
+  ;; (define-eval-sexp-fu-eval-sexp eval-sexp-fu-geiser-eval-region
+  ;;   geiser-eval-region)
+  ;; define
+  (define-eval-sexp-fu-flash-command geiser-eval-definition
+    (eval-sexp-fu-flash (geiser-bounds-of-define)))
+  (define-eval-sexp-fu-eval-sexp eval-sexp-fu-geiser-eval-define
+    geiser-eval-definition))
+
 (eval-when (load eval)
   (esf-initialize)
   (eval-after-load 'slime
-    '(esf-initialize-slime)))
+    '(esf-initialize-slime))
+  (eval-after-load 'sly
+    '(esf-initialize-sly))
+  (eval-after-load 'geiser
+    '(esf-initialize-geiser)))
 
 (eval-when nil
   (when (fboundp 'expectations)

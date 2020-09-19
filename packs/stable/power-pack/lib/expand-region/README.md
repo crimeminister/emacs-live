@@ -17,7 +17,25 @@ You can set it up like this:
     (require 'expand-region)
     (global-set-key (kbd "C-=") 'er/expand-region)
 
-If you expand too far, you can contract the region by pressing `-` (minus key).
+If you expand too far, you can contract the region by pressing `-` (minus key),
+or by prefixing the shortcut you defined with a negative argument: `C-- C-=`.
+
+## Maintenance warning
+
+I use this package every day, and have been doing so for years. It just works.
+At least, it works for all my use cases. And if it breaks somehow, I fix it.
+
+However, it has become painfully clear to me that I don't have time to fix
+problems I don't have. It's been years since I could keep pace with the issues
+and pull requests. Whenever I try, I keep getting feedback that my fix isn't
+good enough by some standard I don't particularly care about.
+
+So, I have closed the issue tracker and the pull requests. I hope you can
+happily use this package, just like I do. If it doesn't work for you, then I'm
+sorry. Thankfully Emacs is infinitely malleable, you can probably fix it
+yourself.
+
+TLDR: *I am still maintaining this package*, but I am no longer crowdsourcing a list of issues.
 
 ## Video
 
@@ -27,8 +45,7 @@ You can [watch an intro to expand-region at Emacs Rocks](http://emacsrocks.com/e
 
 I highly recommend installing expand-region through elpa.
 
-It's available on [marmalade](http://marmalade-repo.org/) and
-[melpa](http://melpa.milkbox.net/):
+It's available on [MELPA](https://melpa.org/):
 
     M-x package-install expand-region
 
@@ -144,7 +161,26 @@ Thanks!
 
 ## Changelog
 
+### From 0.11 to 0.12 (WIP)
+
+* Option `expand-region-subword-enabled` to enable subword expansions
+* Improve web-mode expansions (Renato F)
+* Fixes for cc-mode expansions (Wilfred Hughes)
+* Fixes for org-mode expansions (Wilfred Hughes)
+* Fix unnecessary unfolding in org-mode
+* Fix bug with transient-mark-mode (Russell Black)
+* Fix problems with auto-loading (Philippe Vaucher, Wilfred Hughes)
+
+### From 0.10 to 0.11
+
 * Option `expand-region-smart-cursor` to keep cursor at beginning of region if it is there (Andrea Orru)
+* Add subword-mode expansions (Lefteris Karapetsas)
+* Improve enh-ruby-mode expansions (Ryan Davis)
+* Improve nxml-mode expansions (Maksim Grinman)
+* Improve org-mode expansions (Matt Price)
+* Improve js-mode expansions
+* Better performance
+* Lots of bugfixes
 
 ### From 0.9 to 0.10
 
@@ -181,7 +217,7 @@ Thanks!
 
 ## License
 
-Copyright (C) 2011-2016 Magnar Sveen
+Copyright (C) 2011-2019 Magnar Sveen
 
 Author: Magnar Sveen <magnars@gmail.com>
 Keywords: marking region

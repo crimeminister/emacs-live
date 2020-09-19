@@ -1,6 +1,6 @@
 ;;; org-macs.el --- Top-level Definitions for Org -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2020 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -31,8 +31,10 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'format-spec)
 
+(declare-function org-show-context "org" (&optional key))
 (declare-function org-string-collate-lessp "org-compat" (s1 s2 &optional locale ignore-case))
 
 (defvar org-ts-regexp0)
@@ -121,7 +123,7 @@ means that the buffer should stay alive during the operation,
 because otherwise all these markers will point to nowhere."
   (declare (debug (form body)) (indent 1))
   (org-with-gensyms (data invisible-types markers?)
-    `(let* ((,invisible-types '(org-hide-block org-hide-drawer outline))
+    `(let* ((,invisible-types '(org-hide-block outline))
 	    (,markers? ,use-markers)
 	    (,data
 	     (mapcar (lambda (o)
@@ -192,24 +194,21 @@ because otherwise all these markers will point to nowhere."
        (when local-variables
 	 (org-with-wide-buffer
 	  (goto-char (point-max))
-	  (unless (bolp) (insert "\n"))
-	  (insert local-variables))))))
+	  ;; If last section is folded, make sure to also hide file
+	  ;; local variables after inserting them back.
+	  (let ((overlay
+		 (cl-find-if (lambda (o)
+			       (eq 'outline (overlay-get o 'invisible)))
+			     (overlays-at (1- (point))))))
+	    (unless (bolp) (insert "\n"))
+	    (insert local-variables)
+	    (when overlay
+	      (move-overlay overlay (overlay-start overlay) (point-max)))))))))
 
 (defmacro org-no-popups (&rest body)
   "Suppress popup windows and evaluate BODY."
   `(let (pop-up-frames display-buffer-alist)
      ,@body))
-
-(defmacro org-table-with-shrunk-field (&rest body)
-  "Save field shrunk state, execute BODY and restore state."
-  (declare (debug (body)))
-  (org-with-gensyms (end shrunk size)
-    `(let* ((,shrunk (save-match-data (org-table--shrunk-field)))
-	    (,end (and ,shrunk (copy-marker (overlay-end ,shrunk) t)))
-	    (,size (and ,shrunk (- ,end (overlay-start ,shrunk)))))
-       (when ,shrunk (delete-overlay ,shrunk))
-       (unwind-protect (progn ,@body)
-	 (when ,shrunk (move-overlay ,shrunk (- ,end ,size) ,end))))))
 
 
 ;;; Buffer and windows
@@ -337,7 +336,7 @@ if it fails."
 		 (let ((min-ind (point-max)))
 		   (save-excursion
 		     (while (re-search-forward "^[ \t]*\\S-" nil t)
-		       (let ((ind (1- (current-column))))
+		       (let ((ind (current-indentation)))
 			 (if (zerop ind) (throw :exit nil)
 			   (setq min-ind (min min-ind ind))))))
 		   min-ind))))
@@ -418,6 +417,7 @@ is selected, only the bare key is returned."
     (let ((inhibit-quit t)
 	  (buffer (org-switch-to-buffer-other-window "*Org Select*"))
 	  (prompt (or prompt "Select: "))
+	  case-fold-search
 	  current)
       (unwind-protect
 	  (catch 'exit
@@ -587,15 +587,6 @@ Optional argument REGEXP selects variables to clone."
 		  (or (null regexp) (string-match-p regexp (symbol-name name))))
 	 (ignore-errors (set (make-local-variable name) value)))))))
 
-
-
-;;; Logic
-
-(defsubst org-xor (a b)
-  "Exclusive `or'."
-  (if a (not b) b))
-
-
 
 ;;; Miscellaneous
 
@@ -643,7 +634,7 @@ program is needed for, so that the error message can be more informative."
 (defvar org-inlinetask-min-level) ; defined in org-inlinetask.el
 (defun org-get-limited-outline-regexp ()
   "Return outline-regexp with limited number of levels.
-The number of levels is controlled by `org-inlinetask-min-level'"
+The number of levels is controlled by `org-inlinetask-min-level'."
   (cond ((not (derived-mode-p 'org-mode))
 	 outline-regexp)
 	((not (featurep 'org-inlinetask))
@@ -654,6 +645,25 @@ The number of levels is controlled by `org-inlinetask-min-level'"
 			    (1- (* limit-level 2))
 			  limit-level)))
 	   (format "\\*\\{1,%d\\} " nstars)))))
+
+(defun org--line-empty-p (n)
+  "Is the Nth next line empty?
+Counts the current line as N = 1 and the previous line as N = 0;
+see `beginning-of-line'."
+  (and (not (bobp))
+       (save-excursion
+	 (beginning-of-line n)
+	 (looking-at-p "[ \t]*$"))))
+
+(defun org-previous-line-empty-p ()
+  "Is the previous line a blank line?
+When NEXT is non-nil, check the next line instead."
+  (org--line-empty-p 0))
+
+(defun org-next-line-empty-p ()
+  "Is the previous line a blank line?
+When NEXT is non-nil, check the next line instead."
+  (org--line-empty-p 2))
 
 
 
@@ -706,7 +716,9 @@ SPEC is the invisibility spec, as a symbol."
     (let ((o (make-overlay from to nil 'front-advance)))
       (overlay-put o 'evaporate t)
       (overlay-put o 'invisible spec)
-      (overlay-put o 'isearch-open-invisible #'delete-overlay))))
+      (overlay-put o
+		   'isearch-open-invisible
+		   (lambda (&rest _) (org-show-context 'isearch))))))
 
 
 
@@ -931,7 +943,8 @@ if necessary."
   (if (<= (length s) maxlength)
       s
     (let* ((n (max (- maxlength 4) 1))
-	   (re (concat "\\`\\(.\\{1," (int-to-string n) "\\}[^ ]\\)\\([ ]\\|\\'\\)")))
+	   (re (concat "\\`\\(.\\{1," (number-to-string n)
+		       "\\}[^ ]\\)\\([ ]\\|\\'\\)")))
       (if (string-match re s)
 	  (concat (match-string 1 s) "...")
 	(concat (substring s 0 (max (- maxlength 3) 0)) "...")))))
@@ -991,6 +1004,43 @@ as-is if removal failed."
     (insert code)
     (if (org-do-remove-indentation n) (buffer-string) code)))
 
+(defun org-fill-template (template alist)
+  "Find each %key of ALIST in TEMPLATE and replace it."
+  (let ((case-fold-search nil))
+    (dolist (entry (sort (copy-sequence alist)
+                         (lambda (a b) (< (length (car a)) (length (car b))))))
+      (setq template
+	    (replace-regexp-in-string
+	     (concat "%" (regexp-quote (car entry)))
+	     (or (cdr entry) "") template t t)))
+    template))
+
+(defun org-replace-escapes (string table)
+  "Replace %-escapes in STRING with values in TABLE.
+TABLE is an association list with keys like \"%a\" and string values.
+The sequences in STRING may contain normal field width and padding information,
+for example \"%-5s\".  Replacements happen in the sequence given by TABLE,
+so values can contain further %-escapes if they are define later in TABLE."
+  (let ((tbl (copy-alist table))
+	(case-fold-search nil)
+        (pchg 0)
+        re rpl)
+    (dolist (e tbl)
+      (setq re (concat "%-?[0-9.]*" (substring (car e) 1)))
+      (when (and (cdr e) (string-match re (cdr e)))
+        (let ((sref (substring (cdr e) (match-beginning 0) (match-end 0)))
+              (safe "SREF"))
+          (add-text-properties 0 3 (list 'sref sref) safe)
+          (setcdr e (replace-match safe t t (cdr e)))))
+      (while (string-match re string)
+        (setq rpl (format (concat (substring (match-string 0 string) 0 -1) "s")
+                          (cdr e)))
+        (setq string (replace-match rpl t t string))))
+    (while (setq pchg (next-property-change pchg string))
+      (let ((sref (get-text-property pchg 'sref string)))
+	(when (and sref (string-match "SREF" string pchg))
+	  (setq string (replace-match sref t t string)))))
+    string))
 
 
 ;;; Text properties
@@ -1039,10 +1089,16 @@ the value in cdr."
       (get-text-property (or (next-single-property-change 0 prop s) 0)
 			 prop s)))
 
-(defun org-invisible-p (&optional pos)
+(defun org-invisible-p (&optional pos folding-only)
   "Non-nil if the character after POS is invisible.
-If POS is nil, use `point' instead."
-  (get-char-property (or pos (point)) 'invisible))
+If POS is nil, use `point' instead.  When optional argument
+FOLDING-ONLY is non-nil, only consider invisible parts due to
+folding of a headline, a block or a drawer, i.e., not because of
+fontification."
+  (let ((value (get-char-property (or pos (point)) 'invisible)))
+    (cond ((not value) nil)
+	  (folding-only (memq value '(org-hide-block outline)))
+	  (t value))))
 
 (defun org-truely-invisible-p ()
   "Check if point is at a character currently not visible.
@@ -1060,6 +1116,18 @@ move it back by one char before doing this check."
       (backward-char 1))
     (org-invisible-p)))
 
+(defun org-find-visible ()
+  "Return closest visible buffer position, or `point-max'"
+  (if (org-invisible-p)
+      (next-single-char-property-change (point) 'invisible)
+    (point)))
+
+(defun org-find-invisible ()
+  "Return closest invisible buffer position, or `point-max'"
+  (if (org-invisible-p)
+      (point)
+    (next-single-char-property-change (point) 'invisible)))
+
 
 ;;; Time
 
@@ -1073,8 +1141,8 @@ nil, just return 0."
    ((stringp s)
     (condition-case nil
 	(float-time (apply #'encode-time (org-parse-time-string s)))
-      (error 0.)))
-   (t 0.)))
+      (error 0)))
+   (t 0)))
 
 (defun org-time= (a b)
   (let ((a (org-2ft a))
@@ -1112,7 +1180,9 @@ nil, just return 0."
 If time is not given, defaults to 0:00.  However, with optional
 NODEFAULT, hour and minute fields are nil if not given.
 
-Throw an error if S in not a valid Org time string.
+Throw an error if S does not contain a valid Org time string.
+Note that the first match for YYYY-MM-DD will be used (e.g.,
+\"-52000-02-03\" will be taken as \"2000-02-03\").
 
 This should be a lot faster than the `parse-time-string'."
   (unless (string-match org-ts-regexp0 s)
@@ -1154,8 +1224,41 @@ Return 0. if S is not recognized as a valid value."
        ((string-match org-ts-regexp0 s) (org-2ft s))
        (t 0.)))))
 
-
+(defun org-scroll (key &optional additional-keys)
+  "Receive KEY and scroll the current window accordingly.
+When ADDITIONAL-KEYS is not nil, also include SPC and DEL in the
+allowed keys for scrolling, as expected in the export dispatch
+window."
+  (let ((scrlup (if additional-keys '(?\s 22) 22))
+	(scrldn (if additional-keys `(?\d 134217846) 134217846)))
+    (eval
+     `(cl-case ,key
+	;; C-n
+	(14 (if (not (pos-visible-in-window-p (point-max)))
+		(ignore-errors (scroll-up 1))
+	      (message "End of buffer")
+	      (sit-for 1)))
+	;; C-p
+	(16 (if (not (pos-visible-in-window-p (point-min)))
+		(ignore-errors (scroll-down 1))
+	      (message "Beginning of buffer")
+	      (sit-for 1)))
+	;; SPC or
+	(,scrlup
+	 (if (not (pos-visible-in-window-p (point-max)))
+	     (scroll-up nil)
+	   (message "End of buffer")
+	   (sit-for 1)))
+	;; DEL
+	(,scrldn (if (not (pos-visible-in-window-p (point-min)))
+		     (scroll-down nil)
+		   (message "Beginning of buffer")
+		   (sit-for 1)))))))
 
 (provide 'org-macs)
+
+;; Local variables:
+;; generated-autoload-file: "org-loaddefs.el"
+;; End:
 
 ;;; org-macs.el ends here

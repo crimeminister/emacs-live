@@ -8,7 +8,7 @@
 #+TEXINFO_DIR_CATEGORY: Emacs
 #+TEXINFO_DIR_TITLE: Magit: (magit).
 #+TEXINFO_DIR_DESC: Using Git from Emacs with Magit.
-#+SUBTITLE: for version 2.90.1 (v2.90.1-996-g6b88fab39+1)
+#+SUBTITLE: for version 2.90.1 (v2.90.1-1046-gf5ea9b2fe+1)
 
 #+TEXINFO_DEFFN: t
 #+OPTIONS: H:4 num:3 toc:2
@@ -25,7 +25,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 #+TEXINFO: @noindent
-This manual is for Magit version 2.90.1 (v2.90.1-996-g6b88fab39+1).
+This manual is for Magit version 2.90.1 (v2.90.1-1046-gf5ea9b2fe+1).
 
 #+BEGIN_QUOTE
 Copyright (C) 2015-2020 Jonas Bernoulli <jonas@bernoul.li>
@@ -6613,7 +6613,7 @@ Also see [[man:git-submodule]]
 The command ~magit-list-submodules~ displays a list of the current
 repository's submodules in a separate buffer.  It's also possible to
 display information about submodules directly in the status buffer of
-the super-repository by adding ~magit-insert-submodules~ to the hook
+the super-repository by adding ~magit-insert-modules~ to the hook
 ~magit-status-sections-hook~ as described in [[*Status Module Sections]].
 
 - Command: magit-list-submodules
@@ -6636,17 +6636,6 @@ the super-repository by adding ~magit-insert-submodules~ to the hook
   ~default-directory~ bound to the toplevel of its working tree.  It
   has to return a string to be inserted or nil.  PROPS is an alist
   that supports the keys ~:right-align~ and ~:pad-right~.
-
-- Function: magit-insert-submodules
-
-  Insert sections for all submodules.  For each section insert the
-  path, the branch, and the output of ~git describe --tags~,
-  or, failing that, the abbreviated HEAD commit hash.
-
-  Press ~RET~ on such a submodule section to show its own status buffer.
-  Press ~RET~ on the "Modules" section to display a list of submodules
-  in a separate buffer.  This shows additional information not
-  displayed in the super-repository's status buffer.
 
 *** Submodule Transient
 
@@ -8362,6 +8351,24 @@ https://github.com/magit/magit/wiki/FAQ.
 Please also use the [[*Debugging Tools]].
 
 ** FAQ - How to ...?
+*** How to pronounce Magit?
+
+Either ~mu[m's] git~ or ~magi{c => t}~ is fine.
+
+The slogan is "It's Magit! The magical Git client", so it makes sense
+to pronounce Magit like magic, while taking into account that C and T
+do not sound the same.
+
+The German "Magie" is not pronounced the same as the English "magic",
+so if you speak German then you can use the above rational to justify
+using the former pronunciation; ~Mag{ie => it}~.
+
+You can also choose to use the former pronunciation just because you
+like it better.
+
+Also see https://magit.vc/assets/videos/magic.mp4.
+Also see https://emacs.stackexchange.com/questions/13696.
+
 *** How to show git's output?
 
 To show the output of recently run git commands, press ~$~ (or, if that
@@ -8617,8 +8624,8 @@ However you cannot use:
 #+END_SRC
 
 This will actually end up using ~emacs~, not ~emacsclient~.  If you do
-this, then can still edit the commit message but ~git-commit-mode~ won't
-be used and you have to exit ~emacs~ to finish the process.
+this, then you can still edit the commit message but ~git-commit-mode~
+won't be used and you have to exit ~emacs~ to finish the process.
 
 Tautology ahead.  If you want to be able to use ~emacsclient~ to connect
 to a running ~emacs~ instance, even though no ~emacs~ instance is running,

@@ -572,8 +572,7 @@ reference (with row).  Mode string N."
     "$8 = '(let ((l '(@0$1..@0$4))) "
     "(if l (/ (apply '+ l) (length l)) \"\")); N :: "
     "$9 = '(/ (+ $1..$4) (length '($1..$4))); EN :: "
-    "$10 = '(/ (+ @0$1..@0$4) (length '(@0$1..@0$4))); EN")
-))
+    "$10 = '(/ (+ @0$1..@0$4) (length '(@0$1..@0$4))); EN")))
 
 (ert-deftest test-org-table/copy-field ()
   "Experiments on how to copy one field into another field.
@@ -625,6 +624,125 @@ See also `test-org-table/remote-reference-access'."
 | [2012-12-31 Mon] | [2012-12-31 Mon] |
 "
      1 "#+TBLFM: $2 = if(\"$1\" == \"nan\", string(\"\"), $1); E")))
+
+(ert-deftest test-org-table/copy-down ()
+  "Test `org-table-copy-down' specifications."
+  ;; Error when there is nothing to copy in the current field or the
+  ;; field above.
+  (should-error
+   (org-test-with-temp-text "|  |\n| <point> |"
+     (org-table-copy-down 1)))
+  ;; Error when there is nothing to copy in the Nth field.
+  (should-error
+   (org-test-with-temp-text "|    |\n| foo |\n| <point> |"
+     (org-table-copy-down 2)))
+  ;; In an empty field, copy field above.
+  (should
+   (equal "| foo |\n| foo |"
+	  (org-test-with-temp-text "| foo |\n| <point> |"
+	    (org-table-copy-down 1)
+	    (buffer-string))))
+  ;; In a non-empty field, copy it below.
+  (should
+   (equal "| foo |\n| foo |\n"
+	  (org-test-with-temp-text "| <point>foo |"
+	    (org-table-copy-down 1)
+	    (buffer-string))))
+  ;; If field is a number or a timestamp, or is prefixed or suffixed
+  ;; with a number, increment it by one unit.
+  (should
+   (equal "| 1 |\n| 2 |\n"
+	  (org-test-with-temp-text "| <point>1 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (string-match-p "<2012-03-30"
+		   (org-test-with-temp-text "| <point><2012-03-29> |"
+		     (let ((org-table-copy-increment t))
+		       (org-table-copy-down 1))
+		     (buffer-string))))
+  (should
+   (equal "| A1 |\n| A2 |\n"
+	  (org-test-with-temp-text "| <point>A1 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (equal "| 1A |\n| 2A |\n"
+	  (org-test-with-temp-text "| <point>1A |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  ;; When `org-table-copy-increment' is nil, or when argument is 0, do
+  ;; not increment.
+  (should
+   (equal "| 1 |\n| 1 |\n"
+	  (org-test-with-temp-text "| <point>1 |"
+	    (let ((org-table-copy-increment nil)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (equal "| 1 |\n| 1 |\n"
+	  (org-test-with-temp-text "| <point>1 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 0))
+	    (buffer-string))))
+  ;; When there is a field just above field being incremented, try to
+  ;; use it to guess increment step.
+  (should
+   (equal "| 4 |\n| 3 |\n| 2 |\n"
+	  (org-test-with-temp-text "| 4 |\n| <point>3 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (equal "| A0 |\n| A2 |\n| A4 |\n"
+	  (org-test-with-temp-text "| A0 |\n| <point>A2 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  ;; Both fields need to have the same type.  In the special case of
+  ;; number-prefixed or suffixed fields, make sure both fields have
+  ;; the same pattern.
+  (should
+   (equal "| A4 |\n|  3 |\n|  4 |\n"
+	  (org-test-with-temp-text "| A4 |\n| <point>3 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (equal "| 0A |\n| A2 |\n| A3 |\n"
+	  (org-test-with-temp-text "| 0A |\n| <point>A2 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (equal "| A0 |\n| 2A |\n| 3A |\n"
+	  (org-test-with-temp-text "| A0 |\n| <point>2A |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  ;; Do not search field above past blank fields and horizontal
+  ;; separators.
+  (should
+   (equal "| 4 |\n|---|\n| 3 |\n| 4 |\n"
+	  (org-test-with-temp-text "| 4 |\n|---|\n| <point>3 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  (should
+   (equal "| 4 |\n|   |\n| 3 |\n| 4 |\n"
+	  (org-test-with-temp-text "| 4 |\n|   |\n| <point>3 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 1))
+	    (buffer-string))))
+  ;; When `org-table-copy-increment' is a number, use it as the
+  ;; increment step, ignoring any previous field.
+  (should
+   (equal "| 1 |\n| 3 |\n| 6 |\n"
+	  (org-test-with-temp-text "| 1 |\n| <point>3 |"
+	    (let ((org-table-copy-increment 3)) (org-table-copy-down 1))
+	    (buffer-string))))
+  ;; However, if argument is 0, do not increment whatsoever.
+  (should
+   (equal "| 1 |\n| 3 |\n| 3 |\n"
+	  (org-test-with-temp-text "| 1 |\n| <point>3 |"
+	    (let ((org-table-copy-increment t)) (org-table-copy-down 0))
+	    (buffer-string))))
+  (should
+   (equal "| 1 |\n| 3 |\n| 3 |\n"
+	  (org-test-with-temp-text "| 1 |\n| <point>3 |"
+	    (let ((org-table-copy-increment 3)) (org-table-copy-down 0))
+	    (buffer-string)))))
 
 (ert-deftest test-org-table/sub-total ()
   "Grouped rows with sub-total.
@@ -1186,6 +1304,66 @@ See also `test-org-table/copy-field'."
       (should (string= got
 		       expect)))))
 
+
+;;; Tables as Lisp
+
+(ert-deftest test-org-table/to-lisp ()
+  "Test `orgtbl-to-lisp' specifications."
+  ;; 2x2 no header
+  (should
+   (equal '(("a" "b") ("c" "d"))
+	  (org-table-to-lisp "|a|b|\n|c|d|")))
+  ;; 2x2 with 1-line header
+  (should
+   (equal '(("a" "b") hline ("c" "d"))
+	  (org-table-to-lisp "|a|b|\n|-\n|c|d|")))
+  ;; 2x4 with 2-line header
+  (should
+   (equal '(("a" "b") ("A" "B") hline ("c" "d") ("aa" "bb"))
+	  (org-table-to-lisp "|a|b|\n|A|B|\n|-\n|c|d|\n|aa|bb|")))
+  ;; leading hlines do not get stripped
+  (should
+   (equal '(hline ("a" "b") hline ("c" "d"))
+	  (org-table-to-lisp "|-\n|a|b|\n|-\n|c|d|")))
+  (should
+   (equal '(hline ("a" "b") ("c" "d"))
+	  (org-table-to-lisp "|-\n|a|b|\n|c|d|")))
+  (should
+   (equal '(hline hline hline hline ("a" "b") ("c" "d"))
+	  (org-table-to-lisp "|-\n|-\n|-\n|-\n|a|b|\n|c|d|"))))
+
+(ert-deftest test-org-table/collapse-header ()
+  "Test `orgtbl-to-lisp' specifications."
+  ;; 2x2 no header - no collapsing
+  (should
+   (equal '(("a" "b") ("c" "d"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|c|d|"))))
+  ;; 2x2 with 1-line header - no collapsing
+  (should
+   (equal '(("a" "b") hline ("c" "d"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|-\n|c|d|"))))
+  ;; 2x4 with 2-line header - collapsed
+  (should
+   (equal '(("a A" "b B") hline ("c" "d") ("aa" "bb"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|A|B|\n|-\n|c|d|\n|aa|bb|"))))
+  ;; 2x4 with 2-line header, custom glue - collapsed
+  (should
+   (equal '(("a.A" "b.B") hline ("c" "d") ("aa" "bb"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|A|B|\n|-\n|c|d|\n|aa|bb|") ".")))
+  ;; 2x4 with 2-line header, threshold 1 - not collapsed
+  (should
+   (equal '(("a" "b") ("A" "B") hline ("c" "d") ("aa" "bb"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|A|B|\n|-\n|c|d|\n|aa|bb|") nil 1)))
+  ;; 2x4 with 2-line header, threshold 2 - collapsed
+  (should
+   (equal '(("a A" "b B") hline ("c" "d") ("aa" "bb"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|A|B|\n|-\n|c|d|\n|aa|bb|") nil 2)))
+  ;; 2x8 with 6-line header, default threshold 5 - not collapsed
+  (should
+   (equal '(("a" "b") ("A" "B") ("a" "b") ("A" "B") ("a" "b") ("A" "B") hline ("c" "d") ("aa" "bb"))
+	  (org-table-collapse-header (org-table-to-lisp "|a|b|\n|A|B|\n|a|b|\n|A|B|\n|a|b|\n|A|B|\n|-\n|c|d|\n|aa|bb|")))))
+
+
 ;;; Radio Tables
 
 (ert-deftest test-org-table/to-generic ()
@@ -1650,7 +1828,16 @@ See also `test-org-table/copy-field'."
    (equal "| <c> |\n|  1  |\n| 123 |"
 	  (org-test-with-temp-text "| <c> |\n| 1 |\n| 123 |"
 	    (let ((org-table-number-fraction 0.5)) (org-table-align))
-	    (buffer-string)))))
+	    (buffer-string))))
+  ;; Handle gracefully tables with only horizontal rules.
+  (should
+   (org-test-with-temp-text "|-<point>--|"
+     (org-table-align)
+     t))
+  (should
+   (org-test-with-temp-text "|-<point>--|---------|\n|---|---|-----|"
+     (org-table-align)
+     t)))
 
 (ert-deftest test-org-table/align-buffer-tables ()
   "Align all tables when updating buffer."
@@ -1778,7 +1965,7 @@ See also `test-org-table/copy-field'."
       (org-table-sort-lines nil ?n)
       (buffer-string)))))
 
-
+
 ;;; Formulas
 
 (ert-deftest test-org-table/eval-formula ()
@@ -2223,6 +2410,50 @@ See also `test-org-table/copy-field'."
 	 (char-after)))))
 
 
+;;; Deleting columns
+(ert-deftest test-org-table/delete-column ()
+  "Test `org-table-delete-column'."
+  ;; Error when outside a table.
+  (should-error
+   (org-test-with-temp-text "Paragraph"
+     (org-table-delete-column)))
+  ;; Delete first column.
+  (should
+   (equal "| a |\n"
+	  (org-test-with-temp-text
+	      "| <point>  | a |\n"
+	    (org-table-delete-column)
+	    (buffer-string))))
+  ;; Delete column and check location of point.
+  (should
+   (= 2
+      (org-test-with-temp-text
+	  "| a | <point>b  | c |"
+	(org-table-delete-column)
+	(org-table-current-column))))
+  ;; Delete column when at end of line and after a "|".
+  (should
+   (equal "| a |\n"
+	  (org-test-with-temp-text
+	      "| a | b |<point>\n"
+	    (org-table-delete-column)
+	    (buffer-string))))
+  (should
+   (equal "| a |\n"
+	  (org-test-with-temp-text
+	      "| a | b |   <point>\n"
+	    (org-table-delete-column)
+	    (buffer-string))))
+  ;; Delete two columns starting with the last column.
+  (should
+   (equal "| a |\n"
+	  (org-test-with-temp-text
+	      "| a | b  | c<point> |"
+	    (org-table-delete-column)
+	    (org-table-delete-column)
+	    (buffer-string)))))
+
+
 ;;; Inserting rows, inserting columns
 
 (ert-deftest test-org-table/insert-column ()
@@ -2233,49 +2464,59 @@ See also `test-org-table/copy-field'."
      (org-table-insert-column)))
   ;; Insert new column after current one.
   (should
-   (equal "| a |   |\n"
+   (equal "|   | a |\n"
 	  (org-test-with-temp-text "| a |"
 	    (org-table-insert-column)
 	    (buffer-string))))
   (should
-   (equal "| a |   | b |\n"
+   (equal "|   | a | b |\n"
 	  (org-test-with-temp-text "| <point>a | b |"
 	    (org-table-insert-column)
 	    (buffer-string))))
   ;; Move point into the newly created column.
   (should
-   (equal "  |"
+   (equal "  | a |"
 	  (org-test-with-temp-text "| <point>a |"
 	    (org-table-insert-column)
 	    (buffer-substring-no-properties (point) (line-end-position)))))
   (should
-   (equal "  | b |"
+   (equal "  | a | b |"
 	  (org-test-with-temp-text "| <point>a | b |"
 	    (org-table-insert-column)
 	    (buffer-substring-no-properties (point) (line-end-position)))))
   ;; Handle missing vertical bar in the last column.
   (should
-   (equal "| a |   |\n"
+   (equal "|   | a |\n"
 	  (org-test-with-temp-text "| a"
 	    (org-table-insert-column)
 	    (buffer-string))))
   (should
-   (equal "  |"
+   (equal "  | a |"
 	  (org-test-with-temp-text "| <point>a"
 	    (org-table-insert-column)
 	    (buffer-substring-no-properties (point) (line-end-position)))))
   ;; Handle column insertion when point is before first column.
   (should
-   (equal " | a |   |\n"
+   (equal " |   | a |\n"
 	  (org-test-with-temp-text " | a |"
 	    (org-table-insert-column)
 	    (buffer-string))))
   (should
-   (equal " | a |   | b |\n"
+   (equal " |   | a | b |\n"
 	  (org-test-with-temp-text " | a | b |"
 	    (org-table-insert-column)
 	    (buffer-string)))))
 
+(ert-deftest test-org-table/insert-column-with-formula ()
+  "Test `org-table-insert-column' with a formula in place."
+  (should
+   (equal "|   | 1 | 1 | 2 |
+#+TBLFM: $4=$2+$3"
+	  (org-test-with-temp-text
+	   "| 1<point> | 1 | 2 |
+#+TBLFM: $3=$1+$2"
+	   (org-table-insert-column)
+	   (buffer-substring-no-properties (point-min) (point-max))))))
 
 
 ;;; Moving single cells
@@ -3025,7 +3266,14 @@ See also `test-org-table/copy-field'."
       (org-table-toggle-column-width)
       (org-table-align)
       (mapcar (lambda (o) (overlay-get o 'help-echo))
-	      (overlays-in (line-beginning-position) (line-end-position)))))))
+	      (overlays-in (line-beginning-position) (line-end-position))))))
+  ;; Recalculating formulas doesn't change shrunk state.
+  (should
+   (equal "2"
+	  (org-test-with-temp-text "| 1 | <point>0 |\n#+TBLFM: $2=$1+1\n"
+	    (org-table-toggle-column-width)
+	    (org-table-recalculate)
+	    (overlay-get (car (overlays-at (point))) 'help-echo)))))
 
 
 

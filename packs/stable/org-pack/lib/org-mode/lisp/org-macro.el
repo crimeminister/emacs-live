@@ -1,6 +1,6 @@
 ;;; org-macro.el --- Macro Replacement Code for Org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2020 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou@gmail.com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -50,6 +50,7 @@
 (require 'org-macs)
 (require 'org-compat)
 
+(declare-function org-collect-keywords "org" (keywords &optional unique directory))
 (declare-function org-element-at-point "org-element" ())
 (declare-function org-element-context "org-element" (&optional element))
 (declare-function org-element-copy "org-element" (datum))
@@ -62,7 +63,7 @@
 (declare-function org-file-contents "org" (file &optional noerror nocache))
 (declare-function org-file-url-p "org" (file))
 (declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
-(declare-function org-link-search "org" (s &optional avoid-pos stealth))
+(declare-function org-link-search "ol" (s &optional avoid-pos stealth))
 (declare-function org-mode "org" ())
 (declare-function vc-backend "vc-hooks" (f))
 (declare-function vc-call "vc-hooks" (fun file &rest args) t)
@@ -83,51 +84,36 @@ directly, use instead:
 
 ;;; Functions
 
+(defun org-macro--set-template (name value templates)
+  "Set template for the macro NAME.
+VALUE is the template of the macro.  The new value override the
+previous one, unless VALUE is nil.  TEMPLATES is the list of
+templates.  Return the updated list."
+  (let ((old-definition (assoc name templates)))
+    (cond ((and value old-definition) (setcdr old-definition value))
+	  (old-definition)
+	  (t (push (cons name (or value "")) templates))))
+  templates)
+
 (defun org-macro--collect-macros ()
   "Collect macro definitions in current buffer and setup files.
 Return an alist containing all macro templates found."
-  (letrec ((collect-macros
-	    (lambda (files templates)
-	      ;; Return an alist of macro templates.  FILES is a list
-	      ;; of setup files names read so far, used to avoid
-	      ;; circular dependencies.  TEMPLATES is the alist
-	      ;; collected so far.
-	      (let ((case-fold-search t))
-		(org-with-wide-buffer
-		 (goto-char (point-min))
-		 (while (re-search-forward
-			 "^[ \t]*#\\+\\(MACRO\\|SETUPFILE\\):" nil t)
-		   (let ((element (org-element-at-point)))
-		     (when (eq (org-element-type element) 'keyword)
-		       (let ((val (org-element-property :value element)))
-			 (if (equal (org-element-property :key element) "MACRO")
-			     ;; Install macro in TEMPLATES.
-			     (when (string-match
-				    "^\\(.*?\\)\\(?:\\s-+\\(.*\\)\\)?\\s-*$" val)
-			       (let* ((name (match-string 1 val))
-				      (template (or (match-string 2 val) ""))
-				      (old-cell (assoc name templates)))
-				 (if old-cell (setcdr old-cell template)
-				   (push (cons name template) templates))))
-			   ;; Enter setup file.
-			   (let* ((uri (org-strip-quotes (org-trim val)))
-				  (uri-is-url (org-file-url-p uri))
-				  (uri (if uri-is-url
-					   uri
-					 (expand-file-name uri))))
-			     ;; Avoid circular dependencies.
-			     (unless (member uri files)
-			       (with-temp-buffer
-				 (unless uri-is-url
-				   (setq default-directory
-					 (file-name-directory uri)))
-				 (org-mode)
-				 (insert (org-file-contents uri 'noerror))
-				 (setq templates
-				       (funcall collect-macros (cons uri files)
-						templates)))))))))))
-		templates))))
-    (funcall collect-macros nil nil)))
+  (let ((templates nil))
+    (pcase (org-collect-keywords '("MACRO"))
+      (`(("MACRO" . ,values))
+       (dolist (value values)
+	 (when (string-match "^\\(\\S-+\\)[ \t]*" value)
+	   (let ((name (match-string 1 value))
+		 (definition (substring value (match-end 0))))
+	     (setq templates
+		   (org-macro--set-template name definition templates)))))))
+    (let ((macros `(("author" . ,(org-macro--find-keyword-value "AUTHOR"))
+		    ("email" . ,(org-macro--find-keyword-value "EMAIL"))
+		    ("title" . ,(org-macro--find-keyword-value "TITLE" t))
+		    ("date" . ,(org-macro--find-date)))))
+      (pcase-dolist (`(,name . ,value) macros)
+	(setq templates (org-macro--set-template name value templates))))
+    templates))
 
 (defun org-macro-initialize-templates ()
   "Collect macro templates defined in current buffer.
@@ -139,6 +125,7 @@ In addition to buffer-defined macros, the function installs the
 following ones: \"n\", \"author\", \"email\", \"keyword\",
 \"time\", \"property\", and, if the buffer is associated to
 a file, \"input-file\" and \"modification-time\"."
+  (require 'org-element)
   (org-macro--counter-initialize)	;for "n" macro
   (setq org-macro-templates
 	(nconc
@@ -158,28 +145,14 @@ a file, \"input-file\" and \"modification-time\"."
                      '%s)))"
 			    (prin1-to-string visited-file)
 			    (prin1-to-string
-			     (nth 5 (file-attributes visited-file))))))))
-	 ;; Install built-in macros.
+			     (file-attribute-modification-time
+			      (file-attributes visited-file))))))))
+	 ;; Install generic macros.
 	 (list
 	  '("n" . "(eval (org-macro--counter-increment $1 $2))")
-	  `("author" . ,(org-macro--find-keyword-value "AUTHOR"))
-	  `("email" . ,(org-macro--find-keyword-value "EMAIL"))
 	  '("keyword" . "(eval (org-macro--find-keyword-value $1))")
 	  '("time" . "(eval (format-time-string $1))")
-	  `("title" . ,(org-macro--find-keyword-value "TITLE"))
-	  '("property" . "(eval (org-macro--get-property $1 $2))")
-	  `("date" .
-	    ,(let* ((value (org-macro--find-keyword-value "DATE"))
-		    (date (org-element-parse-secondary-string
-			   value (org-element-restriction 'keyword))))
-	       (if (and (consp date)
-			(not (cdr date))
-			(eq 'timestamp (org-element-type (car date))))
-		   (format "(eval (if (org-string-nw-p $1) %s %S))"
-			   (format "(org-timestamp-format '%S $1)"
-				   (org-element-copy (car date)))
-			   value)
-		 value)))))))
+	  '("property" . "(eval (org-macro--get-property $1 $2))")))))
 
 (defun org-macro-expand (macro templates)
   "Return expanded MACRO, as a string.
@@ -330,21 +303,39 @@ by `org-link-search', or the empty string."
 	 (error "Macro property failed: cannot find location %s" location))))
     (org-entry-get nil property 'selective)))
 
-(defun org-macro--find-keyword-value (name)
+(defun org-macro--find-keyword-value (name &optional collect)
   "Find value for keyword NAME in current buffer.
-KEYWORD is a string.  Return value associated to the keywords
-named after NAME, as a string, or nil."
+Return value associated to the keywords named after NAME, as
+a string, or nil.  When optional argument COLLECT is non-nil,
+concatenate values, separated with a space, from various keywords
+in the buffer."
   (org-with-point-at 1
     (let ((regexp (format "^[ \t]*#\\+%s:" (regexp-quote name)))
 	  (case-fold-search t)
 	  (result nil))
-      (while (re-search-forward regexp nil t)
-	(let ((element (org-element-at-point)))
-	  (when (eq 'keyword (org-element-type element))
-	    (setq result (concat result
-				 " "
-				 (org-element-property :value element))))))
-      (and result (org-trim result)))))
+      (catch :exit
+	(while (re-search-forward regexp nil t)
+	  (let ((element (org-element-at-point)))
+	    (when (eq 'keyword (org-element-type element))
+	      (let ((value (org-element-property :value element)))
+		(if (not collect) (throw :exit value)
+		  (setq result (concat result " " value)))))))
+	(and result (org-trim result))))))
+
+(defun org-macro--find-date ()
+  "Find value for DATE in current buffer.
+Return value as a string."
+  (let* ((value (org-macro--find-keyword-value "DATE"))
+	 (date (org-element-parse-secondary-string
+		value (org-element-restriction 'keyword))))
+    (if (and (consp date)
+	     (not (cdr date))
+	     (eq 'timestamp (org-element-type (car date))))
+	(format "(eval (if (org-string-nw-p $1) %s %S))"
+		(format "(org-timestamp-format '%S $1)"
+			(org-element-copy (car date)))
+		value)
+      value)))
 
 (defun org-macro--vc-modified-time (file)
   (save-window-excursion
@@ -402,6 +393,6 @@ Any other non-empty string resets the counter to 1."
                    (t 1))
              org-macro--counter-table)))
 
-
 (provide 'org-macro)
+
 ;;; org-macro.el ends here

@@ -1,8 +1,8 @@
 ;;; ox-publish.el --- Publish Related Org Mode Files as a Website -*- lexical-binding: t; -*-
-;; Copyright (C) 2006-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2020 Free Software Foundation, Inc.
 
 ;; Author: David O'Toole <dto@gnu.org>
-;; Maintainer: Carsten Dominik <carsten DOT dominik AT gmail DOT com>
+;; Maintainer: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: hypermedia, outlines, wp
 
 ;; This file is part of GNU Emacs.
@@ -659,8 +659,8 @@ If `:auto-sitemap' is set, publish the sitemap too.  If
     (let ((plist (cdr project)))
       (let ((fun (org-publish-property :preparation-function project)))
 	(cond
-	 ((consp fun) (dolist (f fun) (funcall f plist)))
-	 ((functionp fun) (funcall fun plist))))
+	 ((functionp fun) (funcall fun plist))
+	 ((consp fun) (dolist (f fun) (funcall f plist)))))
       ;; Each project uses its own cache file.
       (org-publish-initialize-cache (car project))
       (when (org-publish-property :auto-sitemap project)
@@ -685,8 +685,8 @@ If `:auto-sitemap' is set, publish the sitemap too.  If
 	  (org-publish-file theindex project t)))
       (let ((fun (org-publish-property :completion-function project)))
 	(cond
-	 ((consp fun) (dolist (f fun) (funcall f plist)))
-	 ((functionp fun) (funcall fun plist)))))
+	 ((functionp fun) (funcall fun plist))
+	 ((consp fun) (dolist (f fun) (funcall f plist))))))
     (org-publish-write-cache-file)))
 
 
@@ -754,7 +754,8 @@ Default for SITEMAP-FILENAME is `sitemap.org'."
   (let* ((root (expand-file-name
 		(file-name-as-directory
 		 (org-publish-property :base-directory project))))
-	 (sitemap-filename (concat root (or sitemap-filename "sitemap.org")))
+	 (sitemap-filename (expand-file-name (or sitemap-filename "sitemap.org")
+					     root))
 	 (title (or (org-publish-property :sitemap-title project)
 		    (concat "Sitemap for project " (car project))))
 	 (style (or (org-publish-property :sitemap-style project)
@@ -793,13 +794,11 @@ Default for SITEMAP-FILENAME is `sitemap.org'."
 			   (not (string-lessp B A))))))
 		((or `anti-chronologically `chronologically)
 		 (let* ((adate (org-publish-find-date a project))
-			(bdate (org-publish-find-date b project))
-			(A (+ (lsh (car adate) 16) (cadr adate)))
-			(B (+ (lsh (car bdate) 16) (cadr bdate))))
+			(bdate (org-publish-find-date b project)))
 		   (setq retval
-			 (if (eq sort-files 'chronologically)
-			     (<= A B)
-			   (>= A B)))))
+			 (not (if (eq sort-files 'chronologically)
+				  (time-less-p bdate adate)
+				(time-less-p adate bdate))))))
 		(`nil nil)
 		(_ (user-error "Invalid sort value %s" sort-files)))
 	      ;; Directory-wise wins:
@@ -881,7 +880,8 @@ time in `current-time' format."
     (or (org-publish-cache-get-file-property file :date nil t)
 	(org-publish-cache-set-file-property
 	 file :date
-	 (if (file-directory-p file) (nth 5 (file-attributes file))
+	 (if (file-directory-p file)
+	     (file-attribute-modification-time (file-attributes file))
 	   (let ((date (org-publish-find-property file :date project)))
 	     ;; DATE is a secondary string.  If it contains
 	     ;; a time-stamp, convert it to internal format.
@@ -891,7 +891,8 @@ time in `current-time' format."
 			   (let ((value (org-element-interpret-data ts)))
 			     (and (org-string-nw-p value)
 				  (org-time-string-to-time value))))))
-		   ((file-exists-p file) (nth 5 (file-attributes file)))
+		   ((file-exists-p file)
+		    (file-attribute-modification-time (file-attributes file)))
 		   (t (error "No such file: \"%s\"" file)))))))))
 
 (defun org-publish-sitemap-default-entry (entry style project)
@@ -909,7 +910,7 @@ PROJECT is the current project."
 
 (defun org-publish-sitemap-default (title list)
   "Default site map, as a string.
-TITLE is the the title of the site map.  LIST is an internal
+TITLE is the title of the site map.  LIST is an internal
 representation for the files to include, as returned by
 `org-list-to-lisp'.  PROJECT is the current project."
   (concat "#+TITLE: " title "\n\n"
@@ -1171,7 +1172,10 @@ references with `org-export-get-reference'."
 	   (with-current-buffer (find-file-noselect file)
 	     (org-with-point-at 1
 	       (let ((org-link-search-must-match-exact-headline t))
-		 (org-link-search (org-link-unescape search) nil t))
+		 (condition-case err
+		     (org-link-search search nil t)
+		   (error
+		    (signal 'org-link-broken (cdr err)))))
 	       (and (org-at-heading-p)
 		    (org-string-nw-p (org-entry-get (point) "CUSTOM_ID"))))))))
    ((not org-publish-cache)
@@ -1184,8 +1188,7 @@ references with `org-export-get-reference'."
     (let* ((filename (file-truename file))
 	   (crossrefs
 	    (org-publish-cache-get-file-property filename :crossrefs nil t))
-	   (cells
-	    (org-export-string-to-search-cell (org-link-unescape search))))
+	   (cells (org-export-string-to-search-cell search)))
       (or
        ;; Look for reference associated to search cells triggered by
        ;; LINK.  It can match when targeted file has been published
@@ -1299,8 +1302,8 @@ the file including them will be republished as well."
 		    (let* ((value (org-element-property :value element))
 			   (filename
 			    (and (string-match "\\`\\(\".+?\"\\|\\S-+\\)" value)
-				 (let ((m (org-unbracket-string
-					   "\"" "\"" (match-string 1 value))))
+				 (let ((m (org-strip-quotes
+					   (match-string 1 value))))
 				   ;; Ignore search suffix.
 				   (if (string-match "::.*?\\'" m)
 				       (substring m 0 (match-beginning 0))
@@ -1312,8 +1315,9 @@ the file including them will be republished as well."
 	  (unless visiting (kill-buffer buf)))))
     (or (null pstamp)
 	(let ((ctime (org-publish-cache-ctime-of-src filename)))
-	  (or (< pstamp ctime)
-	      (cl-some (lambda (ct) (< ctime ct)) included-files-ctime))))))
+	  (or (time-less-p pstamp ctime)
+	      (cl-some (lambda (ct) (time-less-p ctime ct))
+		       included-files-ctime))))))
 
 (defun org-publish-cache-set-file-property
   (filename property value &optional project-name)
@@ -1363,9 +1367,8 @@ does not exist."
   (let ((attr (file-attributes
 	       (expand-file-name (or (file-symlink-p file) file)
 				 (file-name-directory file)))))
-    (if (not attr) (error "No such file: \"%s\"" file)
-      (+ (lsh (car (nth 5 attr)) 16)
-	 (cadr (nth 5 attr))))))
+    (if attr (file-attribute-modification-time attr)
+      (error "No such file: %S" file))))
 
 
 (provide 'ox-publish)

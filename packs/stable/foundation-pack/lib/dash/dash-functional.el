@@ -31,13 +31,6 @@
 
 (require 'dash)
 
-(defun -partial (fn &rest args)
-  "Takes a function FN and fewer than the normal arguments to FN,
-and returns a fn that takes a variable number of additional ARGS.
-When called, the returned function calls FN with ARGS first and
-then additional args."
-  (apply 'apply-partially fn args))
-
 (defun -rpartial (fn &rest args)
   "Takes a function FN and fewer than the normal arguments to FN,
 and returns a fn that takes a variable number of additional ARGS.
@@ -163,13 +156,13 @@ The closure accepts any number of arguments, which are discarded."
 
 FN must be a unary function. The returned lambda takes a single
 argument, X, the initial value for the fixpoint iteration. The
-iteration halts when either of the following conditions is satisified:
+iteration halts when either of the following conditions is satisfied:
 
  1. Iteration converges to the fixpoint, with equality being
     tested using EQUAL-TEST. If EQUAL-TEST is not specified,
     `equal' is used. For functions over the floating point
     numbers, it may be necessary to provide an appropriate
-    appoximate comparsion test.
+    approximate comparison test.
 
  2. HALT-TEST returns a non-nil value. HALT-TEST defaults to a
     simple counter that returns t after `-fixfn-max-iterations',

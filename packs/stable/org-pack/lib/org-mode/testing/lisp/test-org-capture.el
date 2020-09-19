@@ -197,7 +197,7 @@
 	(org-capture-kill))
       (buffer-string)))))
 
-(ert-deftest test-org-caputre/entry ()
+(ert-deftest test-org-capture/entry ()
   "Test `entry' type in capture template."
   ;; Do not break next headline.
   (should
@@ -208,7 +208,6 @@
 	     (org-capture-templates
 	      `(("t" "Todo" entry (file+headline ,file "A") "** H1 %?"))))
 	(org-capture nil "t")
-	(goto-char (point-max))
 	(insert "Capture text")
 	(org-capture-finalize))
       (buffer-string))))
@@ -223,7 +222,38 @@
 		 :immediate-finish t))))
 	(org-capture nil "t")
 	(org-capture '(16))
-	(buffer-substring (point) (line-end-position)))))))
+	(buffer-substring (point) (line-end-position))))))
+  ;; Do not raise an error on empty entries.
+  (should
+   (org-test-with-temp-text-in-file ""
+     (let* ((file (buffer-file-name))
+	    (org-capture-templates
+	     `(("t" "Test" entry (file+headline ,file "A") "** "
+		:immediate-finish t))))
+       (org-capture nil "t")
+       (buffer-string))))
+  ;; With a 0 prefix argument, ignore surrounding lists.
+  (should
+   (equal "Foo\n* X\nBar\n"
+	  (org-test-with-temp-text-in-file "Foo\nBar"
+	    (forward-line)
+	    (let* ((file (buffer-file-name))
+		   (org-capture-templates
+		    `(("t" "Test" entry (file ,file) "* X"
+		       :immediate-finish t))))
+	      (org-capture 0 "t")
+	      (buffer-string)))))
+  ;; With a 0 prefix argument, also obey to :empty-lines.
+  (should
+   (equal "Foo\n\n* X\n\nBar\n"
+	  (org-test-with-temp-text-in-file "Foo\nBar"
+	    (forward-line)
+	    (let* ((file (buffer-file-name))
+		   (org-capture-templates
+		    `(("t" "Test" entry (file ,file) "* X"
+		       :immediate-finish t :empty-lines 1))))
+	      (org-capture 0 "t")
+	      (buffer-string))))))
 
 (ert-deftest test-org-capture/item ()
   "Test `item' type in capture template."
@@ -276,6 +306,41 @@
    (equal
     "* A\n- X\n- 1\n- 2\n"
     (org-test-with-temp-text-in-file "* A\n- 1\n- 2"
+      (let* ((file (buffer-file-name))
+	     (org-capture-templates
+	      `(("t" "Item" item (file+headline ,file "A") "- X"
+		 :prepend t))))
+	(org-capture nil "t")
+	(org-capture-finalize))
+      (buffer-string))))
+  ;; If there is no list and `:prepend' is non-nil, insert list at the
+  ;; beginning of the entry, or the beginning of the buffer.  However,
+  ;; preserve properties drawer and planning info, if any.
+  (should
+   (equal
+    "* A\n- X\nSome text\n"
+    (org-test-with-temp-text-in-file "* A\nSome text"
+      (let* ((file (buffer-file-name))
+	     (org-capture-templates
+	      `(("t" "Item" item (file+headline ,file "A") "- X"
+		 :prepend t))))
+	(org-capture nil "t")
+	(org-capture-finalize))
+      (buffer-string))))
+  (should
+   (equal
+    "- X\nText\n"
+    (org-test-with-temp-text-in-file "Text"
+      (let* ((file (buffer-file-name))
+	     (org-capture-templates
+	      `(("t" "Item" item (file ,file) "- X" :prepend t))))
+	(org-capture nil "t")
+	(org-capture-finalize))
+      (buffer-string))))
+  (should
+   (equal
+    "* A\nSCHEDULED: <2012-03-29 Thu>\n- X\nText\n"
+    (org-test-with-temp-text-in-file "* A\nSCHEDULED: <2012-03-29 Thu>\nText"
       (let* ((file (buffer-file-name))
 	     (org-capture-templates
 	      `(("t" "Item" item (file+headline ,file "A") "- X"
@@ -406,7 +471,27 @@
 	(goto-char (point-max))
 	(insert "Foo")
 	(org-capture-finalize))
-      (buffer-string)))))
+      (buffer-string))))
+  ;; With a 0 prefix argument, ignore surrounding lists.
+  (should
+   (equal "- X\nFoo\n\n- A\n"
+	  (org-test-with-temp-text-in-file "Foo\n\n- A"
+	    (let* ((file (buffer-file-name))
+		   (org-capture-templates
+		    `(("t" "Test" item (file ,file) "- X"
+		       :immediate-finish t))))
+	      (org-capture 0 "t")
+	      (buffer-string)))))
+  ;; With a 0 prefix argument, also obey to `:empty-lines'.
+  (should
+   (equal "\n- X\n\nFoo\n\n- A\n"
+	  (org-test-with-temp-text-in-file "Foo\n\n- A"
+	    (let* ((file (buffer-file-name))
+		   (org-capture-templates
+		    `(("t" "Test" item (file ,file) "- X"
+		       :immediate-finish t :empty-lines 1))))
+	      (org-capture 0 "t")
+	      (buffer-string))))))
 
 (ert-deftest test-org-capture/table-line ()
   "Test `table-line' type in capture template."
@@ -581,7 +666,17 @@
 	      `(("t" "Table" table-line (file ,file)
 		 "| 2 |" :immediate-finish t))))
 	(org-capture nil "t")
-	(org-table-get-stored-formulas))))))
+	(org-table-get-stored-formulas)))))
+  ;; With a 0 prefix argument, ignore surrounding tables.
+  (should
+   (equal "|   |\n|---|\n| B |\nFoo\n\n| A |\n"
+	  (org-test-with-temp-text-in-file "Foo\n\n| A |"
+	    (let* ((file (buffer-file-name))
+		   (org-capture-templates
+		    `(("t" "Test" table-line (file ,file) "| B |"
+		       :immediate-finish t))))
+	      (org-capture 0 "t")
+	      (buffer-string))))))
 
 (ert-deftest test-org-capture/plain ()
   "Test `plain' type in capture template."
@@ -646,6 +741,16 @@
 		   (org-capture-templates
 		    `(("t" "Text" plain (file ,file) ""
 		       :immediate-finish t))))
+	      (org-capture nil "t")
+	      (buffer-string)))))
+  ;; Test :unnarrowed property without a "%?" marker.
+  (should
+   (equal "SUCCESS\n"
+	  (org-test-with-temp-text-in-file ""
+	    (let* ((file (buffer-file-name))
+		   (org-capture-templates
+		    `(("t" "Text" plain (file ,file) "SUCCESS"
+		       :unnarrowed t :immediate-finish t))))
 	      (org-capture nil "t")
 	      (buffer-string))))))
 
