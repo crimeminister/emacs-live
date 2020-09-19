@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: google_composer_environment
+# key: goog_cenv
+# --
+
+resource "google_composer_environment" "${1:resource name}" {
+  name   = "${2:name}"
+  region = "${3:region}"
+  $0
+}

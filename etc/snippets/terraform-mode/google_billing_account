@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: google_billing_account
+# key: goog_dba
+# --
+
+data "google_billing_account" "${1:resource name}" {
+  display_name = "${2:display name}"
+  open         = true
+  $0
+}
