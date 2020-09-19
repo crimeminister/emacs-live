@@ -1,0 +1,12 @@
+# contributor: Robert Medeiros <robert@crimeminister.org>
+# name: Inline Data
+# group: Apache Beam
+# key: ab_line
+# --
+final List<String> LINES = Arrays.asList(
+    "alpha",
+    "beta",
+    "gamma",
+    "delta"
+);
+final Create.Values<String> lines = Create.of(LINES);

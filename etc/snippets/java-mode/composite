@@ -1,0 +1,43 @@
+# contributor: Robert Medeiros <robert@crimeminister.org>
+# name: Composite Transform
+# group: Apache Beam
+# key: ab_comp
+# --
+/**
+ * Composite transformation example.
+ *
+ * Transformations that consist of multiple steps can be created as
+ * sub-classes of PTransform. Creating a PTransform subclass allows you
+ * to encapsulate complex transforms, can make your pipeline's structure
+ * more clear and modular, and makes unit testing easier.
+ *
+ * Apply the transform in a pipeline by creating a new instance:
+ *
+ *   pipeline.apply(new $1());
+ *
+ */
+class $1 extends PTransform<PCollection<$2>, PCollection<KV<$2,Long>>> {
+
+    class IdentityFn extends DoFn<$2, $2> {
+        @ProcessElement
+        public void processElement(@Element $2 in, OutputReceiver<$2> out) {
+            // Use OutputReceiver.output() to emit the output.
+            out.output(in);
+        }
+    }
+
+    @Override
+    public PCollection<KV<$2,Long>> expand(PCollection<$2> in) {
+        $0
+        // Apply a ParDo transform to our input items.
+        PCollection<$2> items = in.apply(
+            ParDo.of(new IdentityFn())
+        );
+
+        // Transform the intermediate results to expected output
+        // format. In this case, use the built-in Count transform.
+        PCollection<KV<$2,Long>> itemCounts = items.apply(Count.<$2>perElement());
+
+        return itemCounts;
+    }
+}

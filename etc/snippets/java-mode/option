@@ -1,0 +1,11 @@
+# contributor: Robert Medeiros <robert@crimeminister.org>
+# group: Apache Beam
+# name: Pipeline Option
+# key: ab_opt
+# --
+/** This is an example pipeline option. Please customize. */
+@Description("$1")
+@Default.${2:String}("$3")
+@Required
+$2 get${4:ExampleOption}();
+void set$4($2 ${4:$(concat (downcase (substring yas-text 0 1)) (substring yas-text 1)))});

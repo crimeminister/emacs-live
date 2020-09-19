@@ -1,0 +1,22 @@
+# contributor: Robert Medeiros <robert@crimeminister.org>
+# name: DoFn<InType, OutType>
+# group: Apache Beam
+# key: ab_dofn
+# --
+/**
+ *
+ */
+class IdentityFn extends DoFn<$1, $2> {
+    /**
+     * Defines the element processing method of the DoFn. Can be named
+     * arbitrarily so must be marked with the @ProcessElement
+     * annotation.
+     *
+     * Mark the input value with @Element
+     */
+    @ProcessElement
+    public void processElement(@Element $1 in, OutputReceiver<$2> out) {
+        // Use OutputReceiver.output() to emit the output.
+        out.output(in);$0
+    }
+}
