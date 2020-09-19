@@ -1,4 +1,8 @@
 bookmarks
+elpa
+etc/custom/
+etc/multiple-cursors-prefs.el
+transient/history.el
 sk-old
 *.dat
 *~
