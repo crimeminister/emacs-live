@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: google_dns_record_set
+# group: google
+# key: g:drs
+# --
+
+resource "google_dns_record_set" "${1:resource name}" {
+  project      = "${2:project id}"
+  name         = "${3:name}.${4:dns name}"
+  type         = "${5:type}"
+  ttl          = "${6:ttl}"
+  managed_zone = "${7:managed zone}"
+  rrdatas      = [
+    $0
+  ]
+}

@@ -1,0 +1,52 @@
+# -*- mode: snippet -*-
+# contributor: Robert Medeiros <robert@crimeminister.org>
+# name: google_cloud_run_service
+# group: google
+# key: g:crs
+# --
+
+resource "google_cloud_run_service" "${1:resource name}" {
+  project  = ${2:project}
+  name     = "${3:service name}"
+  location = "${4:location}"
+
+  template {
+    spec {
+      service_account_name = google_service_account.default.email
+      containers {
+        image = "gcr.io/${5:container_project}/${6:container_image}"
+        env {
+          name  = "PROJECT_ID"
+          value = $2
+        }
+
+        // Secrets
+        dynamic "env" {
+          for_each = var.secrets
+          content {
+            name  = upper("SECRET_${env.key}")
+            value = env.value
+          }
+        }
+      }
+    }
+  }
+
+  metadata {
+    annotations = {
+      "autoscaling.knative.dev/minScale" = 1
+      "autoscaling.knative.dev/maxScale" = 1
+    }
+  }
+
+  traffic {
+    percent         = 100
+    latest_revision = true
+  }
+  autogenerate_revision_name = true
+
+  lifecycle {
+    ignore_changes = [
+    ]
+  }
+}

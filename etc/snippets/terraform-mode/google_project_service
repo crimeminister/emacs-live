@@ -1,0 +1,12 @@
+# -*- mode: snippet -*-
+# name: google_project_service
+# group: google
+# key: g:ps
+# --
+
+resource "google_project_service" "${1:resource name}" {
+  project                    = "${2:project}"
+  service                    = "${3:service}"
+  disable_dependent_services = ${4:false}
+  disable_on_destroy         = ${5:false}
+}

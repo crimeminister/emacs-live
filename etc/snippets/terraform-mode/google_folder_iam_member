@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: google_folder_iam_member
+# group: google
+# key: g:fim
+# --
+
+resource "google_folder_iam_member" "${1:resource name}" {
+  folder     = "${2:folders/1234567}"
+  role       = "roles/${3:resourcemanager.folderAdmin}"
+  member     = "user:$0"
+
+  # With IAM conditions
+  condition {
+    title       = "expires_after_2019_12_31"
+    description = "Expiring at midnight of 2019-12-31"
+    expression  = "request.time < timestamp(\"2020-01-01T00:00:00Z\")"
+  }
+ }

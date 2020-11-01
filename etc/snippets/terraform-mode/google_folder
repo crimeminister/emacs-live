@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: google_folder
+# group: google
+# key: g:folder
+#
+# https://www.terraform.io/docs/providers/google/r/google_folder.html
+# --
+
+resource "google_folder" "${1:resource name}" {
+  # Must be of the form folders/{folder_id} or organizations/{org_id}
+  parent       = "${2:folder type}/${3:parent id}"
+  display_name = "${4:folder name}"
+}

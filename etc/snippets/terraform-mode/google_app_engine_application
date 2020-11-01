@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: google_app_engine_application
+# group: google
+# key: g:aea
+# --
+
+resource "google_app_engine_application" "${1:resource name}" {
+  project     = "${2:project id}"
+  location_id = "${3:location}"
+}

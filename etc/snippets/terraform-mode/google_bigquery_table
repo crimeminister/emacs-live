@@ -1,9 +1,62 @@
 # -*- mode: snippet -*-
 # name: google_bigquery_table
-# key: goog_bqt
+# group: google
+# key: g:bqt
 # --
 
 resource "google_bigquery_table" "${1:resource name}" {
-  FIXME
-  $0
+  project     = "${2:project}"
+  dataset_id  = "${3:dataset id}"
+  table_id    = "${4:table id}"
+  description = "${5:description}"
+
+  # Specify path to external JSON schema file.
+  schema      = file("path/to/schema.json")
+  # Specify table schema inline.
+  schema      = jsonencode([
+    {
+      "description": "An example string",
+      "name": "example_string",
+      "type": "STRING",
+      "mode": "REQUIRED",
+    },
+    {
+      "description": "An example float",
+      "name": "example_float",
+      "type": "FLOAT",
+      "mode": "NULLABLE",
+    },
+    {
+      "description": "An example date",
+      "name": "example_date",
+      "type": "DATE",
+      "mode": "NULLABLE",
+    },
+    {
+      "name": "addresses",
+      "type": "RECORD",
+      "mode": "REPEATED",
+      "fields": [
+        {
+          "name": "status",
+          "type": "STRING",
+          "mode": "NULLABLE",
+        },
+        {
+          "name": "address",
+          "type": "STRING",
+          "mode": "NULLABLE",
+        },
+      ],
+    },
+  ])
+
+  view {
+    # NB: table references in view SQL need to be fully qualified,
+    # including project. Replace the placeholder "PROJECT" in the view
+    # SQL with the project name.
+    query = replace(file("schema/swanetl_curated_nonprod/bsa_all_cells.sql"), "PROJECT", data.google_project.project.project_id)
+
+    use_legacy_sql = false
+  }
 }

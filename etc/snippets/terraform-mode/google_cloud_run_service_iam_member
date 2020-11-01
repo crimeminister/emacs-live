@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: google_cloud_run_service_iam_member
+# group: google
+# key: g:crsim
+# --
+
+resource "google_cloud_run_service_iam_member" "${1:resource name}" {
+  project  = google_cloud_run_service.${2:name}.project
+  location = google_cloud_run_service.$2.location
+  service  = google_cloud_run_service.$2.name
+  role     = "roles/viewer"
+  member   = "user:$0"
+}

@@ -1,0 +1,63 @@
+# -*- mode: snippet -*-
+# name: tls_self_signed_cert
+# group: tls
+# key: tls:ssc
+#
+# https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/self_signed_cert
+# --
+
+resource "tls_self_signed_cert" "${1:resource name}" {
+  key_algorithm   = "ECDSA"
+  private_key_pem = "${file(\"private_key.pem\")}"
+
+  subject {
+    common_name         = "example.com"
+    organization        = "ACME Examples, Inc"
+    organizational_unit = ""
+    street_address      = ["1234 Merry Lane"]
+    locality            = ""
+    province            = ""
+    country             = ""
+    postal_code         = ""
+    serial_number       = ""
+  }
+
+  validity_period_hours = 12
+  early_renewal_hours   = 3
+
+  # (Optional) Set CA flag in generated certificate.
+  is_ca_certificate     = false
+  # (Optional) Set subject key identifier.
+  set_subject_key_id    = false
+
+  # (Optional) List of DNS names for which certificate is being requested.
+  dns_names             = []
+  # (Optional) List of IP addresses for which certificate is being requested.
+  ip_addresses          = []
+  # (Optional) List of URIs for which a certificate is being requested.
+  uris                  = []
+
+  allowed_uses = [
+    "any_extended",
+    "cert_signing",
+    "client_auth",
+    "code_signing",
+    "content_commitment",
+    "crl_signing",
+    "data_encipherment",
+    "decipher_only",
+    "digital_signature",
+    "email_protection",
+    "encipher_only",
+    "ipsec_end_system",
+    "ipsec_tunnel",
+    "ipsec_user",
+    "key_agreement",
+    "key_encipherment",
+    "microsoft_server_gated_crypto",
+    "netscape_server_gated_crypto",
+    "ocsp_signing",
+    "server_auth",
+    "timestamping",
+  ]
+}

@@ -1,0 +1,26 @@
+# -*- mode: snippet -*-
+# name: google_redis_instance
+# group: google
+# key: g:ri
+# --
+
+resource "google_redis_instance" "${1:resource name}" {
+  project        = "${2:project_id}"
+  name           = "${3:name}"
+  display_name   = "${4:display_name}"
+
+  tier           = "STANDARD_HA"
+  memory_size_gb = ${5:1}
+
+  location_id             = "${6:us-central1-a}"
+  alternative_location_id = "${7:us-central1-f}"
+
+  authorized_network = data.google_compute_network.network.id
+
+  redis_version     = "REDIS_5_0"
+  reserved_ip_range = "192.168.0.0/29"
+
+  labels = {
+    example_key = "example_val"
+  }
+}

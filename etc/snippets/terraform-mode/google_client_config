@@ -1,8 +1,10 @@
 # -*- mode: snippet -*-
 # name: google_client_config
-# key: goog_dcc
+# group: google
+# key: g:dcc
 # --
 # Use this data source to access the configuration of the Google Cloud
 # provider.
-
-data "google_client_config" "${1:resource name}" {$0}
+data "google_client_config" "${1:resource name}" {
+  $0
+}

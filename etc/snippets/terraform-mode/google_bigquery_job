@@ -1,0 +1,32 @@
+# -*- mode: snippet -*-
+# name: google_bigquery_job
+# group: google
+# key: g:bqj
+#
+# https://www.terraform.io/docs/providers/google/r/bigquery_job.html
+# --
+
+resource "google_bigquery_job" "${1:resource name}" {
+  job_id     = "${2:job id}"
+
+  labels = {
+    "example-label" = "example-value"
+  }
+
+  query {
+    query = "SELECT state FROM ..."
+
+    destination_table {
+      project_id = google_bigquery_table.example.project
+      dataset_id = google_bigquery_table.example.dataset_id
+      table_id   = google_bigquery_table.example.table_id
+    }
+
+    allow_large_results = true
+    flatten_results     = true
+
+    script_options {
+      key_result_statement = "LAST"
+    }
+  }
+}

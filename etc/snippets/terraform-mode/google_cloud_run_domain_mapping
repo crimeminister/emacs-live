@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: google_cloud_run_domain_mapping
+# group: google
+# key: g:crdm
+# --
+
+resource "google_cloud_run_domain_mapping" "${1:resource name}" {
+  name     = "${2:verified-domain.com}"
+  location = "${3:us-central1}"
+
+  metadata {
+    namespace = "my-project-name"
+  }
+
+  spec {
+    route_name = google_cloud_run_service.default.name
+  }
+}
