@@ -1,9 +1,11 @@
 # -*- mode: snippet -*-
+# contributor: Robert Medeiros <robert@crimeminister.org>
 # name: google_billing_account
-# key: goog_dba
+# group: google
+# key: g:ba
 # --
 
-data "google_billing_account" "${1:resource name}" {
+resource "google_billing_account" "${1:resource name}" {
   display_name = "${2:display name}"
   open         = true
   $0

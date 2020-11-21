@@ -1,6 +1,7 @@
 # -*- mode: snippet -*-
 # name: google_composer_environment
-# key: goog_cenv
+# group: google
+# key: g:cenv
 # --
 
 resource "google_composer_environment" "${1:resource name}" {

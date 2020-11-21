@@ -1,9 +1,10 @@
 # -*- mode: snippet -*-
 # name: google_active_folder
-# key: goog_dactf
+# group: google
+# key: g:af
 # --
 
-data "google_active_folder" "${1:resource name}" {
+resource "google_active_folder" "${1:resource name}" {
   display_name = "${2:display name}"
   parent       = "organizations/${3:organization}"
   $0
