@@ -1,0 +1,11 @@
+resource "google_monitoring_group" "checktcp" {
+  project = "${var.project}"
+  display_name = "uptime-check-group"
+  filter = "resource.metadata.name=has_substring(\"foo\")"
+}
+
+resource "google_monitoring_group" "check" {
+  project = "${var.project}"
+  display_name = "uptime-check-group"
+  filter = "resource.metadata.name=has_substring(\"foo\")"
+}

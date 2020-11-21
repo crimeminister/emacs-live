@@ -1,0 +1,12 @@
+resource "google_monitoring_notification_channel" "notification_channel" {
+  project      = "${var.project_id}"
+  display_name = "${var.display_name}"
+  description  = "${var.description}"
+  type         = "${var.type}"
+
+  labels = {
+    email_address = "${var.email_address}"
+  }
+
+  enabled = "${var.enabled}"
+}

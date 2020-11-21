@@ -1,0 +1,6 @@
+resource "google_compute_ssl_policy" "tls-1-2-ipv6-yo" {
+  min_tls_version = "TLS_1_2"
+  name            = "tls-1-2-ipv6-yo"
+  profile         = "MODERN"
+  project         = "${var.project_id}"
+}

@@ -1,0 +1,36 @@
+resource "google_monitoring_uptime_check_config" "tcp_group" {
+  project = "${var.project}"
+  display_name = "${var.uptime_display_name}"
+  timeout = "${var.timeout}"
+  period = "${var.period}"
+  tcp_check {
+    port = 433
+  }
+  monitored_resource {
+    type = "uptime_url"
+    labels = {
+      project_id = "${var.project}"
+      host = "${var.host_monitored}"
+    }
+  }
+}
+
+resource "google_monitoring_uptime_check_config" "http" {
+  project = "${var.project}"
+  display_name = "${var.uptime_display_name}"
+  timeout = "${var.timeout}"
+  period = "${var.period}"
+  http_check {
+    path = "${var.path_name}"
+    use_ssl = "true"
+    headers  = "${var.header}"
+    mask_headers = "${var.mask}"
+  }
+  monitored_resource {
+    type = "uptime_url"
+    labels = {
+      project_id = "${var.project}"
+      host = "${var.host_monitored}"
+    }
+  }
+}

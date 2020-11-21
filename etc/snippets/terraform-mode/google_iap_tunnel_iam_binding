@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_iap_tunnel_iam_binding
+# group: google
+# key: g:itib
+# --
+
+resource "google_iap_tunnel_iam_binding" "${1:resource name}" {
+
+}

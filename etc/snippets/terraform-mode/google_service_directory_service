@@ -1,0 +1,5 @@
+resource "google_service_directory_service" "default" {
+  provider   = google-beta
+  service_id = replace(var.dns_name, ".", "-")
+  namespace  = var.namespace
+}

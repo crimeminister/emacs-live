@@ -1,0 +1,11 @@
+resource "google_kms_crypto_key" "default" {
+  key_ring        = "${ google_kms_key_ring.default.self_link }"
+  name            = "${ var.key_name }"
+  rotation_period = "${ var.rotation_period }s"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+
+  depends_on = ["google_kms_key_ring.default"]
+}

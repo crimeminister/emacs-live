@@ -1,0 +1,5 @@
+resource "google_spanner_instance_iam_member" "instance" {
+  instance = "your-instance-name"
+  role     = "roles/compute.networkUser"
+  member   = "user:jane@example.com"
+}

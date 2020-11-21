@@ -1,0 +1,32 @@
+resource "google_pubsub_subscription" "subscription" {
+  project                    = var.project_id
+  name                       = var.subscription_name
+  topic                      = google_pubsub_topic.topic.name
+  message_retention_duration = "1200s"
+  retain_acked_messages      = true
+  ack_deadline_seconds       = 20
+
+  expiration_policy {
+    ttl = "300000.5s"
+  }
+}
+
+resource "google_pubsub_subscription" "default" {
+  project = "${data.google_project.project.project_id}"
+  name    = "${var.name}"
+  topic   = "${google_pubsub_topic.default.name}"
+
+  labels {}
+
+  // 20 minutes
+  message_retention_duration = "${var.notification_retention_duration}"
+  retain_acked_messages      = false
+  ack_deadline_seconds       = 10
+
+  /*
+  expiration_policy {
+    // 31 days
+    ttl = "2678400s"
+  }
+  */
+}

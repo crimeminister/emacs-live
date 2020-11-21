@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: local_file
+# group: local
+# key: l:f
+# --
+
+resource "local_file" "${1:resource name}" {
+  filename = "${2:filename}"
+  content  = "${3:content}"
+}

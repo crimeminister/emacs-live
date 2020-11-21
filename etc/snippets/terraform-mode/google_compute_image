@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: google_compute_image
+# group: google
+# key: g:ci
+# --
+
+
+resource "google_compute_image" "${1:resource name}" {
+  project = "${var.project_id}"
+  family  = "${var.source_image_family}"
+}

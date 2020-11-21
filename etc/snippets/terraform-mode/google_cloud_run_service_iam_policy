@@ -1,0 +1,23 @@
+# -*- mode: snippet -*-
+# name: google_cloud_run_service_iam_policy
+# group: google
+# key: g:crsip
+# --
+
+data "google_iam_policy" "noauth" {
+  binding {
+    role = "roles/run.invoker"
+    members = [
+      "allUsers",
+    ]
+  }
+}
+
+resource "google_cloud_run_service_iam_policy" "${1:resource name}" {
+  project  = google_cloud_run_service.${2:default}.project
+  location = google_cloud_run_service.$2.location
+  service  = google_cloud_run_service.$2.name
+
+  # No authorization required to invoke this service.
+  policy_data = data.google_iam_policy.noauth.policy_data
+}

@@ -1,0 +1,67 @@
+resource "google_monitoring_alert_policy" "alert_policy_count" {
+  project               = "${var.project}"
+  display_name          = "${var.alert_display_name}"
+  notification_channels = ["${var.notif_id}"]
+  combiner              = "${var.policy_comb}"
+
+  documentation {
+    mime_type = "${var.mime_type}"
+    content   = "${var.content}"
+  }
+
+  conditions {
+    display_name = "${var.condition_display_name}"
+
+    condition_threshold {
+      filter          = "${var.filter}"
+      threshold_value = "${var.threshold_value}"
+      duration        = "${var.duration}"
+      comparison      = "${var.comparison}"
+
+      trigger {
+        count = "${var.trigger_count}"
+      }
+
+      aggregations {
+        group_by_fields      = ["${var.group_by_fields}"]
+        alignment_period     = "${var.alignment_period}"
+        per_series_aligner   = "${var.per_series_aligner}"
+        cross_series_reducer = "${var.cross_series_reducer}"
+      }
+    }
+  }
+}
+
+resource "google_monitoring_alert_policy" "alert_policy_percent" {
+  project               = "${var.project}"
+  display_name          = "${var.alert_display_name}"
+  notification_channels = ["${var.notif_id}"]
+  combiner              = "${var.policy_comb}"
+
+  documentation {
+    mime_type = "${var.mime_type}"
+    content   = "${var.content}"
+  }
+
+  conditions {
+    display_name = "${var.condition_display_name}"
+
+    condition_threshold {
+      filter          = "${var.filter}"
+      threshold_value = "${var.threshold_value}"
+      duration        = "${var.duration}"
+      comparison      = "${var.comparison}"
+
+      trigger {
+        percent = "${var.trigger_percent}"
+      }
+
+      aggregations {
+        group_by_fields      = ["${var.group_by_fields}"]
+        alignment_period     = "${var.alignment_period}"
+        per_series_aligner   = "${var.per_series_aligner}"
+        cross_series_reducer = "${var.cross_series_reducer}"
+      }
+    }
+  }
+}

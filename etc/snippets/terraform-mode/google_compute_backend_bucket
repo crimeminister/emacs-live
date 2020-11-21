@@ -1,0 +1,12 @@
+# -*- mode: snippet -*-
+# name: google_compute_backend_bucket
+# group: google
+# key: g:cbb
+# --
+
+resource "google_compute_backend_bucket" "${1:resource name}" {
+  project               = ${2:project id}
+  name                  = ${3:name}
+  bucket_name           = ${4:bucket name}
+  enable_cdn            = ${5:false}
+}

@@ -1,0 +1,3 @@
+resource "google_compute_region_backend_service" "${1:resource name}" {
+
+}

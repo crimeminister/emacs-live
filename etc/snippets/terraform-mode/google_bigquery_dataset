@@ -1,0 +1,40 @@
+# -*- mode: snippet -*-
+# name: google_bigquery_dataset
+# group: google
+# key: g:bqd
+# --
+
+resource "google_bigquery_dataset" "${1:resource name}" {
+  project       = "${2:project id}"
+  location      = "${3:location}"
+  dataset_id    = "${4:name}"
+  friendly_name = "${5:friendly name}"
+  description   = "${6:description}"
+
+  # Dataset deletion should fail when there are tables present.
+  delete_contents_on_destroy = false
+
+  labels = {
+    "example" = "foobar"
+  }
+
+  access {
+    role          = "OWNER"
+    special_group = "projectOwners"
+  }
+
+  access {
+    role          = "READER"
+    special_group = "projectReaders"
+  }
+
+  access {
+    role          = "READER"
+    user_by_email = "user:foo.bar@example.com"
+  }
+
+  access {
+    role          = "WRITER"
+    user_by_email = "user:foo.bar@example.com"
+  }
+}

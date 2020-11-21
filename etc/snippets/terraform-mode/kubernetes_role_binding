@@ -1,0 +1,25 @@
+# -*- mode: snippet -*-
+# name: kubernetes_role_binding
+# group: kubernetes
+# key: k:rb
+# --
+
+resource "kubernetes_role_binding" "${1:resource name}" {
+  metadata {
+    name      = "${2:name}"
+    namespace = "${3:namespace}"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "edit"
+  }
+
+  subject {
+    api_group = ""
+    kind      = "User"
+    name      = "${var.subject_names[1]}"
+    namespace = "${var.name}"
+  }
+}

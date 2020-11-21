@@ -1,0 +1,15 @@
+# -*- mode: snippet -*-
+# name: google_compute_address
+# group: google
+# key: g:caddr
+# --
+
+resource "google_compute_address" "${1:resource name}" {
+  project = "${2:project id}"
+  name    = "${3:address name}"
+  region  = "${4:region}"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}

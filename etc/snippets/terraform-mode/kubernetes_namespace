@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: kubernetes_namespace
+# group: kubernetes
+# key: k:ns
+# --
+
+resource "kubernetes_namespace" "${1:resource name}" {
+  metadata {
+    name        = "${2:name}"
+    annotations = "${3:annotations}"
+    labels      = "${4:labels}"
+  }
+}

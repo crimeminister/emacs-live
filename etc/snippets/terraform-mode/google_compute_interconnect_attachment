@@ -1,0 +1,17 @@
+# Source — Select Custom IP range to specify a custom IP range.
+# IP address range — Specify 199.36.153.4/30.
+# Description — Add a description of Restricted Google APIs IPs.
+
+resource "google_compute_interconnect_attachment" "default" {
+  count   = "${length(var.location_names)}"
+  project = "${var.project_id}"
+  name    = "${var.attachment_name}-${lookup(var.location_names[count.index],"location")}"
+  router  = "${element(google_compute_router.default.*.self_link,count.index)}"
+
+  region        = "${var.region}"
+  //vlan_tag8021q = "${lookup(var.location_names[count.index],"vlan_tag8021q")}"
+
+  //The following two variables must be set for partner interconnect
+  type                     = "${lookup(var.location_names[count.index],"type")}"
+  edge_availability_domain = "${lookup(var.location_names[count.index],"domain")}"
+}

@@ -1,0 +1,17 @@
+resource "google_project_services" "default" {
+  project            = "${google_project.default.project_id}"
+  services           = var.services
+  disable_on_destroy = false
+  depends_on         = [ "google_project.default" ]
+}
+
+resource "google_project_services" "default" {
+  project            = "${ google_project.default.project_id }"
+  services           = "${ local.services }"
+  disable_on_destroy = false
+  depends_on         = ["google_project.default"]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}

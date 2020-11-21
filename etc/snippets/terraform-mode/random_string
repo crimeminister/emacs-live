@@ -1,0 +1,33 @@
+# -*- mode: snippet -*-
+# name: random_string
+# group: random
+# key: rand:str
+#
+# https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
+# --
+
+resource "random_string" "${1:resource name}" {
+  length           = ${2:8}
+  # Include special characters in random string.
+  special          = ${3:false}
+  # (Optional) Minimum number of special characters in random string.
+  min_special      = ${4:0}
+  # (Optional) Supply your own list of special characters to use for string
+  # generation.
+  override_special = "${5:%$#@}"
+  # (Optional) Include uppercase alphabet characters in random string.
+  upper            = ${6:false}
+  # (Optional) Minimum number of uppercase alphabet characters in random string.
+  min_upper        = ${7:0}
+  # (Optional) Include lowercase alphabet characters in random string.
+  lower            = ${8:true}
+  # (Optional) Minimum number of lowercase alphabet characters in random string.
+  min_lower        = ${9:0}
+  # (Optional) Minimum number of numeric characters in random string.
+  min_numeric      = ${10:0}
+
+  # (Optional) Arbitrary map of values that, when changed, will trigger a new
+  # id to be generated.
+  keepers = {
+  }
+}

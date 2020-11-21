@@ -1,0 +1,5 @@
+resource "google_runtimeconfig_config" "default" {
+  project     = "${ var.project_id }"
+  name        = "${ var.config_name }"
+  description = "${ var.config_name } runtimeconfig"
+}

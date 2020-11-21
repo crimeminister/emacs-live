@@ -1,0 +1,32 @@
+resource "google_cloudbuild_trigger" "filename-trigger" {
+  project = "${google_project.default.project_id}"
+  trigger_template {
+    branch_name = "master"
+    repo_name   = "my-repo"
+  }
+  substitutions = {
+    _FOO = "bar"
+    _BAZ = "qux"
+  }
+  filename = "cloudbuild.yml"
+  depends_on = [ "google_project_services.default" ]
+}
+
+resource "google_cloudbuild_trigger" "plan" {
+  project     = "${var.project_id}"
+  description = "Terraform Plan"
+  filename    = "${var.cloud_build_path}/terraform.yaml"
+
+  #Due to this issue https://github.com/terraform-providers/terraform-provider-google/issues/1950
+  #DO NOT ADD DIASABLED
+
+  trigger_template {
+    tag_name  = "${var.project_name}.plan*"
+    repo_name = "${var.repo_name}"
+  }
+  substitutions = {
+    _TF_COMMAND  = "plan"
+    _DIR         = "${var.build_dir}"
+    _GKE_CLUSTER = "${var.gke_cluster}"
+  }
+}

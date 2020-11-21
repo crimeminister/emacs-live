@@ -1,0 +1,12 @@
+resource "google_compute_target_http_proxy" "mci1-tp--test-ingress" {
+  description = "Target http proxy for kubernetes multicluster loadbalancer test-ingress"
+  name        = "mci1-tp--test-ingress"
+  project     = "${var.project_id}"
+  url_map     = "${google_compute_url_map.mci1-um--test-ingress.self_link}"
+}
+
+resource "google_compute_target_http_proxy" "target_http_proxy" {
+  name    = "${var.project_name}-http-proxy"
+  project = "${var.project_id}"
+  url_map = "${google_compute_url_map.url_map.self_link}"
+}

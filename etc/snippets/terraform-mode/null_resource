@@ -1,0 +1,62 @@
+# -*- mode: snippet -*-
+# name: null_resource
+# group: google
+# key: null:r
+#
+# https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource
+# --
+
+resource "null_resource" "${1:resource name}" {
+  # A map of arbitrary strings that, when changed, will force the null
+  # resource to be replaced, re-running any associated provisioners.
+  triggers = {
+  }
+
+  ## LOCAL
+
+  provisioner "local-exec" {
+    command = ""
+  }
+
+  provisioner "local-exec" {
+    command = ""
+    when    = "destroy"
+  }
+
+  provisioner "local-exec" {
+    command = ""
+    when    = ""
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+    {
+        echo "bar"
+        echo "foo"
+    }
+    EOF
+  }
+
+  ## REMOTE
+
+  provisioner "file" {
+    source      = "script.sh"
+    destination = "/tmp/script.sh"
+  }
+
+  provisioner "remote-exec" {
+    # A list of commands to execute.
+    inline = [
+      "echo 1",
+      "/tmp/script.sh",
+    ]
+    # Path to a script that will be copied to remote resource then executed.
+    script = ""
+    # A list of paths to scripts that will be copied to remote then executed.
+    scripts = [
+    ]
+  }
+
+  depends_on = [
+  ]
+}

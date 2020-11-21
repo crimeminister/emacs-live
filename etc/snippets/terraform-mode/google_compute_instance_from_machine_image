@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_compute_instance_from_machine_image
+# group: google
+# key: g:cifmi
+# --
+
+resource "google_compute_instance_from_machine_image" "${1:resource name}" {
+
+}

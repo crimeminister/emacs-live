@@ -1,0 +1,73 @@
+# -*- mode: snippet -*-
+# name: google_storage_bucket
+# group: google
+# key: g:sb
+# --
+
+resource "google_storage_bucket" "${1:resource name}" {
+  project  = $2
+  name     = "${3:bucket name}"
+  location = "${4:northamerica-northeast1}"
+
+  # MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE
+  storage_class = "${5:REGIONAL}"
+  force_destroy = ${6:true}
+
+  uniform_bucket_level_access = ${7:true}
+
+  versioning {
+    enabled = ${8:false}
+  }
+
+  website {
+    main_page_suffix = "index.html"
+    not_found_page   = "404.html"
+  }
+  cors {
+    origin          = ["http://image-storage.com"]
+    method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+    response_header = ["*"]
+    max_age_seconds = 3600
+  }
+
+  # Example rule to set storage class to NEARLINE if created before a certain date.
+  lifecycle_rule {
+    condition {
+      created_before = "2020-01-01"
+    }
+    action {
+      type          = "SetStorageClass"
+      storage_class = "NEARLINE"
+    }
+  }
+
+  # Example rule to delete objects after 3 days.
+  lifecycle_rule {
+    condition {
+      age = 3
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  # Example rule to delete archived objects after 3 days.
+  lifecycle_rule {
+    condition {
+      with_state = "ARCHIVED"
+    }
+    action = {
+      type = "Delete"
+    }
+  }
+
+  # Example rule to delete objects with REGIONAL storage class.
+  lifecycle_rule {
+    condition {
+      matches_storage_class = "REGIONAL"
+    }
+    action = {
+      type = "Delete"
+    }
+  }
+}

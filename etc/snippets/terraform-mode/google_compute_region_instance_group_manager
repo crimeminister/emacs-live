@@ -1,0 +1,26 @@
+resource "google_compute_region_instance_group_manager" "default" {
+  provider                  = "google-beta"
+  name                      = "${var.project_name}-instance-group-manager"
+  project                   = "${var.project_id}"
+  # base_instance_name        = "${var.project_name}-${var.instance_name}-instance"
+  base_instance_name        = "${var.base_instance_name}"
+  region                    = "${var.region}"
+  distribution_policy_zones = "${var.zones}"
+
+  version {
+    name              = "${var.instance_version}"
+    instance_template = "${var.instance_template}"
+  }
+
+  target_size = "${var.target_size}"
+
+  named_port {
+    name = "http"
+    port = 80
+  }
+
+  auto_healing_policies {
+    health_check      = "${google_compute_health_check.healthcheck.self_link}"
+    initial_delay_sec = 300
+  }
+}

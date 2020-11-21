@@ -1,0 +1,39 @@
+# -*- mode: snippet -*-
+# name: google_compute_firewall
+# group: google
+# key: g:cfw
+# --
+
+resource "google_compute_firewall" "${1:resource name}" {
+  project       = "${2:project_id}"
+  name          = "${3:name}"
+  description   = "${4:description}"
+  network       = google_compute_network.${5:network_name}.self_link
+  disabled      = false
+  priority      = 65534
+  direction     = "INGRESS"
+
+  allow {
+    ports    = ["0-65535"]
+    protocol = "udp"
+  }
+
+  allow {
+    protocol = "icmp"
+  }
+
+  allow {
+    ports    = ["0-65535"]
+    protocol = "tcp"
+  }
+
+  # When using IAP to protect resources traffic will come from the known
+  # range [35.235.240.0/20].
+  source_ranges = [
+    "35.235.240.0/20",
+  ]
+
+  target_tags = [
+    "example",
+  ]
+}

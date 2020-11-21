@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_iap_tunnel_iam_policy
+# group: google
+# key: g:itip
+# --
+
+resource "google_iap_tunnel_iam_policy" "${1:resource name}" {
+
+}

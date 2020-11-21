@@ -1,0 +1,20 @@
+resource "google_compute_region_autoscaler" "autoscaler" {
+  name    = "${var.project_name}-scaler"
+  project = "${var.project_id}"
+  region  = "${var.region}"
+
+
+  target = "${google_compute_region_instance_group_manager.webservers.self_link}"
+
+
+  autoscaling_policy = {
+    max_replicas    = "${var.max_replicas}"
+    min_replicas    = "${var.min_replicas}"
+    cooldown_period = 180
+
+
+    cpu_utilization {
+      target = 0.85
+    }
+  }
+}

@@ -1,0 +1,190 @@
+resource "google_compute_security_policy" "default" {
+  project = "${var.project_id}"
+  name    = "${var.name}-telus-ip-filter-allow"
+
+  //The default deny any rule.
+  rule {
+    action   = "deny(403)"
+    priority = "2147483647"
+    match {
+      versioned_expr = "SRC_IPS_V1"
+
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+    description = "default deny rule"
+  }
+
+  //The custom rules
+  rule {
+    action   = "${lookup( var.customRules[0], "action" ) }"
+    priority = "${lookup( var.customRules[0], "priority" ) }"
+    preview  = "${lookup( var.customRules[0], "preview" ) }"
+    match {
+      versioned_expr = "${lookup( var.customRules[0], "versioned_expr" ) }"
+
+      config {
+        src_ip_ranges = "${split(",", lookup(var.customRules[0], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.customRules[0], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.customRules[1], "action" ) }"
+    priority = "${lookup( var.customRules[1], "priority" ) }"
+    preview  = "${lookup( var.customRules[1], "preview" ) }"
+    match {
+      versioned_expr = "${lookup( var.customRules[1], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.customRules[1], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.customRules[1], "description" ) }"
+  }
+
+  //The default rules
+  rule {
+    action   = "${lookup( var.defaultIPFilters[0], "action" ) }"
+    priority = "${var.priority + 0}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[0], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[0], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[0], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[1], "action" ) }"
+    priority = "${var.priority + 1}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[1], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[1], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[1], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[2], "action" ) }"
+    priority = "${var.priority + 2}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[2], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[2], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[2], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[3], "action" ) }"
+    priority = "${var.priority + 3}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[3], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[3], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[3], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[4], "action" ) }"
+    priority = "${var.priority + 4}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[4], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[4], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[4], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[5], "action" ) }"
+    priority = "${var.priority + 5}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[5], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[5], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[5], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[6], "action" ) }"
+    priority = "${var.priority + 6}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[6], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[6], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[6], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[7], "action" ) }"
+    priority = "${var.priority + 7}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[7], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[7], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[7], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[8], "action" ) }"
+    priority = "${var.priority + 8}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[8], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[8], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[8], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[9], "action" ) }"
+    priority = "${var.priority + 9}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[9], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[9], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[9], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[10], "action" ) }"
+    priority = "${var.priority + 10}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[10], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[10], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[10], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[11], "action" ) }"
+    priority = "${var.priority + 11}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[11], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[11], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[11], "description" ) }"
+  }
+  rule {
+    action   = "${lookup( var.defaultIPFilters[12], "action" ) }"
+    priority = "${var.priority + 12}"
+    match {
+      versioned_expr = "${lookup( var.defaultIPFilters[12], "versioned_expr" ) }"
+      config {
+        src_ip_ranges = "${split(",", lookup(var.defaultIPFilters[12], "ip_ranges"))}"
+      }
+    }
+    description = "${lookup( var.defaultIPFilters[12], "description" ) }"
+  }
+}

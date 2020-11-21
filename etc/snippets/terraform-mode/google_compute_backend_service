@@ -1,0 +1,59 @@
+resource "google_compute_backend_service" "mci1-be-30061--test-ingress" {
+  affinity_cookie_ttl_sec = "0"
+
+  backend {
+    balancing_mode               = "RATE"
+    capacity_scaler              = "1"
+    group                        = "https://www.googleapis.com/compute/v1/projects/pet-sandbox-248219/zones/northamerica-northeast1-a/instanceGroups/k8s-ig--ddba32e5be1bfe3d"
+    max_connections              = "0"
+    max_connections_per_endpoint = "0"
+    max_connections_per_instance = "0"
+    max_rate                     = "0"
+    max_rate_per_endpoint        = "0"
+    max_rate_per_instance        = "1E+14"
+    max_utilization              = "0"
+  }
+
+  backend {
+    balancing_mode               = "RATE"
+    capacity_scaler              = "1"
+    group                        = "https://www.googleapis.com/compute/v1/projects/pet-sandbox-248219/zones/northamerica-northeast1-b/instanceGroups/k8s-ig--ca70d4de4c3427d9"
+    max_connections              = "0"
+    max_connections_per_endpoint = "0"
+    max_connections_per_instance = "0"
+    max_rate                     = "0"
+    max_rate_per_endpoint        = "0"
+    max_rate_per_instance        = "1E+14"
+    max_utilization              = "0"
+  }
+
+  connection_draining_timeout_sec = "0"
+  description                     = "Backend service for service {\"kubernetes.io/service-name\":\"default/service-foo\",\"kubernetes.io/service-port\":\"80\"} as part of kub
+ernetes multicluster loadbalancer test-ingress"
+  enable_cdn                      = false
+  health_checks                   = ["https://www.googleapis.com/compute/v1/projects/pet-sandbox-248219/global/healthChecks/mci1-hc-30061--test-ingress"]
+  load_balancing_scheme           = "EXTERNAL"
+  name                            = "mci1-be-30061--test-ingress"
+  port_name                       = "port30061"
+  project                         = "pet-sandbox-248219"
+  protocol                        = "HTTP"
+  session_affinity                = "NONE"
+  timeout_sec                     = "30"
+}
+
+
+resource "google_compute_backend_service" "backend_service" {
+  name            = "${var.project_name}-backend-service"
+  project         = "${var.project_id}"
+  port_name       = "http"
+  protocol        = "HTTP"
+  security_policy = "${var.project_name}-telus-ip-filter-allow"
+
+  backend {
+    group                 = "${google_compute_region_instance_group_manager.default.instance_group}"
+    balancing_mode        = "RATE"
+    max_rate_per_instance = 100
+  }
+
+  health_checks = ["${google_compute_health_check.healthcheck.self_link}"]
+}

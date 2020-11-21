@@ -1,0 +1,6 @@
+resource "google_service_directory_namespace" "funnel" {
+  provider     = google-beta
+  project      = module.master_project.project_id
+  namespace_id = "funnel"
+  location     = var.default_location
+}

@@ -1,0 +1,9 @@
+resource "google_kms_key_ring" "default" {
+  project  = "${ var.project_id }"
+  location = "${ var.region }"
+  name     = "${ var.keyring_name }"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}

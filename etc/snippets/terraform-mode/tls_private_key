@@ -1,0 +1,12 @@
+# -*- mode: snippet -*-
+# name: tls_private_key
+# group: tls
+# key: tls:pk
+#
+# https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/private_key
+# --
+
+resource "tls_private_key" "${1:resource name}" {
+  algorithm   = "${3:ECDSA}"
+  ecdsa_curve = "P384"
+}

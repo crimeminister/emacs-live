@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_api_gateway_gateway_iam_binding
+# group: google
+# key: g:aggib
+# --
+
+resource "google_api_gateway_gateway_iam_binding" "${1:resource name}" {
+
+}

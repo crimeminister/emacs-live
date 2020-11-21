@@ -1,0 +1,6 @@
+terraform {
+  backend "gcs" {
+    bucket            = "pet-sandbox-tfstate"
+    prefix            = "pet-infra-test.tfstate"
+  }
+}

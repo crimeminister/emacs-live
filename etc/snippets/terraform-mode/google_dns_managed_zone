@@ -1,0 +1,12 @@
+# -*- mode: snippet -*-
+# name: google_dns_managed_zone
+# group: google
+# key: g:dmz
+# --
+
+resource "google_dns_managed_zone" "${1:resource name}" {
+  project     = "${2:project id}"
+  name        = "${3:zone name}"
+  description = "${4:description}"
+  dns_name    = "${5:dns name}"
+}

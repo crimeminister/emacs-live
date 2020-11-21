@@ -1,0 +1,38 @@
+resource "google_project_iam_custom_role" "os_login" {
+  project     = "${module.project.project_id}"
+  role_id     = "oslogin"
+  title       = "OS Login"
+  description = "Enable user access to Compute instances via OS Login"
+  permissions = [
+    # Permissions for roles/iam.serviceAccountUser:
+    "iam.serviceAccounts.actAs",
+    "iam.serviceAccounts.get",
+    "iam.serviceAccounts.list",
+    "resourcemanager.projects.get",
+    # This permission is listed on the Google IAM permissions reference
+    # page, but am seeing an error trying to assign it to this role:
+    # Error 400: Permission resourcemanager.projects.list is not valid.
+    # ¯\_(ツ)_/¯
+    #"resourcemanager.projects.list",
+
+    # Does not grant administrator permissions when logging in.
+    # Permissions for roles/compute.osLogin:
+    "compute.instances.get",
+    "compute.instances.list",
+    "compute.instances.osLogin",
+    "compute.projects.get",
+    "resourcemanager.projects.get",
+    # This permission is listed on the Google IAM permissions reference
+    # page, but am seeing an error trying to assign it to this role:
+    # Error 400: Permission resourcemanager.projects.list is not valid.
+    # ¯\_(ツ)_/¯
+    #"resourcemanager.projects.list",
+    "serviceusage.quotas.get",
+    "serviceusage.services.get",
+    "serviceusage.services.list",
+
+    # Enable access by memebers outside the organization.
+    # Permissions for roles/compute.osLoginExternalUser:
+    #"compute.oslogin.updateExternalUser",
+  ]
+}

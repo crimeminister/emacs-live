@@ -1,0 +1,15 @@
+resource "google_dataflow_job" "pubsub-repub" {
+  name              = "pubsub-repub"
+  depends_on = [google_project_iam_member.dataflow-worker, module.project.enabled_services, google_storage_bucket.dataflow-tmp-bucket, google_pubsub_topic_iam_member.publishe
+r, google_pubsub_subscription.cloud-builds-sub]
+  project = module.project.project.project_id
+  service_account_email = google_service_account.app-shared-service-account.email
+  zone = "us-east1-b" # closest available region for dataflow
+  template_gcs_path = "gs://dataflow-templates/latest/Cloud_PubSub_to_Cloud_PubSub"
+  temp_gcs_location = google_storage_bucket.dataflow-tmp-bucket.url
+  on_delete = "cancel"
+  parameters = {
+    inputSubscription = google_pubsub_subscription.cloud-builds-sub.path
+    outputTopic = "projects/${var.shared_gcp_project_id}/topics/app-team-cloud-build"
+  }
+}

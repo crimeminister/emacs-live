@@ -1,0 +1,18 @@
+resource "google_service_directory_endpoint" "default" {
+  provider    = google-beta
+  for_each    = local.github_endpoints
+  endpoint_id = trimsuffix(each.key, "-")
+  service     = google_service_directory_service.default.id
+
+  metadata = {
+    # TODO what else would be useful here?
+    location    = var.location
+    record_type = each.value.type
+  }
+
+  # Only include the "address" attribute if the value looks like it could be an IP
+  # address (v4 or v6). Otherwise it's probably a CNAME record. regexall() returns
+  # a list of matches.
+  address = length(regexall("^[\\d:\\.]+$", each.value.rrdata)) > 0 ? each.value.rrdata : null
+  port    = var.port
+}

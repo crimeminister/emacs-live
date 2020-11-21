@@ -1,0 +1,28 @@
+resource "google_sql_database_instance" "db" {
+  region  = "${ var.region }"
+  project = "${ var.project_id }"
+  name    = "${ var.db_server_name }"
+
+  database_version = "${ var.db_version }"
+
+  settings {
+    tier      = "${ var.instance_tier }"
+    disk_size = "${ var.instance_disk_size }"
+
+    ip_configuration {
+      ipv4_enabled        = "${var.ipv4_enabled}"
+      require_ssl         = "${var.require_ssl}"
+      authorized_networks = "${var.authorized_networks}"
+    }
+
+    backup_configuration = [{
+      start_time = "${ var.backup_start_time }"
+      enabled    = true
+    }]
+
+    maintenance_window = [{
+      day  = "${ var.maintenance_window_day }"
+      hour = "${ var.maintenance_window_hour }"
+    }]
+  }
+}

@@ -1,0 +1,14 @@
+resource "google_compute_ssl_certificate" "default" {
+  name        = "${var.project_name}-certificate"
+  description = "${var.site} Certificate"
+  project     = "${var.project_id}"
+
+  #Read the contents of the private_key_file
+
+  private_key = "${file("${var.private_key_file}")}"
+  certificate = "${local.combined_key}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
+}

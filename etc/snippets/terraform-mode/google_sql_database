@@ -1,0 +1,5 @@
+resource "google_sql_database" "default" {
+  name     = "${var.db_name}"
+  project  = "${ var.project_id }"
+  instance = "${google_sql_database_instance.db.name}"
+}

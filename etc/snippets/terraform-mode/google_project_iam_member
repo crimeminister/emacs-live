@@ -1,0 +1,14 @@
+resource "google_project_iam_member" "user-repos-perms" {
+  depends_on = [module.project.project]
+  project = module.project.project.project_id
+  role = "roles/source.admin"
+  member = "user:${var.user_email}"
+}
+
+resource "google_project_iam_member" "default" {
+  count      = "${ length( var.roles ) }"
+  project    = "${ var.project_id }"
+  member     = "serviceAccount:${ google_service_account.default.email }"
+  role       = "${ element( var.roles , count.index ) }"
+  depends_on = ["google_service_account.default"]
+}

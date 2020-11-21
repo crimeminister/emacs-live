@@ -1,0 +1,17 @@
+resource "google_compute_global_address" "test-ipv6" {
+  address_type  = "EXTERNAL"
+  ip_version    = "IPV6"
+  name          = "test-ipv6"
+  prefix_length = "0"
+  project       = "${var.project_id}"
+}
+
+resource "google_compute_global_address" "default" {
+  name    = "${var.name}"
+  project = "${var.project_id}"
+
+  lifecycle {
+    //prevent_destroy = "${var.prevent_destroy == "true" ? 1 : 0}"
+    prevent_destroy = true
+  }
+}

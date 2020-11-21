@@ -1,0 +1,17 @@
+resource "google_compute_global_forwarding_rule" "mci1-um--test-ingress-forwarding-rule-3" {
+  ip_address            = "2600:1901:0:4139::"
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL"
+  name                  = "mci1-um--test-ingress-forwarding-rule-3"
+  port_range            = "443-443"
+  project               = "${var.project_id}"
+  target                = "${google_compute_target_https_proxy.mci1-um--test-ingress-target-proxy-3.self_link}"
+}
+
+resource "google_compute_global_forwarding_rule" "global_forwarding_rule" {
+  name       = "${var.project_name}-global-forwarding-rule"
+  project    = "${var.project_id}"
+  target     = "${google_compute_target_https_proxy.target_https_proxy.self_link}"
+  ip_address = "${var.ip_address}"
+  port_range = "443"
+}

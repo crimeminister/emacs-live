@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_api_gateway_api_config
+# group: google
+# key: g:agac
+# --
+
+resource "google_api_gateway_api_config" "${1:resource name}" {
+
+}

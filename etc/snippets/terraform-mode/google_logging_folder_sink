@@ -1,0 +1,9 @@
+resource "google_logging_folder_sink" "default" {
+  count                   = "${ local.folder }"
+  folder                  = "${ var.folder_id }"
+  name                    = "${ var.sink_name }"
+  destination             = "bigquery.googleapis.com/projects/${ var.project_id }/datasets/${ google_bigquery_dataset.default.dataset_id }"
+  filter                  = "${ var.sink_filter }"
+  include_children        = true
+  depends_on              = [ "google_bigquery_dataset.default" ]
+}

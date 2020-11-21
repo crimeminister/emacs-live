@@ -1,0 +1,6 @@
+resource "google_sql_user" "users" {
+  name     = "${var.db_username}"
+  project  = "${ var.project_id }"
+  instance = "${google_sql_database_instance.db.name}"
+  password = "${data.google_kms_secret_ciphertext.db_password.ciphertext}"
+}

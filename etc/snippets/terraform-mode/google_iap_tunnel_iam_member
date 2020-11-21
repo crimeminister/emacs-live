@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_iap_tunnel_iam_member
+# group: google
+# key: g:itim
+# --
+
+resource "google_iap_tunnel_iam_member" "${1:resource name}" {
+
+}

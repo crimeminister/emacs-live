@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: google_compute_machine_image_iam_policy
+# group: google
+# key: g:cmiip
+#
+# https://www.terraform.io/docs/providers/google/r/google_compute_machine_image_iam_policy.html
+# --
+
+resource "google_compute_machine_image_iam_policy" "${1:resource name}" {
+
+}

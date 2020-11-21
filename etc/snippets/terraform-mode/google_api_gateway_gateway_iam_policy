@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_api_gateway_gateway_iam_policy
+# group: google
+# key: g:aggip
+# --
+
+resource "google_api_gateway_gateway_iam_policy" "${1:resource name}" {
+
+}

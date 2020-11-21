@@ -1,0 +1,11 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: pet-cluster-1-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: pet-cluster-1-ip
+    kubernetes.io/ingress.class: gce-multi-cluster
+spec:
+  backend:
+    serviceName: hello-world
+    servicePort: 80

@@ -1,0 +1,6 @@
+resource "google_kms_crypto_key_iam_member" "default" {
+  crypto_key_id = "${var.terraform_crypto_key_id}"
+  role          = "roles/cloudkms.cryptoKeyDecrypter"
+  member        = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
+  depends_on    = ["google_cloudbuild_trigger.plan"]
+}

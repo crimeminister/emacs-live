@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: google_compute_network
+# group: google
+# key: g:cnet
+# --
+
+resource "google_compute_network" "${1:resource name}" {
+  project                         = "${2:project id}"
+  name                            = "${3:network name}"
+  description                     = "${4:description}"
+  routing_mode                    = "REGIONAL"
+  auto_create_subnetworks         = true
+  delete_default_routes_on_create = false
+}

@@ -1,0 +1,42 @@
+# -*- mode: snippet -*-
+# name: google_compute_router
+# group: google
+# key: g:cr
+# --
+
+resource "google_compute_router" "${1:resource name}" {
+  project = "${2:project id}"
+  name    = "${3:router name}"
+  network = "${4:network}"
+  region  = "${5:region}"
+}
+
+resource "google_compute_router" "default" {
+  count   = "${length(var.location_names)}"
+  project = "${var.project_id}"
+  name    = "${var.router_name}-${lookup(var.location_names[count.index],"suffix")}"
+  network = "${var.network}"
+  region  = "${var.region}"
+
+  bgp {
+    asn               = "${var.asn}"
+    advertise_mode    = "${var.advertise_mode}"
+    advertised_groups = ["${var.advertised_groups}"]
+
+    advertised_ip_ranges = {
+      range       = "${var.advertised_ip_ranges["range"]}"
+      description = "${var.advertised_ip_ranges["description"]}"
+    }
+    advertised_ip_ranges = {
+      range       = "${var.google_api_advertised_ip_ranges["range"]}"
+      description = "${var.google_api_advertised_ip_ranges["description"]}"
+    }
+  }
+}
+
+resource "google_compute_router" "router" {
+  project = "${data.google_project.project.project_id}"
+  name    = "${var.name}"
+  region  = "${data.google_compute_subnetwork.default.region}"
+  network = "${data.google_compute_subnetwork.default.network}"
+}

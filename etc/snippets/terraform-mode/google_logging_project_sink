@@ -1,0 +1,9 @@
+resource "google_logging_project_sink" "default" {
+  count                   = "${ local.project }"
+  project                 = "${ var.project_id }"
+  name                    = "${ var.sink_name }"
+  destination             = "bigquery.googleapis.com/projects/${ var.project_id }/datasets/${ google_bigquery_dataset.default.dataset_id }"
+  filter                  = "${ var.sink_filter }"
+  unique_writer_identity  = true
+  depends_on              = [ "google_bigquery_dataset.default" ]
+}

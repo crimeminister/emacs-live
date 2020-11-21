@@ -1,0 +1,8 @@
+resource "google_runtimeconfig_variable" "default" {
+  count       = "${ length( var.config_map ) }"
+  project     = "${ var.project_id }"
+  parent      = "${ google_runtimeconfig_config.default.name }"
+  name        = "${ element( keys( var.config_map ), count.index ) }"
+  text        = "${ element( values( var.config_map ), count.index ) }"
+  depends_on  = [ "google_runtimeconfig_config.default" ]
+}

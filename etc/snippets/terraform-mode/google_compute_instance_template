@@ -1,0 +1,31 @@
+resource "google_compute_instance_template" "default" {
+  name_prefix  = "${var.name}-instance-template-"
+  project      = "${var.project_id}"
+  machine_type = "${var.machine_type}"
+  region       = "${var.region}"
+
+  disk {
+    #temporary revert
+    #source_image = "${google_compute_image.default.self_link}"
+    source_image = "${var.project_id}/${var.source_image_family}"
+  }
+
+  network_interface {
+    subnetwork         = "${var.subnetwork}"
+    subnetwork_project = "${var.project_id}"
+  }
+
+  tags = "${var.tags}"
+
+  labels = {
+    environment = "${var.env}"
+  }
+
+  service_account {
+    scopes = "${var.scopes}"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}

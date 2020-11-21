@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: google_api_gateway_api_config_iam_member
+# group: google
+# key: g:agacim
+# --
+
+resource "google_api_gateway_api_config_iam_member" "${1:resource name}" {
+
+}
