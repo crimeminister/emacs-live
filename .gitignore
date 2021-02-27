@@ -1,6 +1,7 @@
 bookmarks
 elpa
 etc/custom/
+etc/snippets/
 etc/multiple-cursors-prefs.el
 transient/history.el
 sk-old
