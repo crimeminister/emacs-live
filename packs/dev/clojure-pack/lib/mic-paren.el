@@ -314,7 +314,7 @@
 (defvar mic-paren-version "3.10"
   "Version of mic-paren.")
 
-(eval-when-compile (require 'cl))
+(eval-when-compile (require 'cl-lib))
 
 ;;; ======================================================================
 ;; Compatibility stuff
