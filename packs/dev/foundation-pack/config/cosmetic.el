@@ -16,12 +16,12 @@
 ;remove bells
 (setq ring-bell-function 'ignore)
 
-;; font setitng functions
-(require 'cl)
+;; font setting functions
+(require 'cl-lib)
 
 (defun live-set-default-font (font-string)
   "Sets the default font and sets all frames to the same font trying to maintain window resolution. Only changes font if window system is not a basic terminal."
-  (interactive "MNew emacs live default font: ")
+  (interactive "New emacs live default font: ")
   (setq default-frame-alist
         (remove-if (lambda (x)
                      (eq 'font (car x)))
@@ -29,7 +29,7 @@
   (cond
    ((member (window-system) '(x w32 ns))
     (add-to-list 'default-frame-alist (cons 'font font-string))
-    (set-default-font font-string t t))))
+    (set-frame-font font-string t t))))
 
 (defun live-set-default-darwin-font (font-string)
   "Sets the default font and sets all frames to the same font trying to maintain window resolution. Only changes font if system-type is darwin in a window system."
